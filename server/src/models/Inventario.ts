@@ -15,8 +15,8 @@ export interface Inventario {
   // Información básica del bien
   marca?: string;
   modelo?: string;
-  descripcion?: text;
-  descripcion_bien?: text;
+  descripcion?: string;
+  descripcion_bien?: string;
   tipo_bien?: string;
   
   // Estado y ubicación
@@ -100,9 +100,9 @@ export interface Inventario {
   imagenes: any[]; // jsonb Default: []
   
   // Observaciones
-  comentarios?: text;
-  observaciones_tecnicas?: text;
-  motivo_baja?: text;
+  comentarios?: string;
+  observaciones_tecnicas?: string;
+  motivo_baja?: string;
   
   // Timestamps
   created_at: Date;
