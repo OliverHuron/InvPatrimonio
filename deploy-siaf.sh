@@ -16,8 +16,8 @@ NC='\033[0m' # No Color
 
 # Configuración
 VPS_USER="root"
-VPS_HOST="165.232.146.180"
-VPS_PATH="/root/invpatrimonio"
+VPS_HOST="31.97.210.189"
+VPS_PATH="/var/www/invpatrimonio"
 LOCAL_PATH="."
 
 # Función para logs
@@ -106,7 +106,7 @@ migrate_database() {
     
     ssh $VPS_USER@$VPS_HOST << 'EOF'
         set -e
-        cd /root/invpatrimonio
+        cd /var/www/invpatrimonio
         
         echo "Creando backup de BD actual..."
         sudo -u postgres pg_dump patrimonio_db > migration/backup_$(date +%Y%m%d_%H%M%S).sql
@@ -131,7 +131,7 @@ restart_services() {
     
     ssh $VPS_USER@$VPS_HOST << 'EOF'
         set -e
-        cd /root/invpatrimonio
+        cd /var/www/invpatrimonio
         
         echo "Reinstalando dependencias backend..."
         cd server && npm install --production
@@ -197,7 +197,7 @@ show_info() {
     log_info "=== INFORMACIÓN POST-DEPLOY ==="
     echo ""
     echo "🌐 Frontend: https://patrimonio.siafsystem.online"
-    echo "🔌 API: http://165.232.146.180:3001/api"
+    echo "🔌 API: http://31.97.210.189:3001/api"
     echo "📊 Estadísticas: /api/inventarios/stats/dashboard"
     echo "🔧 Prueba API: /api/test"
     echo ""

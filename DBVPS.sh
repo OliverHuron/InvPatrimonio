@@ -17,10 +17,10 @@ NC='\033[0m'
 
 # Configuración VPS
 VPS_USER="root"
-VPS_HOST="165.232.146.180"
+VPS_HOST="31.97.210.189"
 DB_NAME="patrimonio_db"
 DB_USER="siaf_admin"
-BACKUP_DIR="/root/backups"
+BACKUP_DIR="/var/www/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Funciones de logging
