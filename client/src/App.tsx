@@ -24,8 +24,13 @@ function App() {
   // useEffect se ejecuta una vez al montar el componente (comportamiento similar a componentDidMount).
   // Aquí hacemos una petición fetch al backend para obtener el saludo.
   useEffect(() => {
-    // fetch solicita al servidor el endpoint /api/saludo en localhost:3000
-    fetch('http://localhost:3000/api/saludo')
+    // Determinar la URL base según el entorno
+    const API_BASE_URL = import.meta.env.PROD 
+      ? 'https://patrimonio.siafsystem.online/api'
+      : 'http://localhost:3001/api'
+    
+    // fetch solicita al servidor el endpoint /api/saludo
+    fetch(`${API_BASE_URL}/saludo`)
       // Convertimos la respuesta a JSON para poder acceder a sus campos.
       .then(res => res.json())
       // Guardamos en el estado la propiedad `mensaje` devuelta por el servidor.

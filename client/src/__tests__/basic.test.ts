@@ -1,12 +1,16 @@
 /**
- * Basic test for InvPatrimonio Client
+ * Basic test for InvPatrimonio Client using Vitest
  */
+import { describe, it, expect } from 'vitest'
 
 describe('InvPatrimonio Client', () => {
-  test('should be configured correctly', () => {
+  it('should be configured correctly', () => {
     // Basic test to ensure test runner works
     expect(true).toBe(true);
   });
-});
 
-export {};
+  it('should have basic configuration', () => {
+    // Check environment
+    expect(import.meta.env).toBeDefined();
+  });
+});

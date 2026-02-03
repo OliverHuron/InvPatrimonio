@@ -10,6 +10,9 @@ module.exports = {
     'src/**/*.{ts,js}',
     '!src/**/*.d.ts',
   ],
-  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
+  setupFiles: ['<rootDir>/test/jest.env.js'],
   verbose: true,
+  bail: false,
+  forceExit: true,
+  detectOpenHandles: true
 };
