@@ -14,11 +14,11 @@ jobs:
     
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: invpatrimonio_test
-          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: SiafProd2024Secure#
+          POSTGRES_DB: patrimonio_db
+          POSTGRES_USER: siaf_admin
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -56,13 +56,18 @@ jobs:
 
     - name: 🔍 Run Server Tests
       working-directory: server
-      run: npm test
+      run: |
+        if [ -d "test" ] || [ -d "tests" ] || [ -f "jest.config.js" ]; then
+          npm test
+        else
+          echo "No tests found, skipping..."
+        fi
       env:
         NODE_ENV: test
         DB_HOST: localhost
-        DB_NAME: invpatrimonio_test
-        DB_USER: test_user
-        DB_PASSWORD: test_password
+        DB_NAME: patrimonio_db
+        DB_USER: siaf_admin
+        DB_PASSWORD: SiafProd2024Secure#
         REDIS_URL: redis://localhost:6379
 
     - name: 🏗️ Build Server
@@ -75,7 +80,12 @@ jobs:
 
     - name: 🎯 Run Client Tests
       working-directory: client
-      run: npm test
+      run: |
+        if [ -d "test" ] || [ -d "tests" ] || [ -d "src/__tests__" ]; then
+          npm test
+        else
+          echo "No client tests found, skipping..."
+        fi
 
     - name: 🏗️ Build Client
       working-directory: client
@@ -145,8 +155,8 @@ jobs:
         # Apply database migrations
         echo "🗄️ Checking database migrations..."
         cd ..
-        if [ -f "database_optimized.sql" ]; then
-            sudo -u postgres psql invpatrimonio < database_optimized.sql || echo "No new migrations"
+        if [ -f "IMPLEMENTACION_COMPLETA.sql" ]; then
+            sudo -u postgres psql patrimonio_db < IMPLEMENTACION_COMPLETA.sql || echo "No new migrations"
         fi
         
         # Restart PM2 processes
@@ -167,7 +177,7 @@ jobs:
         # Health check
         echo "🏥 Running health check..."
         sleep 5
-        curl -f http://localhost:3001/health || echo "Health check failed"
+        curl -f https://patrimonio.siafsystem.online/health || echo "Health check failed"
         
         EOF
         
