@@ -1,8 +1,8 @@
 /*
   index.ts (server)
-  - High-Performance InvPatrimonio Backend
+  - High-Performance InvPatrimonio Backend SIAF
   - Optimized for enterprise-grade inventory management
-  - Features: Redis clustering, optimistic locking, keyset pagination
+  - Features: Redis clustering, SIAF workflow, optimistic locking
 */
 
 import express from 'express';
@@ -12,11 +12,9 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
-// Import optimized routes
+// Import SIAF routes
 import saludoRoutes from './src/routes/saludo.routes';
-import inventoryRoutes from './src/routes/inventory.routes';
-import authRoutes from './src/routes/auth.routes';
-import cacheRoutes from './src/routes/cache.routes';
+import inventarioRoutes from './src/routes/inventarios';
 
 // Import services
 import { DatabaseService } from './src/services/database.service';
@@ -79,10 +77,8 @@ app.get('/health', (req, res) => {
     });
 });
 
-// API routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/inventory', inventoryRoutes);
-app.use('/api/v1/cache', cacheRoutes);
+// API routes SIAF
+app.use('/api', inventarioRoutes); // Main SIAF inventario routes
 app.use('/api', saludoRoutes); // Legacy route
 
 // Global error handler
