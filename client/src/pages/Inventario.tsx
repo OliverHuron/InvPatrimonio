@@ -8,20 +8,28 @@ import React, { useState, useEffect } from 'react'
 import { AiOutlinePlus, AiOutlineSearch, AiOutlineEdit, AiOutlineDelete } from 'react-icons/ai'
 import '../styles/inventario.css'
 
-// Interfaz para el patrimonio basada en el backend
+// Interfaz para el inventario SIAF
 interface Patrimonio {
   id: number
-  codigo_patrimonial: string
-  descripcion: string
+  folio?: string
+  numero_patrimonio?: string
+  numero_serie?: string
   marca?: string
   modelo?: string
-  numero_serie?: string
+  descripcion?: string
+  tipo_bien?: string
   estado: string
-  categoria_id?: number
-  coordinacion_id?: number
+  estado_uso?: string
   ubicacion?: string
-  fecha_ingreso: string
-  valor_adquisicion?: number
+  coordinacion_id?: number
+  dependencia_id?: number
+  stage?: string
+  estatus_validacion?: string
+  costo?: number
+  proveedor?: string
+  fecha_adquisicion?: string
+  created_at?: string
+  updated_at?: string
 }
 
 // Configuración de la API
@@ -37,14 +45,17 @@ const Inventario: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Patrimonio | null>(null)
   const [formData, setFormData] = useState({
-    codigo_patrimonial: '',
+    numero_patrimonio: '',
     descripcion: '',
     marca: '',
     modelo: '',
     numero_serie: '',
-    estado: 'ACTIVO',
+    tipo_bien: '',
+    estado: 'buena',
+    estado_uso: 'operativo',
     ubicacion: '',
-    valor_adquisicion: ''
+    proveedor: '',
+    costo: ''
   })
 
   // Cargar patrimonios al montar el componente
@@ -56,7 +67,7 @@ const Inventario: React.FC = () => {
   const fetchPatrimonios = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE_URL}/inventory/patrimonio`)
+      const response = await fetch(`${API_BASE_URL}/inventarios`)
       if (!response.ok) {
         throw new Error('Error al cargar los datos')
       }
@@ -75,8 +86,8 @@ const Inventario: React.FC = () => {
     e.preventDefault()
     try {
       const url = editingItem 
-        ? `${API_BASE_URL}/inventory/patrimonio/${editingItem.id}`
-        : `${API_BASE_URL}/inventory/patrimonio`
+        ? `${API_BASE_URL}/inventarios/${editingItem.id}`
+        : `${API_BASE_URL}/inventarios`
       
       const method = editingItem ? 'PUT' : 'POST'
       
@@ -105,7 +116,7 @@ const Inventario: React.FC = () => {
     if (!window.confirm('¿Está seguro de eliminar este patrimonio?')) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/inventory/patrimonio/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/inventarios/${id}`, {
         method: 'DELETE'
       })
 
@@ -123,14 +134,17 @@ const Inventario: React.FC = () => {
   const openCreateModal = () => {
     setEditingItem(null)
     setFormData({
-      codigo_patrimonial: '',
+      numero_patrimonio: '',
       descripcion: '',
       marca: '',
       modelo: '',
       numero_serie: '',
-      estado: 'ACTIVO',
+      tipo_bien: '',
+      estado: 'buena',
+      estado_uso: 'operativo',
       ubicacion: '',
-      valor_adquisicion: ''
+      proveedor: '',
+      costo: ''
     })
     setModalOpen(true)
   }
@@ -139,14 +153,17 @@ const Inventario: React.FC = () => {
   const openEditModal = (item: Patrimonio) => {
     setEditingItem(item)
     setFormData({
-      codigo_patrimonial: item.codigo_patrimonial,
-      descripcion: item.descripcion,
+      numero_patrimonio: item.numero_patrimonio || '',
+      descripcion: item.descripcion || '',
       marca: item.marca || '',
       modelo: item.modelo || '',
       numero_serie: item.numero_serie || '',
+      tipo_bien: item.tipo_bien || '',
       estado: item.estado,
+      estado_uso: item.estado_uso || 'operativo',
       ubicacion: item.ubicacion || '',
-      valor_adquisicion: item.valor_adquisicion?.toString() || ''
+      proveedor: item.proveedor || '',
+      costo: item.costo?.toString() || ''
     })
     setModalOpen(true)
   }
@@ -160,9 +177,10 @@ const Inventario: React.FC = () => {
 
   // Filtrar patrimonios por búsqueda
   const filteredPatrimonios = patrimonios.filter(item =>
-    item.codigo_patrimonial.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.marca || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (item.numero_patrimonio || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.marca || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.folio || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   if (loading) {
@@ -213,12 +231,12 @@ const Inventario: React.FC = () => {
         <table className="patrimonio-table">
           <thead>
             <tr>
-              <th>Código</th>
+              <th>Folio</th>
+              <th>N° Patrimonio</th>
               <th>Descripción</th>
               <th>Marca/Modelo</th>
-              <th>Serie</th>
               <th>Estado</th>
-              <th>Ubicación</th>
+              <th>Stage SIAF</th>
               <th>Valor</th>
               <th>Acciones</th>
             </tr>
@@ -226,22 +244,26 @@ const Inventario: React.FC = () => {
           <tbody>
             {filteredPatrimonios.map((item) => (
               <tr key={item.id}>
-                <td>{item.codigo_patrimonial}</td>
-                <td>{item.descripcion}</td>
+                <td>{item.folio || '-'}</td>
+                <td>{item.numero_patrimonio || '-'}</td>
+                <td>{item.descripcion || '-'}</td>
                 <td>
-                  {item.marca}
+                  {item.marca || '-'}
                   {item.modelo && <><br /><small>{item.modelo}</small></>}
                 </td>
-                <td>{item.numero_serie || '-'}</td>
                 <td>
-                  <span className={`status ${item.estado.toLowerCase()}`}>
-                    {item.estado}
+                  <span className={`status ${item.estado_uso?.toLowerCase() || 'operativo'}`}>
+                    {item.estado_uso || 'Operativo'}
                   </span>
                 </td>
-                <td>{item.ubicacion || '-'}</td>
                 <td>
-                  {item.valor_adquisicion 
-                    ? `S/ ${item.valor_adquisicion.toLocaleString()}`
+                  <span className={`stage ${item.stage?.toLowerCase() || 'completo'}`}>
+                    {item.stage || 'COMPLETO'}
+                  </span>
+                </td>
+                <td>
+                  {item.costo 
+                    ? `S/ ${item.costo.toLocaleString()}`
                     : '-'
                   }
                 </td>
@@ -285,13 +307,13 @@ const Inventario: React.FC = () => {
             <form onSubmit={savePatrimonio}>
               <div className="form-grid">
                 <div className="form-group">
-                  <label>Código Patrimonial *</label>
+                  <label>Número Patrimonio *</label>
                   <input
                     type="text"
                     required
-                    title="Código Patrimonial"
-                    value={formData.codigo_patrimonial}
-                    onChange={(e) => setFormData({...formData, codigo_patrimonial: e.target.value})}
+                    title="Número Patrimonio"
+                    value={formData.numero_patrimonio}
+                    onChange={(e) => setFormData({...formData, numero_patrimonio: e.target.value})}
                   />
                 </div>
 
@@ -344,10 +366,25 @@ const Inventario: React.FC = () => {
                     value={formData.estado}
                     onChange={(e) => setFormData({...formData, estado: e.target.value})}
                   >
-                    <option value="ACTIVO">ACTIVO</option>
-                    <option value="INACTIVO">INACTIVO</option>
-                    <option value="EN_REPARACION">EN REPARACIÓN</option>
-                    <option value="BAJA">BAJA</option>
+                    <option value="buena">Buena</option>
+                    <option value="regular">Regular</option>
+                    <option value="mala">Mala</option>
+                    <option value="excelente">Excelente</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Estado de Uso</label>
+                  <select
+                    title="Estado de uso del patrimonio"
+                    value={formData.estado_uso}
+                    onChange={(e) => setFormData({...formData, estado_uso: e.target.value})}
+                  >
+                    <option value="operativo">Operativo</option>
+                    <option value="en_reparacion">En Reparación</option>
+                    <option value="de_baja">De Baja</option>
+                    <option value="obsoleto">Obsoleto</option>
+                    <option value="resguardo_temporal">Resguardo Temporal</option>
                   </select>
                 </div>
 
@@ -362,13 +399,33 @@ const Inventario: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Valor de Adquisición</label>
+                  <label>Costo</label>
                   <input
                     type="number"
                     step="0.01"
-                    title="Valor de adquisición en soles"
-                    value={formData.valor_adquisicion}
-                    onChange={(e) => setFormData({...formData, valor_adquisicion: e.target.value})}
+                    title="Costo en soles"
+                    value={formData.costo}
+                    onChange={(e) => setFormData({...formData, costo: e.target.value})}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Tipo de Bien</label>
+                  <input
+                    type="text"
+                    title="Tipo de bien"
+                    value={formData.tipo_bien}
+                    onChange={(e) => setFormData({...formData, tipo_bien: e.target.value})}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Proveedor</label>
+                  <input
+                    type="text"
+                    title="Proveedor"
+                    value={formData.proveedor}
+                    onChange={(e) => setFormData({...formData, proveedor: e.target.value})}
                   />
                 </div>
               </div>
