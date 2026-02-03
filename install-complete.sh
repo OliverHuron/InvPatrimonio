@@ -213,8 +213,6 @@ appendonly yes
 dir /var/lib/redis/$port
 bind 127.0.0.1
 protected-mode yes
-requirepass $REDIS_PASSWORD
-masterauth $REDIS_PASSWORD
 maxmemory 512mb
 maxmemory-policy allkeys-lru
 save 900 1
@@ -236,7 +234,7 @@ After=network.target
 User=redis
 Group=redis
 ExecStart=/usr/bin/redis-server /etc/redis/cluster/$port/redis.conf
-ExecStop=/usr/bin/redis-cli -p $port -a $REDIS_PASSWORD shutdown
+ExecStop=/usr/bin/redis-cli -p $port shutdown
 TimeoutStopSec=0
 Restart=always
 
@@ -251,7 +249,7 @@ done
 # Crear cluster
 sleep 3
 log_info "Creando cluster Redis..."
-redis-cli -a $REDIS_PASSWORD --cluster create 127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 --cluster-replicas 0 --cluster-yes
+redis-cli --cluster create 127.0.0.1:7000 127.0.0.1:7001 127.0.0.1:7002 --cluster-replicas 0 --cluster-yes
 
 log_info "Redis Cluster configurado correctamente"
 
@@ -307,7 +305,7 @@ DB_USER=siaf_admin
 DB_PASSWORD=$DB_PASSWORD
 
 REDIS_NODES=127.0.0.1:7000,127.0.0.1:7001,127.0.0.1:7002
-REDIS_PASSWORD=$REDIS_PASSWORD
+REDIS_PASSWORD=
 
 JWT_SECRET=$JWT_SECRET
 
