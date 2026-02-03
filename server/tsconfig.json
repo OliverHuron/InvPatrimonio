@@ -16,7 +16,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["node"]
+    "types": ["node", "jest"]
   },
   "include": ["**/*.ts", "index.ts"],
   "exclude": ["node_modules", "dist"]

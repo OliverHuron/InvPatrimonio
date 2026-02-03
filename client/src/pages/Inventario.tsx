@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useEffect } from 'react'
-import { AiOutlinePlus, AiOutlineSearch, AiOutlineEdit, AiOutlineDelete, AiOutlineEye } from 'react-icons/ai'
+import { AiOutlinePlus, AiOutlineSearch, AiOutlineEdit, AiOutlineDelete } from 'react-icons/ai'
 import '../styles/inventario.css'
 
 // Interfaz para el patrimonio basada en el backend
@@ -289,6 +289,7 @@ const Inventario: React.FC = () => {
                   <input
                     type="text"
                     required
+                    title="Código Patrimonial"
                     value={formData.codigo_patrimonial}
                     onChange={(e) => setFormData({...formData, codigo_patrimonial: e.target.value})}
                   />
@@ -299,6 +300,7 @@ const Inventario: React.FC = () => {
                   <input
                     type="text"
                     required
+                    title="Descripción del patrimonio"
                     value={formData.descripcion}
                     onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
                   />
@@ -308,6 +310,7 @@ const Inventario: React.FC = () => {
                   <label>Marca</label>
                   <input
                     type="text"
+                    title="Marca del patrimonio"
                     value={formData.marca}
                     onChange={(e) => setFormData({...formData, marca: e.target.value})}
                   />
@@ -317,6 +320,7 @@ const Inventario: React.FC = () => {
                   <label>Modelo</label>
                   <input
                     type="text"
+                    title="Modelo del patrimonio"
                     value={formData.modelo}
                     onChange={(e) => setFormData({...formData, modelo: e.target.value})}
                   />
@@ -326,6 +330,7 @@ const Inventario: React.FC = () => {
                   <label>Número de Serie</label>
                   <input
                     type="text"
+                    title="Número de serie del patrimonio"
                     value={formData.numero_serie}
                     onChange={(e) => setFormData({...formData, numero_serie: e.target.value})}
                   />
@@ -335,6 +340,7 @@ const Inventario: React.FC = () => {
                   <label>Estado *</label>
                   <select
                     required
+                    title="Estado del patrimonio"
                     value={formData.estado}
                     onChange={(e) => setFormData({...formData, estado: e.target.value})}
                   >
@@ -349,6 +355,7 @@ const Inventario: React.FC = () => {
                   <label>Ubicación</label>
                   <input
                     type="text"
+                    title="Ubicación del patrimonio"
                     value={formData.ubicacion}
                     onChange={(e) => setFormData({...formData, ubicacion: e.target.value})}
                   />
@@ -359,6 +366,7 @@ const Inventario: React.FC = () => {
                   <input
                     type="number"
                     step="0.01"
+                    title="Valor de adquisición en soles"
                     value={formData.valor_adquisicion}
                     onChange={(e) => setFormData({...formData, valor_adquisicion: e.target.value})}
                   />
@@ -374,80 +382,6 @@ const Inventario: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-    </section>
-  )
-}
-
-      <div className="siaf-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Clave Patrimonial</th>
-              <th>Descripción</th>
-              <th>Marca</th>
-              <th>Modelo</th>
-              <th>Serie</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bienes.map(b => (
-              <tr key={b.id}>
-                <td>{b.clave}</td>
-                <td>{b.descripcion}</td>
-                <td>{b.marca}</td>
-                <td>{b.modelo}</td>
-                <td>{b.serie}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <button className="siaf-btn primary" onClick={() => setModalOpen(true)}>Generar y Confirmar Baja</button>
-        <button className="siaf-btn secondary" style={{ marginLeft: 8 }} onClick={() => alert('Cancelar')}>Cancelar</button>
-      </div>
-
-      {modalOpen && (
-        <div className="siaf-modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div className="siaf-modal" onClick={e => e.stopPropagation()}>
-            <header>Solicitud de Baja de Activo</header>
-            <div>
-              <p><strong>Dependencia:</strong> Facultad de Ciencias &nbsp; <strong>Fecha:</strong> 2026-02-01</p>
-              <div style={{ background: '#fff', padding: 10 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th>Clave Patrimonial</th>
-                      <th>Descripción</th>
-                      <th>Marca</th>
-                      <th>Modelo</th>
-                      <th>Serie</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bienes.map(b => (
-                      <tr key={b.id}>
-                        <td>{b.clave}</td>
-                        <td>{b.descripcion}</td>
-                        <td>{b.marca}</td>
-                        <td>{b.modelo}</td>
-                        <td>{b.serie}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="actions">
-              <div className="siaf-modal-actions">
-                <button className="siaf-btn primary" onClick={() => { setModalOpen(false); alert('Baja generada') }}>Generar y Confirmar Baja</button>
-                <button className="siaf-btn secondary" onClick={() => setModalOpen(false)}>Cancelar</button>
-              </div>
-            </div>
           </div>
         </div>
       )}
