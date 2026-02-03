@@ -45,9 +45,9 @@ module.exports = {
     deploy: {
         production: {
             user: 'root',
-            host: 'your-vps-ip-here',
+            host: '31.97.210.189',
             ref: 'origin/main',
-            repo: 'https://github.com/yourusername/InvPatrimonio.git',
+            repo: 'https://github.com/OliverHuron/InvPatrimonio.git',
             path: '/var/www/invpatrimonio',
             'pre-deploy-local': '',
             'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',

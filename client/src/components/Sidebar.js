@@ -10,7 +10,7 @@ import {
 } from 'react-icons/md'
 import '../styles/layout.css'
 
-const Sidebar: React.FC = () => {
+const Sidebar = () => {
   // Hook que nos dice en qué URL estamos actualmente
   const location = useLocation()
   
@@ -31,21 +31,29 @@ const Sidebar: React.FC = () => {
               Inventario
             </Link>
           </li>
-          <li className='menu-link'>
-            <MdAdd size={18} />
-            Altas
+          <li>
+            <Link to="/agregar" className="menu-link">
+              <MdAdd size={18} />
+              Agregar
+            </Link>
           </li>
-          <li className='menu-link'>
-            <MdRemove size={18} />
-            Bajas
+          <li>
+            <Link to="/bajas" className="menu-link">
+              <MdRemove size={18} />
+              Bajas
+            </Link>
           </li>
-          <li className='menu-link'>
-            <MdAssessment size={18} />
-            Reportes
+          <li>
+            <Link to="/reportes" className="menu-link">
+              <MdAssessment size={18} />
+              Reportes
+            </Link>
           </li>
-          <li className='menu-link'>
-            <MdSettings size={18} />
-            Configuración
+          <li>
+            <Link to="/configuracion" className="menu-link">
+              <MdSettings size={18} />
+              Configuración
+            </Link>
           </li>
         </ul>
       </nav>

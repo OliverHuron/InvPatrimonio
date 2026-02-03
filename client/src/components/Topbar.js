@@ -1,7 +1,7 @@
 import React from 'react'
 import '../styles/layout.css'
 
-const Topbar: React.FC<{ title?: string }> = ({ title = 'Inventario de Activos' }) => {
+const Topbar = ({ title = 'Inventario de Activos' }) => {
   return (
     <header className="siaf-topbar">
       <div className="siaf-topbar-left">

@@ -4,7 +4,7 @@ import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import '../styles/layout.css'
 
-const Layout: React.FC = () => {
+const Layout = () => {
   return (
     <div className="siaf-app">
       <Sidebar />
