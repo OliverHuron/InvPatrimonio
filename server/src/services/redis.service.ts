@@ -25,7 +25,6 @@ export class RedisService {
                 redisOptions: {
                     password: process.env.REDIS_PASSWORD,
                     maxRetriesPerRequest: 3,
-                    retryDelayOnFailover: 100,
                     lazyConnect: true,
                     keepAlive: 30000,
                 },
@@ -269,17 +268,18 @@ export class RedisService {
         } catch (error) {
             return {
                 status: 'unhealthy',
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 latency: Date.now() - start,
                 stats: this.getCacheStats()
             };
         }
     }
 
-    static getCacheStats(): typeof RedisService.cacheStats {
+    static getCacheStats(): any {
         const total = this.cacheStats.hits + this.cacheStats.misses;
         return {
             ...this.cacheStats,
+            total: total,
             hitRate: total > 0 ? (this.cacheStats.hits / total * 100).toFixed(2) + '%' : '0%'
         };
     }

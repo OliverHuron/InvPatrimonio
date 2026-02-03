@@ -235,7 +235,7 @@ export class DatabaseService {
                     inserted += result.rowCount || 0;
 
                 } catch (error) {
-                    errors.push({ batch: i / batchSize + 1, error: error.message });
+                    errors.push({ batch: i / batchSize + 1, error: error instanceof Error ? error.message : String(error) });
                 }
             }
 

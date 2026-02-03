@@ -15,8 +15,8 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
     });
 
     // Override res.end to capture response time and status
-    const originalEnd = res.end;
-    res.end = function(this: Response, ...args: any[]) {
+    const originalEnd = res.end.bind(res);
+    (res as any).end = function(chunk?: any, encoding?: any, cb?: any): Response {
         const duration = Date.now() - start;
         const { statusCode } = this;
         
@@ -39,7 +39,8 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
             });
         }
 
-        originalEnd.apply(this, args);
+        // Call original end
+        return originalEnd(chunk, encoding, cb);
     };
 
     next();

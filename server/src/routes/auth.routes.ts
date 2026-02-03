@@ -45,7 +45,11 @@ router.post('/login', [
     }
 
     // Generate JWT token
-    const token = jwt.sign(
+    if (!JWT_SECRET) {
+        throw new AppErrorClass('JWT secret not configured', 500);
+    }
+    
+    const token = (jwt as any).sign(
         { 
             userId: user.id,
             email: user.email,
@@ -53,7 +57,7 @@ router.post('/login', [
             coordinacionId: user.coordinacion_id
         },
         JWT_SECRET,
-        { expiresIn: JWT_EXPIRES_IN }
+        { expiresIn: JWT_EXPIRES_IN || '24h' }
     );
 
     // Cache user permissions

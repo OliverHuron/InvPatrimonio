@@ -122,7 +122,7 @@ router.get('/list', [
 
 // Get single inventory item with caching
 router.get('/:id', catchAsync(async (req: Request, res: Response) => {
-    const itemId = parseInt(req.params.id);
+    const itemId = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
     
     if (isNaN(itemId)) {
         throw new AppErrorClass('Invalid item ID', 400);
@@ -182,7 +182,7 @@ router.patch('/:id', [
         });
     }
 
-    const itemId = parseInt(req.params.id);
+    const itemId = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
     const { version, ...updates } = req.body;
 
     if (isNaN(itemId)) {
@@ -293,7 +293,7 @@ router.post('/bulk', [
 
 // Get inventory statistics (cached)
 router.get('/stats/coordinator/:coordinatorId', catchAsync(async (req: Request, res: Response) => {
-    const coordinatorId = parseInt(req.params.coordinatorId);
+    const coordinatorId = parseInt(Array.isArray(req.params.coordinatorId) ? req.params.coordinatorId[0] : req.params.coordinatorId);
     
     if (isNaN(coordinatorId)) {
         throw new AppErrorClass('Invalid coordinator ID', 400);

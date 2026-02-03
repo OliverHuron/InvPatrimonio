@@ -55,7 +55,7 @@ router.post('/warmup', catchAsync(async (req: Request, res: Response) => {
 
 // Get specific cache key
 router.get('/key/:key', catchAsync(async (req: Request, res: Response) => {
-    const { key } = req.params;
+    const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
     const value = await RedisService.get(key);
     
     res.json({
@@ -68,7 +68,7 @@ router.get('/key/:key', catchAsync(async (req: Request, res: Response) => {
 
 // Set cache key (for debugging/testing)
 router.post('/key/:key', catchAsync(async (req: Request, res: Response) => {
-    const { key } = req.params;
+    const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
     const { value, ttl } = req.body;
     
     const success = await RedisService.set(key, value, ttl);
