@@ -360,7 +360,7 @@ const ImageGallerySection = ({ images = [] }) => {
 
   // Lightbox portal content
   const Lightbox = () => {
-    const lightboxUrl = `http://localhost:5000${images[openIndex]}`
+    const lightboxUrl = `https://patrimonio.siafsystem.online${images[openIndex]}`
     console.log('🖼️ DEBUG Lightbox - URL:', lightboxUrl)
     return (
       <div className="lightbox-overlay" onClick={close}>
@@ -396,7 +396,7 @@ const ImageGallerySection = ({ images = [] }) => {
 
       <div className="image-gallery">
         {images.map((img, idx) => {
-          const fullUrl = `http://localhost:5000${img}`
+          const fullUrl = `https://patrimonio.siafsystem.online${img}`
           console.log(`🖼️ DEBUG Gallery - Imagen ${idx + 1}:`, fullUrl)
           return (
             <div 

@@ -12,7 +12,7 @@ import { toast } from 'react-toastify';
 // =====================================================
 // CONFIGURACION Y CONSTANTES
 // =====================================================
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://patrimonio.siafsystem.online/api';
 const MAX_IMAGES = 3; // SIAF requiere máximo 3 imágenes
 const ALLOWED_FORMATS = ['image/jpeg', 'image/jpg', 'image/png'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB por imagen

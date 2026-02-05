@@ -1,7 +1,7 @@
 module.exports = {
     apps: [{
         name: 'invpatrimonio-api',
-        script: 'dist/index.js',
+        script: './src/index.js',
         instances: 'max', // Use all available CPU cores
         exec_mode: 'cluster',
         env: {
@@ -50,7 +50,7 @@ module.exports = {
             repo: 'https://github.com/OliverHuron/InvPatrimonio.git',
             path: '/var/www/invpatrimonio',
             'pre-deploy-local': '',
-            'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
+            'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',
             'pre-setup': ''
         }
     }

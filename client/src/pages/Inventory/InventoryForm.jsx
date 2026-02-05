@@ -13,7 +13,7 @@ const InventoryForm = ({
   initialData = null,
   onClose
 }) => {
-  const API_BASE_URL = 'http://localhost:5000/api'
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://patrimonio.siafsystem.online/api'
 
   const [activeTab, setActiveTab] = useState(initialData?.stage || 'INTERNO')
   const [isSubmitting, setIsSubmitting] = useState(false)
