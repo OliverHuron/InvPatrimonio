@@ -16,7 +16,7 @@ const Sidebar = () => {
   
   return (
     <aside className="siaf-sidebar">
-      <div className="siaf-brand">SIAF</div>
+      <div className="siaf-brand" ><img className="siaf-logo" src="https://png.pngtree.com/png-vector/20221030/ourmid/pngtree-book-logo-template-vector-illustration-studying-sign-page-vector-png-image_39898376.png" alt="UMSNH Logo" /></div>
       <nav className="siaf-menu">
         <ul className="siaf-menu-list">
           <li className={location.pathname === '/' ? 'active' : ''}>

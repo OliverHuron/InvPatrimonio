@@ -1,56 +1,75 @@
 /*
-  App.tsx
-  - Archivo principal del frontend que ahora actúa como 'Director de Tránsito'.
-  - Se encarga de: 1) obtener un saludo del backend, 2) definir las rutas
-    (qué página mostrar según la URL), y 3) renderizar la navegación.
+  App.js
+  - Archivo principal del frontend con sistema de autenticación JWT
+  - Se encarga de: 1) proveer contexto de autenticación, 2) definir las rutas protegidas,
+    3) manejar login/logout y 4) renderizar la navegación.
 */
 
 // Hooks de React para estado y efectos secundarios.
 import { useEffect } from 'react'
 
 // Componentes de react-router para manejo de rutas en el frontend.
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+
+// Contexto de autenticación
+import { AuthProvider } from './context/AuthContext'
+
+// Componentes de protección de rutas
+import ProtectedRoute, { UserRoute } from './components/ProtectedRoute'
 
 // Importamos las páginas que mostraremos según la URL.
 import Home from './pages/Home'
+import Login from './pages/Login'
 import Inventario from './pages/Inventario'
 import Layout from './components/Layout'
 
 function App() {
-  // Estado local para guardar el mensaje que llega del servidor.
-  // Inicialmente mostramos un texto de carga.
-
-  // useEffect se ejecuta una vez al montar el componente (comportamiento similar a componentDidMount).
-  // Aquí hacemos una petición fetch al backend para obtener el saludo.
+  // useEffect se ejecuta una vez al montar el componente para configuraciones iniciales
   useEffect(() => {
     // Determinar la URL base según el entorno - usando variable de entorno de React
-    const API_BASE_URL = process.env.REACT_APP_API_URL 
-      ? `${process.env.REACT_APP_API_URL}/api`
-      : 'http://localhost:3001/api'
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api'
     
-    // fetch solicita al servidor el endpoint /api/saludo
-    fetch(`${API_BASE_URL}/saludo`)
-      // Convertimos la respuesta a JSON para poder acceder a sus campos.
+    // Test de conectividad al servidor (opcional)
+    fetch(`${API_BASE_URL}/health`)
       .then(res => res.json())
-      // En caso de error, actualizamos el estado con un mensaje de fallo.
-      .catch(() => console.log("Servidor iniciando..."))
+      .then(data => console.log('✅ Servidor conectado:', data.message))
+      .catch(() => console.log('⚠️ Servidor iniciando...'))
   }, [])
 
-  // El componente renderiza la navegación, el encabezado con el mensaje,
-  // y las rutas que determinan qué página mostrar según la URL.
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Usamos Layout como componente global que contiene Sidebar/Topbar
-            y un <Outlet/> donde se renderizan las páginas según la ruta. */}
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="inventario" element={<Inventario />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Ruta pública de login */}
+          <Route path="/login" element={<Login />} />
+          
+          {/* Rutas protegidas con Layout */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
+            {/* Ruta home protegida */}
+            <Route index element={
+              <UserRoute>
+                <Home />
+              </UserRoute>
+            } />
+            
+            {/* Ruta de inventario protegida */}
+            <Route path="inventario" element={
+              <UserRoute>
+                <Inventario />
+              </UserRoute>
+            } />
+          </Route>
+
+          {/* Redirigir rutas no encontradas */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 
-// Exportamos App para que sea el componente raíz montado en main.tsx.
 export default App
