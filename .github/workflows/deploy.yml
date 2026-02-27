@@ -1,52 +1,50 @@
-name: Deploy a Producción
+name: 🚀 Deploy InvPatrimonio
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: self-hosted
+
     steps:
-      - name: Descargar código
+      - name:  Descargar código
         uses: actions/checkout@v4
 
-      - name: Instalar dependencias del Servidor
+      - name:  Instalar dependencias del servidor
         run: |
           cd server
-          npm install
+          npm install --omit=dev
 
-      - name: 🏗️ Compilar el frontend
+      - name:  Compilar el frontend
         run: |
-          cd /var/www/siaf-patrimonio/client
+          cd client
           npm install
           CI=false npm run build
 
-      - name: 🔐 Restaurar permisos Nginx
+      - name:  Desplegar archivos al servidor
         run: |
-          sudo chown -R www-data:www-data /var/www/siaf-patrimonio/client/build
-
-      - name: Desplegar archivos con rsync
-        run: |
-          # rsync sincroniza el código excluyendo archivos sensibles y carpetas de desarrollo
+    
           rsync -av --delete \
-            --exclude='.git' \
-            --exclude='.env' \
-            --exclude='node_modules' \
-            --exclude='client/node_modules' \
-            . /var/www/siaf-patrimonio/
+            --exclude='server/uploads/' \
+            --exclude='server/logs/' \
+            --exclude='server/.env' \
+            --exclude='node_modules/' \
+            ./ /var/www/siaf-patrimonio/
 
-      - name: Restaurar .env desde Backup (Si no existe)
+      - name:  Restaurar .env
         run: |
-          # Solo copia el backup si por alguna razón el .env principal desapareció
+
           if [ ! -f /var/www/siaf-patrimonio/server/.env ]; then
             cp /var/www/.env.siaf-patrimonio /var/www/siaf-patrimonio/server/.env
           fi
 
-      - name: Reiniciar Servidor Node.js
+      - name:  Permisos Nginx
         run: |
-          # Entramos a la carpeta final para asegurar que PM2 tome los cambios
-          cd /var/www/siaf-patrimonio/server
-          pm2 restart siaf-patrimonio --update-env || pm2 start src/index.js --name "siaf-patrimonio"
-          echo "🚀 Despliegue y Build finalizados con éxito"
+          sudo chown -R www-data:www-data /var/www/siaf-patrimonio/client/build
+
+      - name:  Reiniciar PM2
+        run: |
+          pm2 restart siaf-patrimonio --update-env || pm2 start /var/www/siaf-patrimonio/server/src/index.js --name "siaf-patrimonio"
+          pm2 save
