@@ -72,18 +72,28 @@
 }
 
 .modal-close {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
+  /* Quité absolute para que no se mueva a la derecha solo */
+  display: inline-flex; /* Cambiado de flex a inline-flex */
   align-items: center;
   justify-content: center;
+  
+  width: 32px;
+  height: 32px;
+  background-color: rgba(255, 255, 255, 0.2); /* El círculo gris de tu foto */
+  border-radius: 50%;
+  border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 0; /* Importante para que no desplace al ícono */
+  overflow: visible; /* Asegura que el ícono no se corte */
 }
+
+/* Esto fuerza a que el SVG (el ícono) sea visible */
+.modal-close svg {
+  display: block;
+  fill: white; /* Color de la equis */
+  margin: auto;
+}
+
 
 .modal-close:hover {
   background: rgba(255, 255, 255, 0.2);

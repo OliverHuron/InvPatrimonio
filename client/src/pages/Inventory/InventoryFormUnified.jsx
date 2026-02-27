@@ -474,7 +474,7 @@ const InventoryFormUnified = React.memo(({
             className="modal-close"
             onClick={onClose}
           >
-            <FaTimes />
+             <FaTimes style={{ color: 'white', display: 'block' }} size={20} />
           </button>
         </div>
 

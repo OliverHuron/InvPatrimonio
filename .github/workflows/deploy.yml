@@ -1,243 +1,48 @@
-name: Deploy InvPatrimonio to VPS
+name: Deploy a Producción
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
-  test:
-    name: Test Application
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: SiafProd2024Secure#
-          POSTGRES_DB: patrimonio_db
-          POSTGRES_USER: siaf_admin
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
-    steps:
-    - name: 📥 Checkout Repository
-      uses: actions/checkout@v4
-
-    - name: 📦 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        # Deshabilitar cache temporalmente por problemas Rollup
-        # cache: 'npm'
-        # cache-dependency-path: |
-        #   server/package-lock.json
-        #   client/package-lock.json
-
-    - name: 🔧 Install Server Dependencies
-      working-directory: server
-      run: npm ci
-
-    - name: 🔍 Run Server Tests
-      working-directory: server
-      run: |
-        if [ -d "test" ] || [ -d "tests" ] || [ -f "jest.config.js" ]; then
-          npm test
-        else
-          echo "No tests found, skipping..."
-        fi
-      env:
-        NODE_ENV: test
-        DB_HOST: localhost
-        DB_NAME: patrimonio_db
-        DB_USER: siaf_admin
-        DB_PASSWORD: SiafProd2024Secure#
-        REDIS_URL: redis://localhost:6379
-
-    - name: 🏗️ Build Server
-      working-directory: server
-      run: npm run build
-
-    - name: 🎨 Install Client Dependencies
-      working-directory: client
-      run: |
-        # Fix para el bug de npm con dependencias opcionales de Rollup
-        rm -rf node_modules package-lock.json 2>/dev/null || true
-        npm install --legacy-peer-deps
-
-    - name: 🎯 Run Client Tests
-      working-directory: client
-      run: |
-        # Saltear tests del cliente por problemas de dependencias
-        echo "⚠️  Tests del cliente deshabilitados temporalmente por problema Rollup"
-        echo "✅ Continuando con build..."
-
-    - name: 🏗️ Build Client
-      working-directory: client
-      run: |
-        # Build con manejo de errores de Rollup
-        npm run build --if-present || {
-          echo "⚠️  Error en build, intentando con --legacy-peer-deps"
-          npm install --legacy-peer-deps
-          npm run build
-        }
-
   deploy:
-    name: Deploy to VPS
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+    runs-on: self-hosted
     steps:
-    - name: 📥 Checkout Repository
-      uses: actions/checkout@v4
+      - name: Descargar código
+        uses: actions/checkout@v4
 
-    - name: 🔐 Setup SSH
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+      - name: Instalar dependencias del Servidor
+        run: |
+          cd server
+          npm install
 
-    - name: 🚀 Deploy to VPS
-      env:
-        VPS_HOST: ${{ secrets.VPS_HOST }}
-        VPS_USER: ${{ secrets.VPS_USER }}
-        DEPLOYMENT_PATH: ${{ secrets.DEPLOYMENT_PATH || '/var/www/invpatrimonio' }}
-      run: |
-        # Add VPS to known hosts
-        ssh-keyscan -H $VPS_HOST >> ~/.ssh/known_hosts
-        
-        # Create deployment script
-        cat > deploy_script.sh << 'EOF'
-        #!/bin/bash
-        set -e
-        
-        echo "🚀 Starting deployment..."
-        
-        # Navigate to project directory
-        cd $DEPLOYMENT_PATH
-        
-        # Create backup
-        echo "📦 Creating backup..."
-        tar -czf /var/backups/invpatrimonio/backup-$(date +%Y%m%d_%H%M%S).tar.gz . || true
-        
-        # Pull latest code
-        echo "⬇️ Pulling latest code..."
-        git fetch origin
-        git reset --hard origin/main
-        
-        # Install server dependencies
-        echo "📚 Installing server dependencies..."
-        cd server
-        npm ci --production
-        
-        # Build TypeScript
-        echo "🔨 Building server..."
-        npm run build
-        
-        # Install client dependencies
-        echo "🎨 Installing client dependencies..."
-        cd ../client
-        npm ci
-        
-        # Build client
-        echo "🏗️ Building client..."
-        npm run build
-        
-        # Apply database migrations
-        echo "🗄️ Checking database migrations..."
-        cd ..
-        if [ -f "IMPLEMENTACION_COMPLETA.sql" ]; then
-            sudo -u postgres psql patrimonio_db < IMPLEMENTACION_COMPLETA.sql || echo "No new migrations"
-        fi
-        
-        # Restart PM2 processes
-        echo "🔄 Restarting services..."
-        cd server
-        pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
-        
-        # Reload nginx
-        sudo systemctl reload nginx
-        
-        # Clear Redis cache
-        echo "🧹 Clearing cache..."
-        redis-cli -c -p 7000 -a "$REDIS_PASSWORD" FLUSHALL || echo "Cache clear failed"
-        
-        echo "✅ Deployment completed!"
-        echo "🌐 Site: https://patrimonio.siafsystem.online"
-        
-        # Health check
-        echo "🏥 Running health check..."
-        sleep 5
-        curl -f https://patrimonio.siafsystem.online/health || echo "Health check failed"
-        
-        EOF
-        
-        # Copy and execute deployment script
-        scp deploy_script.sh $VPS_USER@$VPS_HOST:/tmp/
-        ssh $VPS_USER@$VPS_HOST "chmod +x /tmp/deploy_script.sh && /tmp/deploy_script.sh"
+      - name: Construir Frontend (Client)
+        run: |
+          cd client
+          npm install
+          npm run build  # Esto genera la carpeta 'build' o 'dist'
 
-    - name: 🧪 Post-deployment Health Check
-      env:
-        VPS_HOST: ${{ secrets.VPS_HOST }}
-        HEALTH_URL: ${{ secrets.HEALTH_URL || 'https://patrimonio.siafsystem.online/health' }}
-      run: |
-        echo "🔍 Waiting for service to be ready..."
-        sleep 30
-        
-        # Check if service is responding
-        for i in {1..5}; do
-          if curl -f $HEALTH_URL; then
-            echo "✅ Health check passed!"
-            break
-          else
-            echo "⏳ Attempt $i failed, retrying in 10 seconds..."
-            sleep 10
+      - name: Desplegar archivos con rsync
+        run: |
+          # rsync sincroniza el código excluyendo archivos sensibles y carpetas de desarrollo
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            --exclude='client/node_modules' \
+            . /var/www/InvPatrimonio/
+
+      - name: Restaurar .env desde Backup (Si no existe)
+        run: |
+          # Solo copia el backup si por alguna razón el .env principal desapareció
+          if [ ! -f /var/www/InvPatrimonio/server/.env ]; then
+            cp /var/www/.env.InvPatrimonio /var/www/InvPatrimonio/server/.env
           fi
-        done
 
-    - name: 📱 Notify Deployment Status
-      if: always()
-      env:
-        WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      run: |
-        if [ "${{ job.status }}" == "success" ]; then
-          STATUS="✅ SUCCESS"
-          COLOR="good"
-        else
-          STATUS="❌ FAILED"
-          COLOR="danger"
-        fi
-        
-        if [ -n "$WEBHOOK_URL" ]; then
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{
-              \"attachments\": [{
-                \"color\": \"$COLOR\",
-                \"title\": \"InvPatrimonio Deployment $STATUS\",
-                \"fields\": [
-                  {\"title\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"short\": true},
-                  {\"title\": \"Commit\", \"value\": \"${{ github.sha }}\", \"short\": true},
-                  {\"title\": \"Author\", \"value\": \"${{ github.actor }}\", \"short\": true},
-                  {\"title\": \"URL\", \"value\": \"https://patrimonio.siafsystem.online\", \"short\": true}
-                ]
-              }]
-            }" \
-            $WEBHOOK_URL || echo "Notification failed"
-        fi
+      - name: Reiniciar Servidor Node.js
+        run: |
+          # Entramos a la carpeta final para asegurar que PM2 tome los cambios
+          cd /var/www/InvPatrimonio/server
+          pm2 restart InvPatrimonio --update-env || pm2 start index.js --name "InvPatrimonio"
+          echo "🚀 Despliegue y Build finalizados con éxito"

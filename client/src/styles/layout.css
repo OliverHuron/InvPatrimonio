@@ -42,7 +42,7 @@
   filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0,0,0,0.2));
   object-fit: cover;
   object-position: center;
-  width: 100%;
+  width: 70%;
   transform: scale(0.7);
   position: relative;
   z-index: 10;
@@ -58,7 +58,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100px;
+  height: 150px;
   position: relative;
   z-index: 1;
   margin: -20px 0 20px 0; 
@@ -396,24 +396,32 @@
 
 /* Footer */
 .siaf-footer {
-  height: 150px;
-  width: calc(100% + 48px);
+  /* 1. Posicionamiento fijo al fondo */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  
+  /* 2. Dimensiones y forma */
+  width: 100%;
+  height: 60px; /* Ajusta a tu gusto, 10vh a veces es mucho */
+  
+  /* 3. Estética original */
   background: #761526;
   color: #fff;
   display: flex;
   align-items: center;
-  padding: 0 42%;
+  justify-content: center;
+  padding: 0; /* Limpiamos el padding excesivo para centrar bien */
+  
+  /* 4. Tipografía y sombras */
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
   box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.2);
   border-top: 2px solid rgba(255, 255, 255, 0.1);
-  margin-top: 60px;
-  position: relative;
-  left: -50px;
-  width: 100vw;
-  height: 10vh;
-  bottom: -50px;
-  text-align: left;
+  
+  /* 5. Asegurar que esté por encima de otros elementos */
+  z-index: 9999;
 }
+
