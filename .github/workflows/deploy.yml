@@ -21,7 +21,11 @@ jobs:
         run: |
           cd /var/www/siaf-patrimonio/client
           npm install
-          CI=false npm run build  # Esto genera la carpeta 'build' o 'dist'
+          CI=false npm run build
+
+      - name: 🔐 Restaurar permisos Nginx
+        run: |
+          sudo chown -R www-data:www-data /var/www/siaf-patrimonio/client/build
 
       - name: Desplegar archivos con rsync
         run: |

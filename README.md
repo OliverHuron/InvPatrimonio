@@ -401,4 +401,5 @@ Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detall
 
 ---
 
-**🚀 ¡InvPatrimonio está listo para producción enterprise con máximo rendimiento!**
+**🚀 ¡InvPatrimonio está listo para producción enterprise con máximo rendimiento!**#   d e p l o y  
+ 
