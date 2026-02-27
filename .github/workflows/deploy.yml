@@ -31,18 +31,18 @@ jobs:
             --exclude='.env' \
             --exclude='node_modules' \
             --exclude='client/node_modules' \
-            . /var/www/InvPatrimonio/
+            . /var/www/siaf-patrimonio/
 
       - name: Restaurar .env desde Backup (Si no existe)
         run: |
           # Solo copia el backup si por alguna razón el .env principal desapareció
-          if [ ! -f /var/www/InvPatrimonio/server/.env ]; then
-            cp /var/www/.env.InvPatrimonio /var/www/InvPatrimonio/server/.env
+          if [ ! -f /var/www/siaf-patrimonio/server/.env ]; then
+            cp /var/www/.env.siaf-patrimonio /var/www/siaf-patrimonio/server/.env
           fi
 
       - name: Reiniciar Servidor Node.js
         run: |
           # Entramos a la carpeta final para asegurar que PM2 tome los cambios
-          cd /var/www/InvPatrimonio/server
-          pm2 restart InvPatrimonio --update-env || pm2 start index.js --name "InvPatrimonio"
+          cd /var/www/siaf-patrimonio/server
+          pm2 restart siaf-patrimonio --update-env || pm2 start src/index.js --name "siaf-patrimonio"
           echo "🚀 Despliegue y Build finalizados con éxito"
