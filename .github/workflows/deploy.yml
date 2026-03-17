@@ -1,50 +1,76 @@
-name: 🚀 Deploy InvPatrimonio
+name: Deploy a Producción — InvPatrimonio
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: self-hosted
-
     steps:
-      - name:  Descargar código
+      - name: Descargar código
         uses: actions/checkout@v4
 
-      - name:  Instalar dependencias del servidor
+      - name: Asegurar permisos
         run: |
-          cd server
-          npm install --omit=dev
+          sudo chown -R oliver:oliver /var/www/siaf-patrimonio || true
 
-      - name:  Compilar el frontend
+      - name: Desplegar archivos con rsync
         run: |
-          cd client
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            --exclude='client/node_modules' \
+            --exclude='server/uploads/' \
+            --exclude='server/logs/' \
+            . /var/www/siaf-patrimonio/
+
+      - name: Instalar dependencias del servidor
+        run: |
+          cd /var/www/siaf-patrimonio/server
+          npm install --production
+
+      - name: Construir Frontend (Client)
+        run: |
+          cd /var/www/siaf-patrimonio/client
           npm install
           CI=false npm run build
 
-      - name:  Desplegar archivos al servidor
+      - name: Restaurar .env desde Backup (si no existe)
         run: |
-    
-          rsync -av --delete \
-            --exclude='server/uploads/' \
-            --exclude='server/logs/' \
-            --exclude='server/.env' \
-            --exclude='node_modules/' \
-            ./ /var/www/siaf-patrimonio/
-
-      - name:  Restaurar .env
-        run: |
-
           if [ ! -f /var/www/siaf-patrimonio/server/.env ]; then
             cp /var/www/.env.siaf-patrimonio /var/www/siaf-patrimonio/server/.env
+            echo "⚠️ .env restaurado desde backup"
           fi
 
-      - name:  Permisos Nginx
+      - name: Ejecutar migraciones pendientes (invpatrimonio)
+        run: |
+          sudo -u postgres psql -c "CREATE TABLE IF NOT EXISTS migrations_log (filename TEXT PRIMARY KEY, executed_at TIMESTAMP DEFAULT NOW());" invpatrimonio
+
+          for file in /var/www/siaf-patrimonio/server/database/migrations/*.sql; do
+            [ -e "$file" ] || continue
+            filename=$(basename "$file")
+            already_run=$(sudo -u postgres psql -tAc "SELECT COUNT(*) FROM migrations_log WHERE filename='$filename'" invpatrimonio)
+
+            if [ "$already_run" -eq "0" ]; then
+              echo "▶ Ejecutando migración: $filename"
+              sudo -u postgres psql -d invpatrimonio -f "$file"
+              sudo -u postgres psql -c "INSERT INTO migrations_log (filename) VALUES ('$filename')" invpatrimonio
+              echo "✅ $filename ejecutada"
+            else
+              echo "⏭ $filename ya ejecutada, saltando"
+            fi
+          done
+
+      - name: Permisos Nginx
         run: |
           sudo chown -R www-data:www-data /var/www/siaf-patrimonio/client/build
 
-      - name:  Reiniciar PM2
+      - name: Reiniciar Servidor con PM2
         run: |
-          pm2 restart siaf-patrimonio --update-env || pm2 start /var/www/siaf-patrimonio/server/src/index.js --name "siaf-patrimonio"
+          cd /var/www/siaf-patrimonio/server
+          pm2 restart siaf-patrimonio --update-env || pm2 start src/index.js --name "siaf-patrimonio"
           pm2 save
+          echo "🚀 Despliegue finalizado con éxito"

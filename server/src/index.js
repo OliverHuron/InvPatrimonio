@@ -92,6 +92,7 @@ app.use('/api', (req, res, next) => {
 // Initialize services
 const { initializeDatabase } = require('./config/database');
 const { initializeRedis } = require('./services/redis.service');
+const { startUmaCron } = require('./services/umaService');
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
@@ -136,6 +137,9 @@ async function startServer() {
     // Initialize database
     await initializeDatabase();
     console.log('✅ Base de datos conectada');
+
+    // Iniciar cron de actualización de UMA (cada 3 meses)
+    startUmaCron();
 
     // Initialize Redis (optional for development)
     try {

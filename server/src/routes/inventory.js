@@ -18,8 +18,16 @@ router.get('/stats', inventoryController.getDashboardStats);
 // Obtener marcas únicas para filtros
 router.get('/marcas', inventoryController.getAvailableMarcas);
 
-// Obtener ubicaciones únicas para filtros  
+// Obtener ubicaciones únicas para filtros
 router.get('/ubicaciones', inventoryController.getAvailableUbicaciones);
+
+// Catálogos para selects del formulario
+router.get('/dependencias',   inventoryController.getDependencias);
+router.get('/coordinaciones', inventoryController.getCoordinaciones);
+router.get('/empleados',      inventoryController.getEmpleados);
+
+// Valor UMA por año (para calcular INTERNO/EXTERNO en frontend)
+router.get('/uma-valor',      inventoryController.getUmaValor);
 
 // Verificar duplicados
 router.get('/check-duplicate/:field/:value', inventoryController.checkDuplicate);

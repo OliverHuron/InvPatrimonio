@@ -1,13 +1,11 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 import './Login.css';
-
-// Contexto de autenticación (lo crearemos después)
-const AuthContext = React.createContext();
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
@@ -16,21 +14,18 @@ const Login = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCredentials(prev => ({
       ...prev,
       [name]: value
     }));
-    // Limpiar error cuando el usuario empiece a escribir
     if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!credentials.username || !credentials.password) {
       setError('Por favor completa todos los campos');
       return;
@@ -39,47 +34,15 @@ const Login = () => {
     setLoading(true);
     setError('');
 
-    try {
-      console.log('🔍 API_BASE_URL:', API_BASE_URL);
-      console.log('🔍 Full URL:', `${API_BASE_URL}/auth/login`);
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
-        username: credentials.username.trim(),
-        password: credentials.password
-      });
+    const result = await login({
+      username: credentials.username.trim(),
+      password: credentials.password
+    });
 
-      console.log('✅ Respuesta del servidor:', response.data);
-
-      if (response.data.success) {
-        const { token, user } = response.data.data;
-        
-        console.log('🔑 Token:', token);
-        console.log('👤 User:', user);
-        
-        // Guardar token en localStorage
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userData', JSON.stringify(user));
-        console.log('💾 Datos guardados en localStorage');
-        
-        // Configurar axios para futuras peticiones
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        console.log('📡 Header de Authorization configurado');
-        
-        // Redireccionar al dashboard
-        console.log('🔄 Redirigiendo a /inventario');
-        navigate('/inventario');
-        console.log('✅ Navigate ejecutado');
-      }
-    } catch (error) {
-      console.error('Error de login:', error);
-      
-      if (error.response) {
-        setError(error.response.data.message || 'Error de autenticación');
-      } else if (error.request) {
-        setError('No se pudo conectar con el servidor');
-      } else {
-        setError('Error inesperado. Intenta de nuevo.');
-      }
-    } finally {
+    if (result?.success) {
+      navigate('/inventario');
+    } else {
+      setError(result?.error || 'Error de autenticación');
       setLoading(false);
     }
   };
