@@ -45,19 +45,19 @@ jobs:
             echo "⚠️ .env restaurado desde backup"
           fi
 
-      - name: Ejecutar migraciones pendientes (invpatrimonio)
+      - name: Ejecutar migraciones pendientes (patrimonio_db)
         run: |
-          sudo -u postgres psql -c "CREATE TABLE IF NOT EXISTS migrations_log (filename TEXT PRIMARY KEY, executed_at TIMESTAMP DEFAULT NOW());" invpatrimonio
+          sudo -u postgres psql -d patrimonio_db -c "CREATE TABLE IF NOT EXISTS migrations_log (filename TEXT PRIMARY KEY, executed_at TIMESTAMP DEFAULT NOW());"
 
           for file in /var/www/siaf-patrimonio/server/database/migrations/*.sql; do
             [ -e "$file" ] || continue
             filename=$(basename "$file")
-            already_run=$(sudo -u postgres psql -tAc "SELECT COUNT(*) FROM migrations_log WHERE filename='$filename'" invpatrimonio)
+            already_run=$(sudo -u postgres psql -d patrimonio_db -tAc "SELECT COUNT(*) FROM migrations_log WHERE filename='$filename'")
 
             if [ "$already_run" -eq "0" ]; then
               echo "▶ Ejecutando migración: $filename"
-              sudo -u postgres psql -d invpatrimonio -f "$file"
-              sudo -u postgres psql -c "INSERT INTO migrations_log (filename) VALUES ('$filename')" invpatrimonio
+              sudo -u postgres psql -d patrimonio_db -f "$file"
+              sudo -u postgres psql -d patrimonio_db -c "INSERT INTO migrations_log (filename) VALUES ('$filename')"
               echo "✅ $filename ejecutada"
             else
               echo "⏭ $filename ya ejecutada, saltando"
