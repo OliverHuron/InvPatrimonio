@@ -23,33 +23,16 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const storedToken = localStorage.getItem('authToken');
+        const storedAuth = localStorage.getItem('isAuthenticated');
         const storedUser = localStorage.getItem('userData');
 
-        if (storedToken && storedUser) {
-          // Configurar axios con el token
-          axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        if (storedAuth === 'true' && storedUser) {
+          // Configurar axios para enviar cookies
+          axios.defaults.withCredentials = true;
           
-          try {
-            // Verificar que el token siga siendo válido
-            const response = await axios.get(`${API_BASE_URL}/auth/verify`);
-            
-            if (response.data.success) {
-              setToken(storedToken);
-              setUser(JSON.parse(storedUser));
-              setIsAuthenticated(true);
-            } else {
-              // Token inválido, limpiar
-              clearAuth();
-            }
-          } catch (verifyError) {
-            // Si hay error del servidor (500) pero tenemos token válido en localStorage,
-            // confiar temporalmente en el token local
-            console.warn('⚠️ No se pudo verificar token con el servidor, usando datos locales');
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-            setIsAuthenticated(true);
-          }
+          setUser(JSON.parse(storedUser));
+          setIsAuthenticated(true);
+          console.log('Sesion restaurada desde localStorage');
         }
       } catch (error) {
         console.error('Error verificando autenticación:', error);
@@ -62,35 +45,49 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  // Función de login
+  // Función de login - AHORA USA PROXY DEL BACKEND para capturar JSESSIONID
   const login = async (credentials) => {
     try {
       setLoading(true);
       
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials);
+      // Login a través del backend proxy (captura la cookie JSESSIONID)
+      const response = await axios.post(`${API_BASE_URL}/patrimonio-api/auth/login`, credentials, {
+        validateStatus: () => true
+      });
       
-      if (response.data.success) {
-        const { token: newToken, user: userData } = response.data.data;
+      if (response.data?.success && response.data?.sessionId) {
+        const sessionId = response.data.sessionId;
         
-        // Guardar en localStorage
-        localStorage.setItem('authToken', newToken);
+        const userData = response.data.user || { 
+          username: credentials.username,
+          role: 'user'
+        };
+        
+        if (!userData.role) {
+          userData.role = 'user';
+        }
+        
+        localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('userData', JSON.stringify(userData));
+        localStorage.setItem('sessionId', sessionId);
         
-        // Configurar axios
-        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-        
-        // Actualizar estado
-        setToken(newToken);
         setUser(userData);
         setIsAuthenticated(true);
         
+        console.log('Login exitoso - JSESSIONID capturado:', sessionId.substring(0, 10) + '...');
         return { success: true, data: userData };
+      } else {
+        console.error('Login fallido:', response.data);
+        return { 
+          success: false, 
+          error: response.data?.message || 'Credenciales inválidas' 
+        };
       }
     } catch (error) {
       console.error('Error en login:', error);
       return { 
         success: false, 
-        error: error.response?.data?.message || 'Error de autenticación' 
+        error: error.message || 'Error de conexión' 
       };
     } finally {
       setLoading(false);
@@ -100,10 +97,11 @@ export const AuthProvider = ({ children }) => {
   // Función de logout
   const logout = async () => {
     try {
-      // Llamar al endpoint de logout (opcional)
-      if (token) {
-        await axios.post(`${API_BASE_URL}/auth/logout`);
-      }
+      // Llamar al endpoint de logout en la API UMICH
+      const API_UMICH = 'http://api-patrimonio.umich.mx/api-patrimonio';
+      await axios.post(`${API_UMICH}/auth/logout`, {}, {
+        withCredentials: true
+      });
     } catch (error) {
       console.error('Error en logout:', error);
     } finally {
@@ -113,7 +111,7 @@ export const AuthProvider = ({ children }) => {
 
   // Función para limpiar autenticación
   const clearAuth = () => {
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userData');
     delete axios.defaults.headers.common['Authorization'];
     setToken(null);

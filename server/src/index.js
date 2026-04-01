@@ -46,21 +46,21 @@ const corsOptions = {
       process.env.CLIENT_URL.split(',').map(url => url.trim()) :
       ['http://localhost:3000', 'http://localhost:5173'];
 
-    console.log('🌐 Intento de conexión desde:', origin);
-    console.log('✅ Orígenes permitidos:', allowedOrigins);
+    console.log('Intento de conexion desde:', origin);
+    console.log('Origenes permitidos:', allowedOrigins);
 
     if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('✅ CORS: Origen aceptado');
+      console.log('CORS: Origen aceptado');
       callback(null, true);
     } else {
-      console.log('❌ CORS: Origen bloqueado ->', origin);
-      console.log('💡 Agrega esta URL exacta a CLIENT_URL en tu .env');
-      callback(new Error(`CORS bloqueó el origen: ${origin}`));
+      console.log('CORS: Origen bloqueado ->', origin);
+      console.log('Agrega esta URL exacta a CLIENT_URL en tu .env');
+      callback(new Error(`CORS bloqueo el origen: ${origin}`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-UMICH-Session']
 };
 
 app.use(cors(corsOptions));
@@ -70,16 +70,16 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ charset: 'utf-8', limit: '500mb' }));
 app.use(express.urlencoded({ extended: true, charset: 'utf-8', limit: '500mb' }));
 
-// Serve uploaded files - ANTES de middleware que modifica Content-Type
+// Serve uploaded files
 const path = require('path');
 const uploadsPath = path.join(__dirname, '..', 'uploads');
-console.log('📂 Serving static files from:', uploadsPath);
+console.log('Serving static files from:', uploadsPath);
 app.use('/uploads', express.static(uploadsPath, { 
   maxAge: '1d',
   setHeaders: (res, filepath) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    console.log('📤 Serving file:', filepath);
+    console.log('Serving file:', filepath);
   }
 }));
 
@@ -96,11 +96,13 @@ const { startUmaCron } = require('./services/umaService');
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
-const inventoryRoutes = require('./routes/inventory'); // Sistema de inventario como SIAF
+const inventoryRoutes = require('./routes/inventory'); // Sistema de inventario BD local
+const patrimonioApiRoutes = require('./routes/patrimonioApi.routes'); // API Externa UMICH
 const saludoRoutes = require('./routes/saludo.routes');
 
 app.use('/api/auth', authRoutes);
-app.use('/api/inventarios', inventoryRoutes); // Usando 'inventarios' plural como SIAF
+app.use('/api/inventarios', inventoryRoutes); // BD Local (legacy)
+app.use('/api/patrimonio-api', patrimonioApiRoutes); // API Externa (nuevo)
 app.use('/api/saludo', saludoRoutes);
 
 // Health check
@@ -134,32 +136,29 @@ app.use('*', (req, res) => {
 // Initialize services and start server
 async function startServer() {
   try {
-    // Initialize database
     await initializeDatabase();
-    console.log('✅ Base de datos conectada');
+    console.log('Base de datos conectada');
 
-    // Iniciar cron de actualización de UMA (cada 3 meses)
     startUmaCron();
 
-    // Initialize Redis (optional for development)
     try {
       await initializeRedis();
-      console.log('✅ Redis conectado');
+      console.log('Redis conectado');
     } catch (error) {
-      console.log('⚠️  Redis no disponible, continuando sin cache:', error.message);
+      console.log('Redis no disponible, continuando sin cache:', error.message);
     }
 
     const PORT = process.env.PORT || 5000;
 
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 InvPatrimonio Server corriendo en puerto ${PORT}`);
-      console.log(`📝 Modo: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🌐 Cliente URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`InvPatrimonio Server corriendo en puerto ${PORT}`);
+      console.log(`Modo: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Cliente URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+      console.log(`Health check: http://localhost:${PORT}/api/health`);
     });
 
   } catch (error) {
-    console.error('❌ Error al iniciar servidor:', error);
+    console.error('Error al iniciar servidor:', error);
     process.exit(1);
   }
 }

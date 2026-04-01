@@ -30,23 +30,22 @@ async function initializeRedis() {
 
     // Eventos de conexión
     redisClient.on('connect', () => {
-      console.log('✅ Redis conectado');
+      console.log('Redis conectado');
     });
 
     redisClient.on('error', (error) => {
-      console.error('❌ Error de Redis:', error.message);
+      console.error('Error de Redis:', error.message);
     });
 
     redisClient.on('close', () => {
-      console.warn('⚠️  Conexión Redis cerrada');
+      console.warn('Conexion Redis cerrada');
     });
 
-    // Probar conexión
     try {
       await redisClient.ping();
-      console.log('✅ Redis ping exitoso');
+      console.log('Redis ping exitoso');
     } catch (error) {
-      console.warn('⚠️  Redis ping falló, continuando sin cache:', error.message);
+      console.warn('Redis ping fallo, continuando sin cache:', error.message);
     }
     
     isInitialized = true;

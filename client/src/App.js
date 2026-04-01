@@ -18,9 +18,9 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute, { UserRoute } from './components/ProtectedRoute'
 
 // Importamos las páginas que mostraremos según la URL.
-import Home from './pages/Home'
 import Login from './pages/Login'
-import Inventario from './pages/Inventario'
+import InternoView from './pages/InternoView'
+import ExternoView from './pages/ExternoView'
 import Layout from './components/Layout'
 
 function App() {
@@ -29,11 +29,11 @@ function App() {
     // Determinar la URL base según el entorno - usando variable de entorno de React
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api'
     
-    // Test de conectividad al servidor (opcional)
+    // Test de conectividad al servidor
     fetch(`${API_BASE_URL}/health`)
       .then(res => res.json())
-      .then(data => console.log('✅ Servidor conectado:', data.message))
-      .catch(() => console.log('⚠️ Servidor iniciando...'))
+      .then(data => console.log('[App] Servidor conectado:', data.message))
+      .catch(() => console.log('[App] Servidor iniciando...'))
   }, [])
 
   return (
@@ -49,17 +49,20 @@ function App() {
               <Layout />
             </ProtectedRoute>
           }>
-            {/* Ruta home protegida */}
-            <Route index element={
+            {/* Ruta principal redirige a interno */}
+            <Route index element={<Navigate to="/interno" replace />} />
+            
+            {/* Ruta de patrimonio interno (PatrimonioCI) */}
+            <Route path="interno" element={
               <UserRoute>
-                <Home />
+                <InternoView />
               </UserRoute>
             } />
             
-            {/* Ruta de inventario protegida */}
-            <Route path="inventario" element={
+            {/* Ruta de patrimonio externo (Patrimonio - solo lectura) */}
+            <Route path="externo" element={
               <UserRoute>
-                <Inventario />
+                <ExternoView />
               </UserRoute>
             } />
           </Route>

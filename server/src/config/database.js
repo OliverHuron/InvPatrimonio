@@ -14,7 +14,7 @@ const dbConfig = {
   connectionTimeoutMillis: 2000,
 };
 
-console.log('🔌 Configuración de DB:', {
+console.log('Configuracion de DB:', {
   host: dbConfig.host,
   port: dbConfig.port,
   database: dbConfig.database,
@@ -30,10 +30,10 @@ async function initializeDatabase() {
   try {
     const client = await pool.connect();
     const result = await client.query('SELECT NOW()');
-    console.log('✅ Conexión a PostgreSQL exitosa:', result.rows[0].now);
+    console.log('Conexion a PostgreSQL exitosa:', result.rows[0].now);
     client.release();
   } catch (error) {
-    console.error('❌ Error conectando a PostgreSQL:', error);
+    console.error('Error conectando a PostgreSQL:', error);
     throw error;
   }
 }

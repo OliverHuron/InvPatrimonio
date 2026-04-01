@@ -251,7 +251,7 @@ const getAllInventarios = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error obteniendo inventarios:', error);
+    console.error('[Inventario] Error obteniendo inventarios:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -286,7 +286,7 @@ const createInventario = async (req, res) => {
       const paths = [];
       for (const file of req.files) {
         try { paths.push((await optimizeImage(file.buffer, file.originalname)).path); }
-        catch (e) { console.error('❌ Imagen:', e.message); }
+        catch (e) { console.error('[Inventario] Error imagen:', e.message); }
       }
       await insertImagenes(client, inventarioId, paths);
     }
@@ -298,7 +298,7 @@ const createInventario = async (req, res) => {
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('❌ Error creando inventario:', error);
+    console.error('[Inventario] Error creando inventario:', error);
     res.status(500).json({ success: false, message: 'Error al crear inventario', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   } finally {
     client.release();
@@ -337,7 +337,7 @@ const updateInventario = async (req, res) => {
       const paths = [];
       for (const file of req.files) {
         try { paths.push((await optimizeImage(file.buffer, file.originalname)).path); }
-        catch (e) { console.error('❌ Imagen:', e.message); }
+        catch (e) { console.error('[Inventario] Error imagen:', e.message); }
       }
       await insertImagenes(client, id, paths);
     }
@@ -349,7 +349,7 @@ const updateInventario = async (req, res) => {
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('❌ Error actualizando inventario:', error);
+    console.error('[Inventario] Error actualizando inventario:', error);
     res.status(500).json({ success: false, message: 'Error al actualizar inventario', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   } finally {
     client.release();
@@ -364,7 +364,7 @@ const getInventarioById = async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Inventario no encontrado' });
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('❌ Error obteniendo inventario:', error);
+    console.error('[Inventario] Error obteniendo inventario:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -381,7 +381,7 @@ const deleteInventario = async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Inventario no encontrado' });
     res.json({ success: true, message: 'Inventario marcado como baja exitosamente', data: result.rows[0] });
   } catch (error) {
-    console.error('❌ Error eliminando inventario:', error);
+    console.error('[Inventario] Error eliminando inventario:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -394,7 +394,7 @@ const searchInventarios = async (req, res) => {
     const result = await pool.query(`SELECT * FROM buscar_inventario_texto($1, $2, 0)`, [q.trim(), parseInt(limit)]);
     res.json({ success: true, data: { items: result.rows, total: result.rows.length, query: q.trim() } });
   } catch (error) {
-    console.error('❌ Error en búsqueda:', error);
+    console.error('[Inventario] Error en busqueda:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -406,7 +406,7 @@ const getDashboardStats = async (req, res) => {
     result.rows.forEach(r => { stats[r.metric.toLowerCase()] = { value: parseInt(r.value), percentage: parseFloat(r.percentage) }; });
     res.json({ success: true, data: stats });
   } catch (error) {
-    console.error('❌ Error obteniendo estadísticas:', error);
+    console.error('[Inventario] Error obteniendo estadisticas:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -441,11 +441,11 @@ const checkDuplicate = async (req, res) => {
 
     res.json({
       success: true, exists, field, value,
-      existing: existing ? { id: existing.id, folio: existing.folio, descripcion: existing.descripcion || 'Sin descripción', marca: existing.marca || 'Sin marca', modelo: existing.modelo || 'Sin modelo', created_at: existing.created_at } : null,
-      message: exists ? `❌ DUPLICADO: ${field} "${value}" ya existe en el registro ${existing.folio || existing.id}` : 'Sin duplicados'
+      existing: existing ? { id: existing.id, folio: existing.folio, descripcion: existing.descripcion || 'Sin descripcion', marca: existing.marca || 'Sin marca', modelo: existing.modelo || 'Sin modelo', created_at: existing.created_at } : null,
+      message: exists ? `DUPLICADO: ${field} "${value}" ya existe en el registro ${existing.folio || existing.id}` : 'Sin duplicados'
     });
   } catch (error) {
-    console.error('❌ Error verificando duplicados:', error);
+    console.error('[Inventario] Error verificando duplicados:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };

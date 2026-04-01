@@ -377,10 +377,10 @@ const ImageGallerySection = ({ images = [] }) => {
             src={lightboxUrl} 
             alt={`Imagen ${openIndex + 1}`}
             onError={(e) => {
-              console.error('❌ Error en Lightbox:', lightboxUrl)
+              console.error('[Gallery] Error en Lightbox:', lightboxUrl)
             }}
             onLoad={() => {
-              console.log('✅ Lightbox imagen cargada:', lightboxUrl)
+              console.log('[Gallery] Lightbox imagen cargada:', lightboxUrl)
             }}
           />
         </div>
@@ -391,13 +391,13 @@ const ImageGallerySection = ({ images = [] }) => {
   return (
     <div className="drawer-section">
       <h3 className="section-title">
-        <FaImages /> Imágenes del Bien ({images.length})
+        <FaImages /> Imagenes del Bien ({images.length})
       </h3>
 
       <div className="image-gallery">
         {images.map((img, idx) => {
           const fullUrl = `https://patrimonio.siafsystem.online${img}`
-          console.log(`🖼️ DEBUG Gallery - Imagen ${idx + 1}:`, fullUrl)
+          console.log(`[Gallery] DEBUG Imagen ${idx + 1}:`, fullUrl)
           return (
             <div 
               key={idx} 
@@ -408,13 +408,13 @@ const ImageGallerySection = ({ images = [] }) => {
                 src={fullUrl} 
                 alt={`Evidencia ${idx + 1}`}
                 onError={(e) => { 
-                  console.error(`❌ Error cargando imagen ${idx + 1}:`, fullUrl)
+                  console.error(`[Gallery] Error cargando imagen ${idx + 1}:`, fullUrl)
                   console.error('Event:', e)
                   e.currentTarget.style.border = '2px solid red'
                   e.currentTarget.alt = 'Error al cargar'
                 }}
                 onLoad={() => {
-                  console.log(`✅ Imagen ${idx + 1} cargada exitosamente:`, fullUrl)
+                  console.log(`[Gallery] Imagen ${idx + 1} cargada:`, fullUrl)
                 }}
               />
             </div>

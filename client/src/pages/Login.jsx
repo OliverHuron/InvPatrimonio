@@ -40,7 +40,7 @@ const Login = () => {
     });
 
     if (result?.success) {
-      navigate('/inventario');
+      navigate('/interno'); // Cambiar a /interno en vez de /inventario
     } else {
       setError(result?.error || 'Error de autenticación');
       setLoading(false);

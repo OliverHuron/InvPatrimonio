@@ -1,59 +1,29 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  MdDashboard, 
-  MdInventory, 
-  MdAdd, 
-  MdRemove, 
-  MdAssessment, 
-  MdSettings 
-} from 'react-icons/md'
+import { MdHome, MdBusiness } from 'react-icons/md'
 import '../styles/layout.css'
 import logo from '../assets/UMSNHLogo1.png'
 
 const Sidebar = () => {
-  // Hook que nos dice en qué URL estamos actualmente
   const location = useLocation()
   
   return (
     <aside className="siaf-sidebar">
-      <div className="siaf-brand" ><img className="siaf-logo" src={logo} alt="UMSNH Logo" /></div>
+      <div className="siaf-brand">
+        <img className="siaf-logo" src={logo} alt="UMSNH Logo" />
+      </div>
       <nav className="siaf-menu">
         <ul className="siaf-menu-list">
-          <li className={location.pathname === '/' ? 'active' : ''}>
-            <Link to="/" className="menu-link">
-              <MdDashboard size={18} />
-              Dashboard
+          <li className={location.pathname === '/interno' ? 'active' : ''}>
+            <Link to="/interno" className="menu-link">
+              <MdHome size={18} />
+              Interno
             </Link>
           </li>
-          <li className={location.pathname === '/inventario' ? 'active' : ''}>
-            <Link to="/inventario" className="menu-link">
-              <MdInventory size={18} />
-              Inventario
-            </Link>
-          </li>
-          <li>
-            <Link to="/agregar" className="menu-link">
-              <MdAdd size={18} />
-              Agregar
-            </Link>
-          </li>
-          <li>
-            <Link to="/bajas" className="menu-link">
-              <MdRemove size={18} />
-              Bajas
-            </Link>
-          </li>
-          <li>
-            <Link to="/reportes" className="menu-link">
-              <MdAssessment size={18} />
-              Reportes
-            </Link>
-          </li>
-          <li>
-            <Link to="/configuracion" className="menu-link">
-              <MdSettings size={18} />
-              Configuración
+          <li className={location.pathname === '/externo' ? 'active' : ''}>
+            <Link to="/externo" className="menu-link">
+              <MdBusiness size={18} />
+              Externo
             </Link>
           </li>
         </ul>
