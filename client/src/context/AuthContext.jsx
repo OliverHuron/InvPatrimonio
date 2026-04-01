@@ -77,14 +77,30 @@ export const AuthProvider = ({ children }) => {
         console.log('Login exitoso - JSESSIONID capturado:', sessionId.substring(0, 10) + '...');
         return { success: true, data: userData };
       } else {
-        console.error('Login fallido:', response.data);
-        return { 
-          success: false, 
-          error: response.data?.message || 'Credenciales inválidas' 
+        console.error('Login fallido:', response.status, response.data);
+
+        if (response.status >= 500) {
+          return {
+            success: false,
+            error: 'Servidor no disponible. Intenta de nuevo en unos minutos.'
+          };
+        }
+
+        return {
+          success: false,
+          error: response.data?.message || 'Credenciales inválidas'
         };
       }
     } catch (error) {
       console.error('Error en login:', error);
+
+      if (error.response?.status >= 500) {
+        return {
+          success: false,
+          error: 'Servidor no disponible. Intenta de nuevo en unos minutos.'
+        };
+      }
+
       return { 
         success: false, 
         error: error.message || 'Error de conexión' 

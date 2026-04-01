@@ -4,7 +4,6 @@
 
 const { pool } = require('../config/database');
 const multer = require('multer');
-const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs').promises;
 const { calcTipoInventario, getUmaForYear } = require('../services/umaService');
@@ -25,21 +24,18 @@ const upload = multer({
 });
 
 // =====================================================
-// OPTIMIZAR IMAGEN A WEBP
+// GUARDAR IMAGEN ORIGINAL
 // =====================================================
-const optimizeImage = async (buffer, filename, quality = 80) => {
+const optimizeImage = async (buffer, filename) => {
   try {
-    const webpFilename = `img_${Date.now()}_${Math.random().toString(36).slice(2)}.webp`;
-    const optimizedBuffer = await sharp(buffer)
-      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality, effort: 6 })
-      .toBuffer();
-
     const uploadsDir = path.join(__dirname, '../../uploads/patrimonio');
     await fs.mkdir(uploadsDir, { recursive: true });
-    await fs.writeFile(path.join(uploadsDir, webpFilename), optimizedBuffer);
 
-    return { filename: webpFilename, path: `/uploads/patrimonio/${webpFilename}` };
+    const ext = path.extname(filename || '').toLowerCase() || '.jpg';
+    const rawFilename = `img_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+    await fs.writeFile(path.join(uploadsDir, rawFilename), buffer);
+
+    return { filename: rawFilename, path: `/uploads/patrimonio/${rawFilename}` };
   } catch (error) {
     throw new Error(`Error al procesar imagen: ${error.message}`);
   }
