@@ -16,7 +16,7 @@ const InternoView = () => {
   const getSessionId = () => localStorage.getItem('sessionId')
   
   // Estados
-  const [items, setItems] = useState([])
+  const [item, setItem] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState('view') // 'view', 'create', 'edit'
@@ -34,20 +34,8 @@ const InternoView = () => {
   })
   
   // Estado para búsqueda por ID
-  const [searchId, setSearchId] = useState('')
-  
-  // IDs conocidos (guardados localmente)
-  const [knownIds, setKnownIds] = useState(() => {
-    const saved = localStorage.getItem('patrimonio_known_ids')
-    return saved ? JSON.parse(saved) : [42]
-  })
-  
-  // Guardar IDs conocidos en localStorage
-  const saveKnownIds = (ids) => {
-    const uniqueIds = [...new Set(ids.filter(id => id && id > 0))]
-    setKnownIds(uniqueIds)
-    localStorage.setItem('patrimonio_known_ids', JSON.stringify(uniqueIds))
-  }
+  const [searchId, setSearchId] = useState('42')
+  const [currentId, setCurrentId] = useState(42)
   
   // Cargar un registro por ID
   const loadById = async (id) => {
@@ -86,33 +74,23 @@ const InternoView = () => {
     }
   }
   
-  // Cargar todos los IDs conocidos
-  const loadData = async () => {
+  // Cargar item actual
+  const loadCurrentItem = async (id) => {
     try {
       setLoading(true)
-      
-      const loadedItems = []
-      for (const id of knownIds) {
-        const item = await loadById(id)
-        if (item) loadedItems.push(item)
-      }
-      
-      setItems(loadedItems)
-      
-      if (loadedItems.length === 0) {
-        toast.info('No se encontraron registros. Usa la búsqueda por ID.')
-      }
+      const loadedItem = await loadById(id)
+      setItem(loadedItem)
     } catch (error) {
       console.error('Error cargando datos:', error)
       toast.error('Error al cargar datos')
-      setItems([])
+      setItem(null)
     } finally {
       setLoading(false)
     }
   }
   
   useEffect(() => {
-    loadData()
+    loadCurrentItem(42)
   }, [])
   
   // Abrir modal para ver detalles
@@ -207,14 +185,16 @@ const InternoView = () => {
       const data = await response.json()
       
       if (data.success) {
-        // Si es creación y devuelve un ID, guardarlo en los conocidos
-        if (modalMode === 'create' && data.data?.id) {
-          saveKnownIds([...knownIds, data.data.id])
-        }
-        
         toast.success(modalMode === 'create' ? 'Creado exitosamente' : 'Actualizado exitosamente')
         handleCloseModal()
-        loadData()
+        if (modalMode === 'create' && data.data?.id) {
+          const createdId = parseInt(data.data.id)
+          setCurrentId(createdId)
+          setSearchId(String(createdId))
+          loadCurrentItem(createdId)
+        } else {
+          loadCurrentItem(currentId)
+        }
       } else {
         toast.error('Error al guardar: ' + (data.message || response.statusText))
       }
@@ -238,26 +218,18 @@ const InternoView = () => {
     }
     
     setLoading(true)
-    const item = await loadById(id)
+    const foundItem = await loadById(id)
     setLoading(false)
     
-    if (item) {
-      // Agregar a la lista si no existe
-      if (!items.find(i => i.id_pat_ci === item.id_pat_ci)) {
-        setItems(prev => [...prev, item])
-      } else {
-        // Actualizar el existente
-        setItems(prev => prev.map(i => i.id_pat_ci === item.id_pat_ci ? item : i))
-      }
-      // Guardar en IDs conocidos
-      if (!knownIds.includes(id)) {
-        saveKnownIds([...knownIds, id])
-      }
+    if (foundItem) {
+      setItem(foundItem)
+      setCurrentId(id)
       toast.success(`Registro ${id} cargado`)
     } else {
+      setItem(null)
+      setCurrentId(id)
       toast.error(`No se encontró el registro con ID ${id}`)
     }
-    setSearchId('')
   }
   
   return (
@@ -268,7 +240,7 @@ const InternoView = () => {
           <h1>Patrimonio Interno</h1>
         </div>
         <div className="header-actions">
-          <button className="btn-refresh" onClick={loadData} disabled={loading}>
+          <button className="btn-refresh" onClick={() => loadCurrentItem(currentId)} disabled={loading}>
             <FaSync className={loading ? 'spinning' : ''} /> Actualizar
           </button>
           <button className="btn-primary" onClick={handleCreate}>
@@ -320,7 +292,7 @@ const InternoView = () => {
       <div className="table-container">
         {loading ? (
           <div className="loading-state">Cargando...</div>
-        ) : items.length === 0 ? (
+        ) : !item ? (
           <div className="empty-state">No hay datos disponibles</div>
         ) : (
           <table className="data-table">
@@ -338,40 +310,38 @@ const InternoView = () => {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.id_pat_ci}>
-                  <td>{item.id_pat_ci}</td>
-                  <td>{item.descrip}</td>
-                  <td>{item.marca}</td>
-                  <td>{item.modelo}</td>
-                  <td>{item.num_serie}</td>
-                  <td>{item.depenadsc}</td>
-                  <td>{item.ures}</td>
-                  <td>
-                    <span className={`badge ${item.activo === 1 ? 'badge-success' : 'badge-danger'}`}>
-                      {item.activo === 1 ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button 
-                        className="btn-icon btn-view" 
-                        onClick={() => handleView(item)}
-                        title="Ver detalles"
-                      >
-                        <FaEye />
-                      </button>
-                      <button 
-                        className="btn-icon btn-edit" 
-                        onClick={() => handleEdit(item)}
-                        title="Editar"
-                      >
-                        <FaEdit />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              <tr key={item.id_pat_ci}>
+                <td>{item.id_pat_ci}</td>
+                <td>{item.descrip}</td>
+                <td>{item.marca}</td>
+                <td>{item.modelo}</td>
+                <td>{item.num_serie}</td>
+                <td>{item.depenadsc}</td>
+                <td>{item.ures}</td>
+                <td>
+                  <span className={`badge ${item.activo === 1 ? 'badge-success' : 'badge-danger'}`}>
+                    {item.activo === 1 ? 'Activo' : 'Inactivo'}
+                  </span>
+                </td>
+                <td>
+                  <div className="action-buttons">
+                    <button 
+                      className="btn-icon btn-view" 
+                      onClick={() => handleView(item)}
+                      title="Ver detalles"
+                    >
+                      <FaEye />
+                    </button>
+                    <button 
+                      className="btn-icon btn-edit" 
+                      onClick={() => handleEdit(item)}
+                      title="Editar"
+                    >
+                      <FaEdit />
+                    </button>
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
         )}
