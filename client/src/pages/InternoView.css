@@ -49,14 +49,14 @@
 }
 
 .btn-primary {
-  background: #3498db;
+  background: #781628;
   color: white;
 }
 
 .btn-primary:hover {
-  background: #2980b9;
+  background: #9e2c3f;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+  box-shadow: 0 2px 8px rgba(120, 22, 40, 0.35);
 }
 
 .btn-secondary {
@@ -69,12 +69,48 @@
 }
 
 .btn-refresh {
-  background: #ecf0f1;
-  color: #2c3e50;
+  background: #9e2c3f;
+  color: #fff;
 }
 
 .btn-refresh:hover {
-  background: #bdc3c7;
+  background: #781628;
+}
+
+.search-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.btn-search {
+  padding: 10px 20px;
+  background: #781628;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-search:hover {
+  background: #9e2c3f;
+}
+
+.btn-search:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-refresh:disabled {
@@ -116,6 +152,10 @@
 
 .data-table tbody tr:hover {
   background: #f8f9fa;
+}
+
+.clickable-row {
+  cursor: pointer;
 }
 
 .data-table td {
@@ -162,22 +202,22 @@
 }
 
 .btn-view {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: #f9e6ea;
+  color: #781628;
 }
 
 .btn-view:hover {
-  background: #bbdefb;
+  background: #f4ccd5;
   transform: scale(1.1);
 }
 
 .btn-edit {
-  background: #fff3e0;
-  color: #f57c00;
+  background: #f4ccd5;
+  color: #781628;
 }
 
 .btn-edit:hover {
-  background: #ffe0b2;
+  background: #e9b4c0;
   transform: scale(1.1);
 }
 
@@ -198,81 +238,168 @@
   to { transform: rotate(360deg); }
 }
 
-/* Modal */
-.modal-overlay {
+/* Drawer */
+.drawer-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.drawer-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.modal-content {
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(520px, 94vw);
   background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 90vh;
-  overflow-y: auto;
+  z-index: 1001;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
   box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-  animation: slideUp 0.3s;
+  display: flex;
+  flex-direction: column;
 }
 
-@keyframes slideUp {
-  from {
-    transform: translateY(50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.drawer-panel.open {
+  transform: translateX(0);
 }
 
-.modal-header {
+.drawer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  border-bottom: 2px solid #ecf0f1;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #ecf0f1;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
 }
 
-.modal-header h2 {
+.drawer-header h2 {
   margin: 0;
-  font-size: 1.5rem;
-  color: #2c3e50;
+  color: #781628;
+  font-size: 1.3rem;
+}
+
+.drawer-subtitle {
+  margin: 0.35rem 0 0;
+  color: #6c757d;
+  font-size: 0.85rem;
 }
 
 .btn-close {
   background: none;
   border: none;
-  font-size: 2rem;
-  color: #95a5a6;
+  font-size: 1.6rem;
+  color: #9e2c3f;
   cursor: pointer;
-  line-height: 1;
-  padding: 0;
-  width: 2rem;
-  height: 2rem;
-  transition: color 0.2s;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: all 0.2s;
 }
 
 .btn-close:hover {
-  color: #e74c3c;
+  background: #f9e6ea;
+  color: #781628;
 }
 
-.modal-body {
-  padding: 2rem;
+.drawer-content {
+  padding: 1rem 1.1rem 1.4rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.drawer-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  border: 1px solid #f0d8de;
+  border-radius: 10px;
+  background: #fff7f9;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: #9e2c3f;
+  font-weight: 700;
+}
+
+.summary-value {
+  font-size: 0.95rem;
+  color: #2c3e50;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.drawer-section {
+  margin-bottom: 1.1rem;
+}
+
+.drawer-section h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  color: #9e2c3f;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+.detail-grid.two-cols {
+  grid-template-columns: 1fr 1fr;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px dashed #eceff1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.detail-label {
+  color: #2c3e50;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.detail-value {
+  color: #3b4a59;
+  font-size: 0.92rem;
+  word-break: break-word;
+  min-height: 1.2rem;
 }
 
 .form-grid {
@@ -307,7 +434,7 @@
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #3498db;
+  border-color: #9e2c3f;
 }
 
 .form-group input:disabled,
@@ -318,9 +445,9 @@
   color: #7f8c8d;
 }
 
-.modal-footer {
+.drawer-footer {
   padding: 1.5rem;
-  border-top: 2px solid #ecf0f1;
+  border-top: 1px solid #ecf0f1;
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
@@ -341,6 +468,10 @@
     width: 100%;
     flex-direction: column;
   }
+
+  .search-bar {
+    flex-direction: column;
+  }
   
   .table-container {
     overflow-x: auto;
@@ -349,9 +480,13 @@
   .form-grid {
     grid-template-columns: 1fr;
   }
+
+  .drawer-summary,
+  .detail-grid.two-cols {
+    grid-template-columns: 1fr;
+  }
   
-  .modal-content {
-    width: 95%;
-    max-height: 95vh;
+  .drawer-panel {
+    width: 100vw;
   }
 }

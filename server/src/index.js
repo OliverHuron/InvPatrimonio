@@ -92,18 +92,11 @@ app.use('/api', (req, res, next) => {
 // Initialize services
 const { initializeDatabase } = require('./config/database');
 const { initializeRedis } = require('./services/redis.service');
-const { startUmaCron } = require('./services/umaService');
 
 // Routes
-const authRoutes = require('./routes/auth.routes');
-const inventoryRoutes = require('./routes/inventory'); // Sistema de inventario BD local
 const patrimonioApiRoutes = require('./routes/patrimonioApi.routes'); // API Externa UMICH
-const saludoRoutes = require('./routes/saludo.routes');
 
-app.use('/api/auth', authRoutes);
-app.use('/api/inventarios', inventoryRoutes); // BD Local (legacy)
 app.use('/api/patrimonio-api', patrimonioApiRoutes); // API Externa (nuevo)
-app.use('/api/saludo', saludoRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -138,8 +131,6 @@ async function startServer() {
   try {
     await initializeDatabase();
     console.log('Base de datos conectada');
-
-    startUmaCron();
 
     try {
       await initializeRedis();

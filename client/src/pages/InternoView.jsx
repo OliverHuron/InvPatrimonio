@@ -4,7 +4,7 @@
 // =====================================================
 
 import React, { useState, useEffect } from 'react'
-import { FaPlus, FaEdit, FaSync, FaEye } from 'react-icons/fa'
+import { FaPlus, FaEdit, FaSync } from 'react-icons/fa'
 import { toast } from 'react-toastify'
 import './InternoView.css'
 
@@ -18,8 +18,8 @@ const InternoView = () => {
   // Estados
   const [item, setItem] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-  const [modalMode, setModalMode] = useState('view') // 'view', 'create', 'edit'
+  const [showDrawer, setShowDrawer] = useState(false)
+  const [drawerMode, setDrawerMode] = useState('view') // 'view', 'create', 'edit'
   const [selectedItem, setSelectedItem] = useState(null)
   
   // Form data
@@ -93,7 +93,7 @@ const InternoView = () => {
     loadCurrentItem(42)
   }, [])
   
-  // Abrir modal para ver detalles
+  // Abrir drawer para ver detalles
   const handleView = (item) => {
     setSelectedItem(item)
     setFormData({
@@ -105,11 +105,11 @@ const InternoView = () => {
       ures: item.ures,
       activo: item.activo
     })
-    setModalMode('view')
-    setShowModal(true)
+    setDrawerMode('view')
+    setShowDrawer(true)
   }
   
-  // Abrir modal para crear
+  // Abrir drawer para crear
   const handleCreate = () => {
     setSelectedItem(null)
     setFormData({
@@ -121,11 +121,11 @@ const InternoView = () => {
       ures: '',
       activo: 1
     })
-    setModalMode('create')
-    setShowModal(true)
+    setDrawerMode('create')
+    setShowDrawer(true)
   }
   
-  // Abrir modal para editar
+  // Abrir drawer para editar
   const handleEdit = (item) => {
     setSelectedItem(item)
     setFormData({
@@ -137,15 +137,15 @@ const InternoView = () => {
       ures: item.ures,
       activo: item.activo
     })
-    setModalMode('edit')
-    setShowModal(true)
+    setDrawerMode('edit')
+    setShowDrawer(true)
   }
   
-  // Cerrar modal
-  const handleCloseModal = () => {
-    setShowModal(false)
+  // Cerrar drawer
+  const handleCloseDrawer = () => {
+    setShowDrawer(false)
     setSelectedItem(null)
-    setModalMode('view')
+    setDrawerMode('view')
   }
   
   // Manejar cambios en el formulario
@@ -163,11 +163,11 @@ const InternoView = () => {
       const sessionId = getSessionId()
       
       // Usar proxy local para evitar CORS
-      const url = modalMode === 'create' 
+      const url = drawerMode === 'create' 
         ? `${API_BASE}/patrimonioci/insertar`
         : `${API_BASE}/patrimonioci/actualizar/${selectedItem.id_pat_ci}`
       
-      const method = modalMode === 'create' ? 'POST' : 'PUT'
+      const method = drawerMode === 'create' ? 'POST' : 'PUT'
       
       const response = await fetch(url, {
         method,
@@ -185,9 +185,9 @@ const InternoView = () => {
       const data = await response.json()
       
       if (data.success) {
-        toast.success(modalMode === 'create' ? 'Creado exitosamente' : 'Actualizado exitosamente')
-        handleCloseModal()
-        if (modalMode === 'create' && data.data?.id) {
+        toast.success(drawerMode === 'create' ? 'Creado exitosamente' : 'Actualizado exitosamente')
+        handleCloseDrawer()
+        if (drawerMode === 'create' && data.data?.id) {
           const createdId = parseInt(data.data.id)
           setCurrentId(createdId)
           setSearchId(String(createdId))
@@ -202,6 +202,11 @@ const InternoView = () => {
       console.error('Error guardando:', error)
       toast.error('Error al guardar datos')
     }
+  }
+
+  const showValue = (value) => {
+    if (value === undefined || value === null || value === '') return 'Sin dato'
+    return value
   }
   
   // Buscar por ID específico
@@ -250,42 +255,22 @@ const InternoView = () => {
       </div>
       
       {/* Búsqueda por ID */}
-      <div className="search-bar" style={{ 
-        display: 'flex', 
-        gap: '10px', 
-        marginBottom: '20px',
-        padding: '15px',
-        background: '#f8f9fa',
-        borderRadius: '8px'
-      }}>
+      <div className="search-bar">
         <input
           type="number"
           placeholder="Buscar por ID..."
           value={searchId}
           onChange={(e) => setSearchId(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          style={{
-            flex: 1,
-            padding: '10px 15px',
-            border: '1px solid #ddd',
-            borderRadius: '5px',
-            fontSize: '14px'
-          }}
+          className="search-input"
         />
         <button 
+          className="btn-search"
           onClick={handleSearch}
           disabled={loading}
-          style={{
-            padding: '10px 20px',
-            background: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-          >
-            Buscar
-          </button>
+        >
+          Buscar
+        </button>
       </div>
       
       {/* Tabla */}
@@ -310,7 +295,7 @@ const InternoView = () => {
               </tr>
             </thead>
             <tbody>
-              <tr key={item.id_pat_ci}>
+              <tr key={item.id_pat_ci} className="clickable-row" onClick={() => handleView(item)}>
                 <td>{item.id_pat_ci}</td>
                 <td>{item.descrip}</td>
                 <td>{item.marca}</td>
@@ -325,16 +310,12 @@ const InternoView = () => {
                 </td>
                 <td>
                   <div className="action-buttons">
-                    <button 
-                      className="btn-icon btn-view" 
-                      onClick={() => handleView(item)}
-                      title="Ver detalles"
-                    >
-                      <FaEye />
-                    </button>
-                    <button 
-                      className="btn-icon btn-edit" 
-                      onClick={() => handleEdit(item)}
+                    <button
+                      className="btn-icon btn-edit"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEdit(item)
+                      }}
                       title="Editar"
                     >
                       <FaEdit />
@@ -347,131 +328,176 @@ const InternoView = () => {
         )}
       </div>
       
-      {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>
-                {modalMode === 'view' && 'Detalles del Patrimonio'}
-                {modalMode === 'create' && 'Crear Nuevo Patrimonio'}
-                {modalMode === 'edit' && 'Editar Patrimonio'}
-              </h2>
-              <button className="btn-close" onClick={handleCloseModal}>×</button>
-            </div>
-            
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Descripción</label>
-                  <input
-                    type="text"
-                    name="descrip"
-                    value={formData.descrip}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    placeholder="Descripción del bien"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Marca</label>
-                  <input
-                    type="text"
-                    name="marca"
-                    value={formData.marca}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    placeholder="Marca"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Modelo</label>
-                  <input
-                    type="text"
-                    name="modelo"
-                    value={formData.modelo}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    placeholder="Modelo"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Número de Serie</label>
-                  <input
-                    type="text"
-                    name="num_serie"
-                    value={formData.num_serie}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    placeholder="Número de serie"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Dependencia</label>
-                  <input
-                    type="text"
-                    name="depenadsc"
-                    value={formData.depenadsc}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    placeholder="Dependencia"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>URES</label>
-                  <input
-                    type="text"
-                    name="ures"
-                    value={formData.ures}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                    placeholder="URES"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Estado</label>
-                  <select
-                    name="activo"
-                    value={formData.activo}
-                    onChange={handleInputChange}
-                    disabled={modalMode === 'view'}
-                  >
-                    <option value={1}>Activo</option>
-                    <option value={0}>Inactivo</option>
-                  </select>
-                </div>
+      {/* Drawer */}
+      {showDrawer && (
+        <>
+          <div className="drawer-overlay open" onClick={handleCloseDrawer} />
+          <div className="drawer-panel open" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-header">
+              <div>
+                <h2>
+                  {drawerMode === 'view' && 'Detalle Patrimonio Interno'}
+                  {drawerMode === 'create' && 'Crear Nuevo Patrimonio'}
+                  {drawerMode === 'edit' && 'Editar Patrimonio'}
+                </h2>
+                {(drawerMode === 'view' || drawerMode === 'edit') && (
+                  <p className="drawer-subtitle">
+                    ID {showValue(selectedItem?.id_pat_ci)} · Estado {selectedItem?.activo === 1 ? 'Activo' : 'Inactivo'}
+                  </p>
+                )}
               </div>
+              <button className="btn-close" onClick={handleCloseDrawer}>×</button>
             </div>
             
-            <div className="modal-footer">
-              {modalMode === 'view' ? (
+            <div className="drawer-content">
+              {drawerMode === 'view' && (
                 <>
-                  <button className="btn-secondary" onClick={handleCloseModal}>
+                  <div className="drawer-summary">
+                    <div className="summary-card">
+                      <span className="summary-label">Descripción</span>
+                      <span className="summary-value">{showValue(formData.descrip)}</span>
+                    </div>
+                    <div className="summary-card">
+                      <span className="summary-label">Estado</span>
+                      <span className="summary-value">{formData.activo === 1 ? 'Activo' : 'Inactivo'}</span>
+                    </div>
+                  </div>
+
+                  <div className="drawer-section">
+                    <h3>Información del bien</h3>
+                    <div className="detail-grid two-cols">
+                      <div className="detail-item"><span className="detail-label">ID</span><span className="detail-value">{showValue(selectedItem?.id_pat_ci)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Descripción</span><span className="detail-value">{showValue(formData.descrip)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Marca</span><span className="detail-value">{showValue(formData.marca)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Modelo</span><span className="detail-value">{showValue(formData.modelo)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Número de Serie</span><span className="detail-value">{showValue(formData.num_serie)}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="drawer-section">
+                    <h3>Asignación</h3>
+                    <div className="detail-grid two-cols">
+                      <div className="detail-item"><span className="detail-label">Dependencia</span><span className="detail-value">{showValue(formData.depenadsc)}</span></div>
+                      <div className="detail-item"><span className="detail-label">URES</span><span className="detail-value">{showValue(formData.ures)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Estado</span><span className="detail-value">{formData.activo === 1 ? 'Activo' : 'Inactivo'}</span></div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {drawerMode !== 'view' && (
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Descripción</label>
+                    <input
+                      type="text"
+                      name="descrip"
+                      value={formData.descrip}
+                      onChange={handleInputChange}
+                      disabled={drawerMode === 'view'}
+                      placeholder="Descripción del bien"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Marca</label>
+                    <input
+                      type="text"
+                      name="marca"
+                      value={formData.marca}
+                      onChange={handleInputChange}
+                      disabled={drawerMode === 'view'}
+                      placeholder="Marca"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Modelo</label>
+                    <input
+                      type="text"
+                      name="modelo"
+                      value={formData.modelo}
+                      onChange={handleInputChange}
+                      disabled={drawerMode === 'view'}
+                      placeholder="Modelo"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Número de Serie</label>
+                    <input
+                      type="text"
+                      name="num_serie"
+                      value={formData.num_serie}
+                      onChange={handleInputChange}
+                      disabled={drawerMode === 'view'}
+                      placeholder="Número de serie"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Dependencia</label>
+                    <input
+                      type="text"
+                      name="depenadsc"
+                      value={formData.depenadsc}
+                      onChange={handleInputChange}
+                      disabled={drawerMode === 'view'}
+                      placeholder="Dependencia"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>URES</label>
+                    <input
+                      type="text"
+                      name="ures"
+                      value={formData.ures}
+                      onChange={handleInputChange}
+                      disabled={drawerMode === 'view'}
+                      placeholder="URES"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Estado</label>
+                    <select
+                      name="activo"
+                      value={formData.activo}
+                      onChange={handleInputChange}
+                      disabled={drawerMode === 'view'}
+                    >
+                      <option value={1}>Activo</option>
+                      <option value={0}>Inactivo</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="drawer-footer">
+              {drawerMode === 'view' ? (
+                <>
+                  <button className="btn-secondary" onClick={handleCloseDrawer}>
                     Cerrar
                   </button>
-                  <button className="btn-primary" onClick={() => setModalMode('edit')}>
+                  <button className="btn-primary" onClick={() => setDrawerMode('edit')}>
                     Editar
                   </button>
                 </>
               ) : (
                 <>
-                  <button className="btn-secondary" onClick={handleCloseModal}>
+                  <button className="btn-secondary" onClick={handleCloseDrawer}>
                     Cancelar
                   </button>
                   <button className="btn-primary" onClick={handleSave}>
-                    {modalMode === 'create' ? 'Crear' : 'Guardar Cambios'}
+                    {drawerMode === 'create' ? 'Crear' : 'Guardar Cambios'}
                   </button>
                 </>
               )}
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
