@@ -415,9 +415,12 @@
 
 .form-group label {
   margin-bottom: 0.5rem;
-  color: #2c3e50;
+  color: #2c3e50 !important;
   font-weight: 600;
   font-size: 0.9rem;
+  text-shadow: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .form-group input,

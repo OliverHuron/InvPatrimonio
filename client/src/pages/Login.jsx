@@ -50,61 +50,33 @@ const Login = () => {
   return (
     <div className="login-container">
       {/* Background decorativo */}
-      <div className="login-background">
-        <div className="bg-shape shape-1"></div>
-        <div className="bg-shape shape-2"></div>
-        <div className="bg-shape shape-3"></div>
-      </div>
+      <div className="login-background"></div>
 
       <div className="login-content">
-        {/* Logo y título */}
-        <div className="login-header">
-          <div className="login-logo">
-            <div className="logo-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div className="logo-text">
-              <h1>SIAF</h1>
-              <p>Sistema Integral de Administración Facultaria</p>
-            </div>
-          </div>
-          <div className="login-subtitle">
-            <h2>Inventario Patrimonial</h2>
-            <p>Inicia sesión para acceder al sistema</p>
-          </div>
+        {/* Título */}
+        <div className="login-title">
+          <h1>SIAF</h1>
+          <p>Inventario Patrimonial</p>
         </div>
 
         {/* Formulario */}
         <form className="login-form" onSubmit={handleSubmit}>
           {error && (
             <div className="login-error">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2"/>
-                <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2"/>
-              </svg>
               {error}
             </div>
           )}
 
           <div className="form-group">
-            <label htmlFor="username">Usuario o Email</label>
+            <label htmlFor="username">Usuario</label>
             <div className="input-wrapper">
-              <svg className="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
               <input
                 type="text"
                 id="username"
                 name="username"
                 value={credentials.username}
                 onChange={handleInputChange}
-                placeholder="Ingresa tu usuario o email"
+                placeholder="Ingresa tu usuario"
                 autoComplete="username"
                 disabled={loading}
               />
@@ -114,11 +86,6 @@ const Login = () => {
           <div className="form-group">
             <label htmlFor="password">Contraseña</label>
             <div className="input-wrapper">
-              <svg className="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/>
-                <circle cx="12" cy="16" r="1" stroke="currentColor" strokeWidth="2"/>
-                <path d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11" stroke="currentColor" strokeWidth="2"/>
-              </svg>
               <input
                 type={showPassword ? 'text' : 'password'}
                 id="password"
@@ -136,15 +103,13 @@ const Login = () => {
                 disabled={loading}
               >
                 {showPassword ? (
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.94 17.94C16.2306 19.243 14.1491 19.9649 12 20C5 20 1 12 1 12C2.24389 9.68192 4.02914 7.65663 6.17 6.06L17.94 17.94Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M9.9 4.24C10.5883 4.0789 11.2931 3.99836 12 4C19 4 23 12 23 12C22.393 13.1356 21.6691 14.2048 20.84 15.19L9.9 4.24Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                   </svg>
                 ) : (
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
                 )}
               </button>
@@ -158,26 +123,16 @@ const Login = () => {
                 Iniciando sesión...
               </>
             ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M15 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="10,17 15,12 10,7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Iniciar Sesión
-              </>
+              'Iniciar Sesión'
             )}
           </button>
         </form>
+      </div>
 
-        {/* Footer */}
-        <div className="login-footer">
-          <p>¿Problemas para acceder?</p>
-          <p>Contacta a <strong>Infraestructura Informática</strong></p>
-          <div className="version-info">
-            <span>SIAF 2026 - Inventario Patrimonial v1.0</span>
-          </div>
-        </div>
+      {/* Footer en zona guinda */}
+      <div className="login-footer-zone">
+        <p><strong>Universidad Michoacana de San Nicolás de Hidalgo</strong></p>
+        <p className="copyright">Sistema Integral de Administración Facultaria © 2026</p>
       </div>
     </div>
   );
