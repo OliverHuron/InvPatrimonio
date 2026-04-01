@@ -4,12 +4,13 @@
 // =====================================================
 
 import React, { useState, useEffect } from 'react'
-import { FaSync, FaSearch } from 'react-icons/fa'
+import { FaSync } from 'react-icons/fa'
 import { toast } from 'react-toastify'
 import './ExternoView.css'
 
 const ExternoView = () => {
-  const API_BASE = 'http://localhost:5000/api/patrimonio-api'
+  const API_BASE_URL = process.env.REACT_APP_API_URL || '/api'
+  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}/patrimonio-api`
   
   // Estados
   const [item, setItem] = useState(null)
@@ -114,7 +115,7 @@ const ExternoView = () => {
               onClick={() => loadData(searchId)} 
               disabled={loading}
             >
-              <FaSearch /> Buscar
+              Buscar
             </button>
           </div>
           <button className="btn-refresh" onClick={() => loadData(searchId)} disabled={loading}>

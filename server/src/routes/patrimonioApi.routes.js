@@ -12,50 +12,71 @@ const axios = require('axios');
 router.post('/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const API_UMICH = process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+    const configuredBase = process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
+    const baseCandidates = [configuredBase];
+    if (configuredBase.startsWith('http://')) {
+      baseCandidates.push(configuredBase.replace('http://', 'https://'));
+    } else if (configuredBase.startsWith('https://')) {
+      baseCandidates.push(configuredBase.replace('https://', 'http://'));
+    }
+    const uniqueBases = [...new Set(baseCandidates)];
+    const payloadCandidates = [
+      { username, password },
+      { usuario: username, password },
+      { user: username, password },
+      { username: username?.trim(), password }
+    ];
     
     console.log('[Proxy Login] Intentando login con UMICH...');
-    
-    const response = await axios.post(`${API_UMICH}/auth/login`, {
-      username,
-      password
-    }, {
-      validateStatus: () => true,
-    });
-    
-    const setCookieHeader = response.headers['set-cookie'];
+
+    let finalResponse = null;
     let jsessionId = null;
-    
-    if (setCookieHeader) {
-      for (const cookie of setCookieHeader) {
-        const match = cookie.match(/JSESSIONID=([^;]+)/);
-        if (match) {
-          jsessionId = match[1];
-          console.log('[Proxy Login] JSESSIONID capturado:', jsessionId.substring(0, 10) + '...');
-          break;
+    let lastErrorMessage = null;
+
+    for (const baseUrl of uniqueBases) {
+      for (const payload of payloadCandidates) {
+        const response = await axios.post(`${baseUrl}/auth/login`, payload, {
+          validateStatus: () => true,
+          timeout: parseInt(process.env.EXTERNAL_API_TIMEOUT || '10000', 10)
+        });
+
+        const setCookieHeader = response.headers['set-cookie'];
+        jsessionId = null;
+        if (setCookieHeader) {
+          for (const cookie of setCookieHeader) {
+            const match = cookie.match(/JSESSIONID=([^;]+)/);
+            if (match) {
+              jsessionId = match[1];
+              break;
+            }
+          }
         }
+
+        finalResponse = response;
+        const isSuccess = response.data?.message === 'Login exitoso' ||
+          response.status === 200 ||
+          !!jsessionId;
+
+        if (isSuccess && jsessionId) {
+          console.log('[Proxy Login] Login exitoso con UMICH');
+          console.log('[Proxy Login] Base exitosa:', baseUrl);
+          return res.json({
+            success: true,
+            message: 'Login exitoso',
+            sessionId: jsessionId,
+            user: response.data?.user || { username }
+          });
+        }
+
+        lastErrorMessage = response.data?.message || response.data?.error || `HTTP ${response.status}`;
       }
     }
-    
-    const isSuccess = response.data?.message === 'Login exitoso' || 
-                     response.status === 200 ||
-                     jsessionId;
-    
-    if (isSuccess && jsessionId) {
-      console.log('[Proxy Login] Login exitoso con UMICH');
-      res.json({
-        success: true,
-        message: 'Login exitoso',
-        sessionId: jsessionId,
-        user: response.data?.user || { username }
-      });
-    } else {
-      console.log('[Proxy Login] Login fallido:', response.data);
-      res.status(401).json({
-        success: false,
-        message: response.data?.message || 'Credenciales inválidas'
-      });
-    }
+
+    console.log('[Proxy Login] Login fallido:', finalResponse?.data || lastErrorMessage);
+    res.status(401).json({
+      success: false,
+      message: lastErrorMessage || 'Credenciales inválidas'
+    });
   } catch (error) {
     console.error('[Proxy Login] Error:', error.message);
     res.status(500).json({

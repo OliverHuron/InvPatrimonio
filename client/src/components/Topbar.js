@@ -45,10 +45,9 @@ const Topbar = ({ title = 'Sistema Integral de Administración Facultaria' }) =>
         <h3>{title}</h3>
       </div>
       <div className="siaf-topbar-right">
-        <div className="siaf-notification">🔔<span className="badge">1</span></div>
         <div className="siaf-profile" ref={dropdownRef} onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <div className="siaf-avatar">
-            {user ? getUserInitials(user.fullName) : '👤'}
+            {user ? getUserInitials(user.fullName) : 'U'}
           </div>
           <div className="siaf-username">
             {user ? user.fullName || user.username : 'Usuario'}
@@ -64,14 +63,14 @@ const Topbar = ({ title = 'Sistema Integral de Administración Facultaria' }) =>
               </div>
               <hr />
               <button className="dropdown-item" onClick={() => setShowProfileMenu(false)}>
-                👤 Ver Perfil
+                Ver Perfil
               </button>
               <button className="dropdown-item" onClick={() => setShowProfileMenu(false)}>
-                ⚙️ Configuración
+                Configuracion
               </button>
               <hr />
               <button className="dropdown-item logout-btn" onClick={handleLogout}>
-                🚪 Cerrar Sesión
+                Cerrar Sesion
               </button>
             </div>
           )}

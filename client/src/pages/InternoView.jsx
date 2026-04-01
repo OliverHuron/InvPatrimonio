@@ -9,8 +9,8 @@ import { toast } from 'react-toastify'
 import './InternoView.css'
 
 const InternoView = () => {
-  // CAMBIO: Usar proxy local para evitar problemas CORS
-  const API_BASE = 'http://localhost:5000/api/patrimonio-api'
+  const API_BASE_URL = process.env.REACT_APP_API_URL || '/api'
+  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}/patrimonio-api`
   
   // Obtener sessionId de localStorage
   const getSessionId = () => localStorage.getItem('sessionId')
@@ -265,8 +265,7 @@ const InternoView = () => {
       {/* Header */}
       <div className="view-header">
         <div>
-          <h1>Patrimonio Interno (CI)</h1>
-          <p>Gestión de patrimonio interno con API PatrimonioCI</p>
+          <h1>Patrimonio Interno</h1>
         </div>
         <div className="header-actions">
           <button className="btn-refresh" onClick={loadData} disabled={loading}>
@@ -312,12 +311,9 @@ const InternoView = () => {
             borderRadius: '5px',
             cursor: 'pointer'
           }}
-        >
-          🔍 Buscar
-        </button>
-        <span style={{ alignSelf: 'center', color: '#666', fontSize: '13px' }}>
-          IDs cargados: {knownIds.join(', ')}
-        </span>
+          >
+            Buscar
+          </button>
       </div>
       
       {/* Tabla */}
