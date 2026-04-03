@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { FaBars } from 'react-icons/fa'
 import '../styles/layout.css'
 
-const Topbar = ({ title = 'Sistema Integral de Administración Facultaria' }) => {
+const Topbar = ({ title = 'Sistema Integral de Administración Facultaria', onToggleSidebar }) => {
   const { user, logout } = useAuth()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const dropdownRef = useRef(null)
@@ -42,6 +43,14 @@ const Topbar = ({ title = 'Sistema Integral de Administración Facultaria' }) =>
   return (
     <header className="siaf-topbar">
       <div className="siaf-topbar-left">
+        <button
+          type="button"
+          className="siaf-sidebar-toggle"
+          onClick={onToggleSidebar}
+          aria-label="Abrir menú"
+        >
+          <FaBars />
+        </button>
         <h3>{title}</h3>
       </div>
       <div className="siaf-topbar-right">

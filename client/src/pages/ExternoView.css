@@ -373,6 +373,10 @@
     overflow-x: auto;
   }
 
+  .data-table {
+    min-width: 920px;
+  }
+
   .drawer-summary,
   .detail-grid.two-cols {
     grid-template-columns: 1fr;

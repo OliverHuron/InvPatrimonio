@@ -616,6 +616,10 @@
   .table-container {
     overflow-x: auto;
   }
+
+  .data-table {
+    min-width: 900px;
+  }
   
   .form-grid {
     grid-template-columns: 1fr;
