@@ -24,7 +24,7 @@ export const DataSourceProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
-  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}/patrimonio-api`;
+  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}`;
 
   useEffect(() => {
     fetchDataSourceInfo();

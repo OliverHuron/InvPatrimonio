@@ -10,7 +10,7 @@ import './ExternoView.css'
 
 const ExternoView = () => {
   const API_BASE_URL = process.env.REACT_APP_API_URL || '/api'
-  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}/patrimonio-api`
+  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}`
 
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)

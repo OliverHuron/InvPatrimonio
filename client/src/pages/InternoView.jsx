@@ -10,7 +10,7 @@ import './InternoView.css'
 
 const InternoView = () => {
   const API_BASE_URL = process.env.REACT_APP_API_URL || '/api'
-  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}/patrimonio-api`
+  const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}`
   const BACKEND_BASE_URL = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '')
   const [photoRefreshTs, setPhotoRefreshTs] = useState(0)
   const normalizeDate = (value) => (value ? String(value).split('T')[0] : '')

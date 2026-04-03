@@ -96,9 +96,12 @@ const { initializeDatabase } = require('./config/database');
 const { initializeRedis } = require('./services/redis.service');
 
 // Routes
-const patrimonioApiRoutes = require('./routes/patrimonioApi.routes'); // API Externa UMICH
+const patrimonioApiRoutes = require('./routes/patrimonioApi.routes'); // API Inventario/Auth
 
-app.use('/api/patrimonio-api', patrimonioApiRoutes); // API Externa (nuevo)
+// Ruta principal limpia
+app.use('/api', patrimonioApiRoutes);
+// Compatibilidad temporal con clientes antiguos
+app.use('/api/patrimonio-api', patrimonioApiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
