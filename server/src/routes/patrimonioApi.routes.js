@@ -93,6 +93,13 @@ router.post('/auth/login', async (req, res) => {
         });
       } catch (error) {
         console.log('[Auth BD] Login fallido:', error.message);
+        if (error && error.code === '42P01') {
+          return res.status(500).json({
+            success: false,
+            message: 'La tabla de usuarios no existe en esta base de datos. Ejecuta migraciones en producción.',
+            source: 'bd'
+          });
+        }
         return res.status(401).json({
           success: false,
           message: error.message || 'Credenciales inválidas',

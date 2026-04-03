@@ -294,8 +294,6 @@ CREATE TRIGGER trigger_update_usuarios_timestamp
   FOR EACH ROW
   EXECUTE FUNCTION update_usuarios_timestamp();
 
--- Usuario admin base
-INSERT INTO usuarios (usuario, contrasena, rol, ures)
-VALUES ('admin', '$2b$12$rx5ij96fkpCutEa7ols7l.ff8XurZRKvjlG9/CM8gN6r1w7MDEUry', 'administrador', '0')
-ON CONFLICT (usuario) DO NOTHING;
+-- Sin usuario/contraseña por defecto por seguridad.
+-- Crea usuarios de forma explícita desde un script seguro o panel administrativo.
 

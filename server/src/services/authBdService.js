@@ -12,7 +12,7 @@ const loginLocal = async (usuario, contrasena) => {
   try {
     // Buscar usuario
     const result = await pool.query(
-      'SELECT * FROM usuarios WHERE usuario = $1 AND activo = true',
+      'SELECT * FROM public.usuarios WHERE usuario = $1 AND activo = true',
       [usuario]
     );
     
@@ -31,7 +31,7 @@ const loginLocal = async (usuario, contrasena) => {
     
     // Actualizar último acceso
     await pool.query(
-      'UPDATE usuarios SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE public.usuarios SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id = $1',
       [user.id]
     );
     
@@ -58,7 +58,7 @@ const createUser = async (data) => {
     const hashedPassword = await bcrypt.hash(data.contrasena, 12);
     
     const query = `
-      INSERT INTO usuarios (usuario, contrasena, rol, ures)
+      INSERT INTO public.usuarios (usuario, contrasena, rol, ures)
       VALUES ($1, $2, $3, $4)
       RETURNING id, usuario, rol, ures, activo
     `;
@@ -84,7 +84,7 @@ const createUser = async (data) => {
 const userExists = async (usuario) => {
   try {
     const result = await pool.query(
-      'SELECT COUNT(*) FROM usuarios WHERE usuario = $1',
+      'SELECT COUNT(*) FROM public.usuarios WHERE usuario = $1',
       [usuario]
     );
     
@@ -103,7 +103,7 @@ const changePassword = async (usuario, nuevaContrasena) => {
     const hashedPassword = await bcrypt.hash(nuevaContrasena, 12);
     
     await pool.query(
-      'UPDATE usuarios SET contrasena = $1 WHERE usuario = $2',
+      'UPDATE public.usuarios SET contrasena = $1 WHERE usuario = $2',
       [hashedPassword, usuario]
     );
     

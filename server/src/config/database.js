@@ -1,4 +1,6 @@
 const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 // Configuración de la base de datos
@@ -29,8 +31,19 @@ const pool = new Pool(dbConfig);
 async function initializeDatabase() {
   try {
     const client = await pool.connect();
+    await client.query('SET search_path TO public');
     const result = await client.query('SELECT NOW()');
     console.log('Conexion a PostgreSQL exitosa:', result.rows[0].now);
+
+    const migrationPath = path.join(__dirname, '..', '..', 'database', 'migrations', '001_schema_unificada.sql');
+    if (fs.existsSync(migrationPath)) {
+      const sql = fs.readFileSync(migrationPath, 'utf8');
+      await client.query(sql);
+      console.log('Migracion unificada aplicada/verificada');
+    } else {
+      console.warn('No se encontro 001_schema_unificada.sql, se omite auto-migracion');
+    }
+
     client.release();
   } catch (error) {
     console.error('Error conectando a PostgreSQL:', error);
