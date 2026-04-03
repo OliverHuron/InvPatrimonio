@@ -35,13 +35,42 @@ async function initializeDatabase() {
     const result = await client.query('SELECT NOW()');
     console.log('Conexion a PostgreSQL exitosa:', result.rows[0].now);
 
-    const migrationPath = path.join(__dirname, '..', '..', 'database', 'migrations', '001_schema_unificada.sql');
-    if (fs.existsSync(migrationPath)) {
-      const sql = fs.readFileSync(migrationPath, 'utf8');
-      await client.query(sql);
-      console.log('Migracion unificada aplicada/verificada');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(255) UNIQUE NOT NULL,
+        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    const migrationsDir = path.join(__dirname, '..', '..', 'database', 'migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs
+        .readdirSync(migrationsDir)
+        .filter((file) => file.endsWith('.sql'))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+      for (const file of files) {
+        const alreadyApplied = await client.query(
+          'SELECT 1 FROM schema_migrations WHERE filename = $1',
+          [file]
+        );
+
+        if (alreadyApplied.rows.length > 0) {
+          continue;
+        }
+
+        const migrationPath = path.join(migrationsDir, file);
+        const sql = fs.readFileSync(migrationPath, 'utf8');
+        await client.query(sql);
+        await client.query(
+          'INSERT INTO schema_migrations (filename) VALUES ($1)',
+          [file]
+        );
+        console.log(`Migracion aplicada: ${file}`);
+      }
     } else {
-      console.warn('No se encontro 001_schema_unificada.sql, se omite auto-migracion');
+      console.warn('No se encontro directorio de migraciones, se omite auto-migracion');
     }
 
     client.release();

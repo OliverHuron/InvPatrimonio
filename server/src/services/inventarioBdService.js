@@ -70,9 +70,9 @@ const getAllInventariosInternos = async (page = 1, limit = 50, filters = {}) => 
       paramIndex++;
     }
     
-    if (filters.ubicacion_edificio) {
-      query += ` AND ubicacion_edificio = $${paramIndex}`;
-      params.push(filters.ubicacion_edificio);
+    if (filters.ubicacion) {
+      query += ` AND ubicacion = $${paramIndex}`;
+      params.push(filters.ubicacion);
       paramIndex++;
     }
 
@@ -151,7 +151,7 @@ const createInventarioInterno = async (data) => {
       INSERT INTO inventario_interno (
         numero_registro_patrimonial, no_registro, descripcion, marca, modelo,
         no_serie, no_factura, costo, ures_asignacion,
-        ubicacion_edificio, recurso, proveedor, fecha_elaboracion, observaciones,
+        ubicacion, recurso, proveedor, fecha_elaboracion, observaciones,
         estado_uso, entrega_responsable, responsable_usuario, numero_empleado_usuario, ur, activo,
         usuario_creacion
       ) VALUES (
@@ -174,7 +174,7 @@ const createInventarioInterno = async (data) => {
       data.no_factura,
       data.costo,
       data.ures_asignacion,
-      data.ubicacion_edificio,
+      data.ubicacion,
       data.recurso,
       data.proveedor,
       parseDateOrNull(data.fecha_elaboracion),
@@ -212,7 +212,7 @@ const updateInventarioInterno = async (id, data) => {
         no_factura = COALESCE($7, no_factura),
         costo = COALESCE($8, costo),
         ures_asignacion = COALESCE($9, ures_asignacion),
-        ubicacion_edificio = COALESCE($10, ubicacion_edificio),
+        ubicacion = COALESCE($10, ubicacion),
         recurso = COALESCE($11, recurso),
         proveedor = COALESCE($12, proveedor),
         fecha_elaboracion = COALESCE($13, fecha_elaboracion),
@@ -239,7 +239,7 @@ const updateInventarioInterno = async (id, data) => {
       data.no_factura,
       data.costo,
       data.ures_asignacion,
-      data.ubicacion_edificio,
+      data.ubicacion,
       data.recurso,
       data.proveedor,
       parseDateOrNull(data.fecha_elaboracion),
@@ -349,14 +349,14 @@ const createInventarioExterno = async (data) => {
         id_patrimonio, folio, no_inventario, descripcion, comentarios, entrega_responsable,
         areas_calculo, o_res_asignacion, folio_2, codigo, tipo_bien, desc_text, porc_desc,
         muo, equipo, marca, modelo, serie, ejercicio, adquisicion_compra, proveedor_prov,
-        mycm, proveedor, anio_alta, fec_reg_registros, nvo_costo, ubicacion_edificio, ubicacion_salon,
+        mycm, proveedor, anio_alta, fec_reg_registros, nvo_costo, ubicacion,
         estado_uso, responsable_usuario, numero_empleado_usuario, usu_reg, activo, usuario_creacion
       ) VALUES (
         COALESCE(NULLIF($1, ''), nextval('inventario_externo_id_seq')::text), $2, $3, $4, $5, $6,
         $7, $8, $9, $10, $11, $12, $13,
         $14, $15, $16, $17, $18, $19, $20, $21,
-        $22, $23, $24, $25, $26, $27, $28,
-        $29, $30, $31, $32, $33, $34
+        $22, $23, $24, $25, $26, $27,
+        $28, $29, $30, $31, $32, $33
       )
       RETURNING *
     `;
@@ -388,8 +388,7 @@ const createInventarioExterno = async (data) => {
       data.anio_alta,
       parseDateOrNull(data.fec_reg_registros),
       data.nvo_costo ?? data.costo,
-      data.ubicacion_edificio,
-      data.ubicacion_salon,
+      data.ubicacion,
       data.estado_uso || '1-Bueno',
       data.responsable_usuario,
       data.numero_empleado_usuario,
@@ -438,16 +437,15 @@ const updateInventarioExterno = async (id, data) => {
         anio_alta = COALESCE($23, anio_alta),
         fec_reg_registros = COALESCE($24, fec_reg_registros),
         nvo_costo = COALESCE($25, nvo_costo),
-        ubicacion_edificio = COALESCE($26, ubicacion_edificio),
-        ubicacion_salon = COALESCE($27, ubicacion_salon),
-        estado_uso = COALESCE($28, estado_uso),
-        responsable_usuario = COALESCE($29, responsable_usuario),
-        numero_empleado_usuario = COALESCE($30, numero_empleado_usuario),
-        usu_reg = COALESCE($31, usu_reg),
-        activo = COALESCE($32, activo),
-        usuario_actualizacion = $33,
+        ubicacion = COALESCE($26, ubicacion),
+        estado_uso = COALESCE($27, estado_uso),
+        responsable_usuario = COALESCE($28, responsable_usuario),
+        numero_empleado_usuario = COALESCE($29, numero_empleado_usuario),
+        usu_reg = COALESCE($30, usu_reg),
+        activo = COALESCE($31, activo),
+        usuario_actualizacion = $32,
         fecha_actualizacion = CURRENT_TIMESTAMP
-      WHERE id = $34
+      WHERE id = $33
       RETURNING *
     `;
     
@@ -477,8 +475,7 @@ const updateInventarioExterno = async (id, data) => {
       data.anio_alta,
       parseDateOrNull(data.fec_reg_registros),
       data.nvo_costo ?? data.costo,
-      data.ubicacion_edificio,
-      data.ubicacion_salon,
+      data.ubicacion,
       data.estado_uso,
       data.responsable_usuario,
       data.numero_empleado_usuario,

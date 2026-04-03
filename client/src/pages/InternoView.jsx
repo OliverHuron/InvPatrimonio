@@ -38,7 +38,7 @@ const InternoView = () => {
   const [filters, setFilters] = useState({
     q: '',
     responsable: '',
-    ubicacion_edificio: '',
+    ubicacion: '',
     fecha_elaboracion: '',
     estado: ''
   })
@@ -60,7 +60,7 @@ const InternoView = () => {
     uuid: '',
     costo: '',
     ures_asignacion: '',
-    ubicacion_edificio: '',
+    ubicacion: '',
     recurso: '',
     proveedor: '',
     fecha_elaboracion: '',
@@ -86,7 +86,7 @@ const InternoView = () => {
     uuid: data.uuid || '',
     costo: data.costo || '',
     ures_asignacion: data.ures_asignacion || data.llaves_adquisicion || '',
-    ubicacion_edificio: data.ubicacion_edificio || data.ubicacion || '',
+    ubicacion: data.ubicacion || data.ubicacion_edificio || '',
     recurso: data.recurso || data.insauro || '',
     proveedor: data.proveedor || '',
     fecha_elaboracion: normalizeDate(data.fecha_elaboracion),
@@ -117,7 +117,7 @@ const InternoView = () => {
       const params = new URLSearchParams({ page: '1', limit: '500' })
       if (appliedFilters.q) params.set('q', appliedFilters.q)
       if (appliedFilters.responsable) params.set('responsable', appliedFilters.responsable)
-      if (appliedFilters.ubicacion_edificio) params.set('ubicacion_edificio', appliedFilters.ubicacion_edificio)
+      if (appliedFilters.ubicacion) params.set('ubicacion', appliedFilters.ubicacion)
       if (appliedFilters.fecha_elaboracion) params.set('fecha_elaboracion', appliedFilters.fecha_elaboracion)
       if (appliedFilters.estado) params.set('estado', appliedFilters.estado)
 
@@ -136,7 +136,7 @@ const InternoView = () => {
       setItems(normalized)
       setFilterOptions({
         responsables: [...new Set(normalized.map((x) => x.entrega_responsable).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
-        ubicaciones: [...new Set(normalized.map((x) => x.ubicacion_edificio).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+        ubicaciones: [...new Set(normalized.map((x) => x.ubicacion).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       })
     } catch (error) {
       console.error('Error cargando internos:', error)
@@ -205,7 +205,7 @@ const InternoView = () => {
       uuid: '',
         costo: '',
         ures_asignacion: '',
-        ubicacion_edificio: '',
+        ubicacion: '',
         recurso: '',
       proveedor: '',
       fecha_elaboracion: '',
@@ -390,7 +390,7 @@ const InternoView = () => {
     const emptyFilters = {
       q: '',
       responsable: '',
-      ubicacion_edificio: '',
+      ubicacion: '',
       fecha_elaboracion: '',
       estado: ''
     }
@@ -476,7 +476,7 @@ const InternoView = () => {
             <option key={responsable} value={responsable}>{responsable}</option>
           ))}
         </select>
-        <select className="search-input" name="ubicacion_edificio" value={filters.ubicacion_edificio} onChange={handleFilterChange}>
+        <select className="search-input" name="ubicacion" value={filters.ubicacion} onChange={handleFilterChange}>
           <option value="">Ubicación (todas)</option>
           {filterOptions.ubicaciones.map((ubicacion) => (
             <option key={ubicacion} value={ubicacion}>{ubicacion}</option>
@@ -603,7 +603,7 @@ const InternoView = () => {
                       <div className="detail-item"><span className="detail-label">UUID (folio fiscal)</span><span className="detail-value">{showValue(formData.uuid)}</span></div>
                       <div className="detail-item"><span className="detail-label">Costo</span><span className="detail-value">{showValue(formData.costo)}</span></div>
                       <div className="detail-item"><span className="detail-label">URES de asignación</span><span className="detail-value">{showValue(formData.ures_asignacion)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Ubicación</span><span className="detail-value">{showValue(formData.ubicacion_edificio)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Ubicación</span><span className="detail-value">{showValue(formData.ubicacion)}</span></div>
                       <div className="detail-item"><span className="detail-label">Recurso</span><span className="detail-value">{showValue(formData.recurso)}</span></div>
                       <div className="detail-item"><span className="detail-label">Proveedor</span><span className="detail-value">{showValue(formData.proveedor)}</span></div>
                       <div className="detail-item"><span className="detail-label">Fecha de elaboración</span><span className="detail-value">{showValue(formData.fecha_elaboracion)}</span></div>
@@ -705,7 +705,7 @@ const InternoView = () => {
 
                   <div className="form-group">
                     <label>Ubicación</label>
-                    <input type="text" name="ubicacion_edificio" value={formData.ubicacion_edificio || ''} onChange={handleInputChange} />
+                    <input type="text" name="ubicacion" value={formData.ubicacion || ''} onChange={handleInputChange} />
                   </div>
 
                   <div className="form-group">

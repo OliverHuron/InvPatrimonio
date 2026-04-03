@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS inventario_interno (
   no_factura VARCHAR(100),
   costo DECIMAL(15, 2),
   ures_asignacion VARCHAR(255),
-  ubicacion_edificio VARCHAR(255),
+  ubicacion VARCHAR(255),
   recurso VARCHAR(100),
   proveedor VARCHAR(255),
   fecha_elaboracion DATE,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS inventario_interno (
 CREATE INDEX IF NOT EXISTS idx_interno_num_registro ON inventario_interno(numero_registro_patrimonial);
 CREATE INDEX IF NOT EXISTS idx_interno_marca ON inventario_interno(marca);
 CREATE INDEX IF NOT EXISTS idx_interno_modelo ON inventario_interno(modelo);
-CREATE INDEX IF NOT EXISTS idx_interno_ubicacion ON inventario_interno(ubicacion_edificio);
+CREATE INDEX IF NOT EXISTS idx_interno_ubicacion ON inventario_interno(ubicacion);
 CREATE INDEX IF NOT EXISTS idx_interno_responsable ON inventario_interno(responsable_usuario);
 CREATE INDEX IF NOT EXISTS idx_interno_activo ON inventario_interno(activo);
 CREATE INDEX IF NOT EXISTS idx_interno_fecha_creacion ON inventario_interno(fecha_creacion);
@@ -91,8 +91,7 @@ CREATE TABLE IF NOT EXISTS inventario_externo (
   anio_alta VARCHAR(10),
   fec_reg_registros DATE,
   nvo_costo DECIMAL(15, 2),
-  ubicacion_edificio VARCHAR(50),
-  ubicacion_salon VARCHAR(50),
+  ubicacion VARCHAR(255),
   estado_uso VARCHAR(20) CHECK (estado_uso IN ('1-Bueno', '2-Regular', '3-Malo')),
   responsable_usuario VARCHAR(255),
   numero_empleado_usuario VARCHAR(100),
@@ -110,7 +109,7 @@ CREATE INDEX IF NOT EXISTS idx_externo_no_inventario ON inventario_externo(no_in
 CREATE INDEX IF NOT EXISTS idx_externo_marca ON inventario_externo(marca);
 CREATE INDEX IF NOT EXISTS idx_externo_modelo ON inventario_externo(modelo);
 CREATE INDEX IF NOT EXISTS idx_externo_serie ON inventario_externo(serie);
-CREATE INDEX IF NOT EXISTS idx_externo_ubicacion ON inventario_externo(ubicacion_edificio, ubicacion_salon);
+CREATE INDEX IF NOT EXISTS idx_externo_ubicacion ON inventario_externo(ubicacion);
 CREATE INDEX IF NOT EXISTS idx_externo_responsable ON inventario_externo(responsable_usuario);
 CREATE INDEX IF NOT EXISTS idx_externo_activo ON inventario_externo(activo);
 CREATE INDEX IF NOT EXISTS idx_externo_fecha_creacion ON inventario_externo(fecha_creacion);

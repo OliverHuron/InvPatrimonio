@@ -60,7 +60,7 @@ const Login = () => {
         </div>
 
         {/* Formulario */}
-        <form className="login-form" onSubmit={handleSubmit}>
+        <form className="login-form" onSubmit={handleSubmit} autoComplete="off">
           {error && (
             <div className="login-error">
               {error}
@@ -77,7 +77,7 @@ const Login = () => {
                 value={credentials.username}
                 onChange={handleInputChange}
                 placeholder="Ingresa tu usuario"
-                autoComplete="username"
+                autoComplete="off"
                 disabled={loading}
               />
             </div>
@@ -93,7 +93,7 @@ const Login = () => {
                 value={credentials.password}
                 onChange={handleInputChange}
                 placeholder="Ingresa tu contraseña"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 disabled={loading}
               />
               <button

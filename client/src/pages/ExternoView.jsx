@@ -47,8 +47,7 @@ const ExternoView = () => {
     anio_alta: '',
     fec_reg_registros: '',
     nvo_costo: '',
-    ubicacion_edificio: '',
-    ubicacion_salon: '',
+    ubicacion: '',
     estado_uso: '1-Bueno',
     responsable_usuario: '',
     numero_empleado_usuario: '',
@@ -105,8 +104,7 @@ const ExternoView = () => {
       anio_alta: valueOf(source, ['anio_alta']),
       fec_reg_registros: valueOf(source, ['fec_reg_registros', 'fecha_adquisicion']),
       nvo_costo: valueOf(source, ['nvo_costo', 'costo']),
-      ubicacion_edificio: valueOf(source, ['ubicacion_edificio', 'ubicacion']),
-      ubicacion_salon: valueOf(source, ['ubicacion_salon']),
+      ubicacion: valueOf(source, ['ubicacion', 'ubicacion_edificio']),
       estado_uso: valueOf(source, ['estado_uso']),
       responsable_usuario: valueOf(source, ['responsable_usuario']),
       numero_empleado_usuario: valueOf(source, ['numero_empleado_usuario']),
@@ -335,7 +333,7 @@ const ExternoView = () => {
                   <td>{item.marca || 'N/A'}</td>
                   <td>{item.modelo || 'N/A'}</td>
                   <td>{item.serie || 'N/A'}</td>
-                  <td>{item.ubicacion_edificio || 'N/A'}</td>
+                  <td>{item.ubicacion || 'N/A'}</td>
                   <td>{formatCurrency(item.nvo_costo)}</td>
                   <td>
                     <div className="action-buttons">
@@ -396,8 +394,7 @@ const ExternoView = () => {
                       <div className="detail-item"><span className="detail-label">Proveedor</span><span className="detail-value">{showValue(selectedItem.proveedor)}</span></div>
                       <div className="detail-item"><span className="detail-label">Usu Asig</span><span className="detail-value">{showValue(selectedItem.numero_empleado_usuario)}</span></div>
                       <div className="detail-item"><span className="detail-label">Usu Reg</span><span className="detail-value">{showValue(selectedItem.usu_reg)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Ubicación - Edificio</span><span className="detail-value">{showValue(selectedItem.ubicacion_edificio)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Ubicación - Salón</span><span className="detail-value">{showValue(selectedItem.ubicacion_salon)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Ubicación</span><span className="detail-value">{showValue(selectedItem.ubicacion)}</span></div>
                       <div className="detail-item"><span className="detail-label">Estado de Uso</span><span className="detail-value">{showValue(selectedItem.estado_uso)}</span></div>
                       <div className="detail-item"><span className="detail-label">Resguardante (usuario)</span><span className="detail-value">{showValue(selectedItem.responsable_usuario)}</span></div>
                       <div className="detail-item"><span className="detail-label">Número de empleado (usuario)</span><span className="detail-value">{showValue(selectedItem.numero_empleado_usuario)}</span></div>
@@ -431,8 +428,7 @@ const ExternoView = () => {
                   <div className="form-group"><label>Proveedor</label><input name="proveedor" value={formData.proveedor || ''} onChange={handleInputChange} /></div>
                   <div className="form-group"><label>Usu Asig</label><input name="numero_empleado_usuario" value={formData.numero_empleado_usuario || ''} onChange={handleInputChange} /></div>
                   <div className="form-group"><label>Usu Reg</label><input name="usu_reg" value={formData.usu_reg || ''} onChange={handleInputChange} /></div>
-                  <div className="form-group"><label>Ubicación - Edificio</label><input name="ubicacion_edificio" value={formData.ubicacion_edificio || ''} onChange={handleInputChange} /></div>
-                  <div className="form-group"><label>Ubicación - Salón</label><input name="ubicacion_salon" value={formData.ubicacion_salon || ''} onChange={handleInputChange} /></div>
+                  <div className="form-group"><label>Ubicación</label><input name="ubicacion" value={formData.ubicacion || ''} onChange={handleInputChange} /></div>
                   <div className="form-group"><label>Estado de Uso</label><select name="estado_uso" value={formData.estado_uso || '1-Bueno'} onChange={handleInputChange}><option value="1-Bueno">1-Bueno</option><option value="2-Regular">2-Regular</option><option value="3-Malo">3-Malo</option></select></div>
                   <div className="form-group"><label>Resguardante (usuario)</label><input name="responsable_usuario" value={formData.responsable_usuario || ''} onChange={handleInputChange} /></div>
                   <div className="form-group"><label>Número de empleado (usuario)</label><input name="numero_empleado_usuario" value={formData.numero_empleado_usuario || ''} onChange={handleInputChange} /></div>

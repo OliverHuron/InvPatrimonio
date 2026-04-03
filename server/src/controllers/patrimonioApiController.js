@@ -203,7 +203,7 @@ const getAllPatrimonioci = async (req, res) => {
     const filters = {
       q: req.query.q || '',
       responsable: req.query.responsable || '',
-      ubicacion_edificio: req.query.ubicacion_edificio || '',
+      ubicacion: req.query.ubicacion || req.query.ubicacion_edificio || '',
       fecha_elaboracion: req.query.fecha_elaboracion || '',
       estado: req.query.estado || ''
     };

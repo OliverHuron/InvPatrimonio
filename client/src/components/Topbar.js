@@ -62,13 +62,6 @@ const Topbar = ({ title = 'Sistema Integral de Administración Facultaria' }) =>
                 <span className="user-role">{user?.role}</span>
               </div>
               <hr />
-              <button className="dropdown-item" onClick={() => setShowProfileMenu(false)}>
-                Ver Perfil
-              </button>
-              <button className="dropdown-item" onClick={() => setShowProfileMenu(false)}>
-                Configuracion
-              </button>
-              <hr />
               <button className="dropdown-item logout-btn" onClick={handleLogout}>
                 Cerrar Sesion
               </button>
