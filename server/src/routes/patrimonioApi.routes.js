@@ -5,6 +5,7 @@ const express = require('express');
 const router = express.Router();
 const patrimonioApiController = require('../controllers/patrimonioApiController');
 const authController = require('../controllers/authController');
+const umaController = require('../controllers/umaController');
 const authBdService = require('../services/authBdService');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
@@ -192,6 +193,12 @@ router.post('/auth/login', async (req, res) => {
 // Info del sistema (modo API/BD)
 router.get('/info', patrimonioApiController.getDataSourceInfo);
 router.get('/categorias/entrega', patrimonioApiController.getCategoriasEntrega);
+
+// === UMAS ===
+router.get('/umas', umaController.getAllUmas);
+router.get('/umas/:anio', umaController.getUmaByAnio);
+router.post('/umas', umaController.upsertUma);
+router.get('/umas/calcular', umaController.calcularClasificacionUma);
 
 // === PATRIMONIO CI (Interno) ===
 router.get('/patrimonioci', patrimonioApiController.getAllPatrimonioci);

@@ -319,6 +319,30 @@ const getDataSourceInfo = () => {
 };
 
 // =====================================================
+// UMAS
+// =====================================================
+
+const getAllUmas = async () => {
+  logSource('getAllUmas');
+  return await inventarioBdService.getAllUmas();
+};
+
+const getUmaByAnio = async (anio) => {
+  logSource('getUmaByAnio');
+  return await inventarioBdService.getUmaByAnio(anio);
+};
+
+const upsertUma = async (anio, valor) => {
+  logSource('upsertUma');
+  return await inventarioBdService.upsertUma(anio, valor);
+};
+
+const calcularClasificacionUma = async (costo, anio) => {
+  logSource('calcularClasificacionUma');
+  return await inventarioBdService.calcularClasificacionUma(costo, anio);
+};
+
+// =====================================================
 // EXPORTAR FUNCIONES
 // =====================================================
 module.exports = {
@@ -343,6 +367,12 @@ module.exports = {
   // Categorías
   getAllCategorias,
   getCategoriasByNivel,
+  
+  // UMAs
+  getAllUmas,
+  getUmaByAnio,
+  upsertUma,
+  calcularClasificacionUma,
   
   // Utilidades
   getDataSourceInfo,

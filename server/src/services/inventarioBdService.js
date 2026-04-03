@@ -664,6 +664,100 @@ const getCategoriasByNivel = async (nivel) => {
 };
 
 // =====================================================
+// UMAS (Unidad de Medida y Actualización)
+// =====================================================
+
+/**
+ * Obtener todas las UMAs
+ */
+const getAllUmas = async () => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM umas WHERE activo = true ORDER BY anio DESC'
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('[BD Local] Error obteniendo UMAs:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtener UMA por año
+ */
+const getUmaByAnio = async (anio) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM umas WHERE anio = $1 AND activo = true',
+      [anio]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('[BD Local] Error obteniendo UMA:', error);
+    throw error;
+  }
+};
+
+/**
+ * Crear o actualizar UMA
+ */
+const upsertUma = async (anio, valor) => {
+  try {
+    const result = await pool.query(
+      `INSERT INTO umas (anio, valor, activo)
+       VALUES ($1, $2, true)
+       ON CONFLICT (anio)
+       DO UPDATE SET valor = $2, fecha_actualizacion = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [anio, valor]
+    );
+    return result.rows[0];
+  } catch (error) {
+    console.error('[BD Local] Error guardando UMA:', error);
+    throw error;
+  }
+};
+
+/**
+ * Calcular clasificación UMA para un item
+ * @param {number} costo - Costo del bien
+ * @param {number} anio - Año de elaboración
+ * @returns {object} { umbral, clasificacion, umaValor, anio }
+ */
+const calcularClasificacionUma = async (costo, anio) => {
+  try {
+    const uma = await getUmaByAnio(anio);
+    if (!uma) {
+      return {
+        umbral: null,
+        clasificacion: 'Sin UMA',
+        umaValor: null,
+        anio: anio
+      };
+    }
+
+    const umbral = parseFloat(uma.valor) * 70;
+    const costoNum = parseFloat(costo) || 0;
+    const clasificacion = costoNum >= umbral ? 'Mayor' : 'Menor';
+
+    return {
+      umbral: umbral.toFixed(2),
+      clasificacion,
+      umaValor: uma.valor,
+      anio: uma.anio
+    };
+  } catch (error) {
+    console.error('[BD Local] Error calculando clasificación UMA:', error);
+    return {
+      umbral: null,
+      clasificacion: 'Error',
+      umaValor: null,
+      anio: anio
+    };
+  }
+};
+
+// =====================================================
 // EXPORTAR FUNCIONES
 // =====================================================
 module.exports = {
@@ -687,5 +781,11 @@ module.exports = {
   
   // Categorías
   getAllCategorias,
-  getCategoriasByNivel
+  getCategoriasByNivel,
+  
+  // UMAs
+  getAllUmas,
+  getUmaByAnio,
+  upsertUma,
+  calcularClasificacionUma
 };
