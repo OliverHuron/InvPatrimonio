@@ -4,15 +4,107 @@
 const express = require('express');
 const router = express.Router();
 const patrimonioApiController = require('../controllers/patrimonioApiController');
+const authController = require('../controllers/authController');
+const authBdService = require('../services/authBdService');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'tu_super_secreto_cambialo_en_produccion';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+
+const uploadDir = path.join(__dirname, '..', '..', 'uploads', 'patrimonio');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDir),
+    filename: (req, _file, cb) => {
+      const { id, orden } = req.params;
+      cb(null, `${id}_${orden}.webp`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+      return cb(new Error('Solo se permiten imágenes'));
+    }
+    cb(null, true);
+  }
+});
+
+// Obtener modo de datos
+const getDataSource = () => {
+  const source = process.env.INVENTARIO_DATA_SOURCE || 'bd';
+  return source.toLowerCase();
+};
 
 // =====================================================
-// LOGIN PROXY - Captura JSESSIONID de UMICH
+// LOGIN DUAL - BD (JWT httpOnly) o API (sessionId)
 // =====================================================
 router.post('/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const configuredBase = process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
+    const dataSource = getDataSource();
+    
+    console.log(`[Auth] Modo: ${dataSource.toUpperCase()}`);
+    
+    // MODO BD: Autenticación local con JWT httpOnly cookies
+    if (dataSource === 'bd') {
+      try {
+        const user = await authBdService.loginLocal(username, password);
+        
+        // Generar JWT
+        const token = jwt.sign(
+          {
+            id: user.id,
+            usuario: user.usuario,
+            rol: user.rol,
+            ures: user.ures
+          },
+          JWT_SECRET,
+          { expiresIn: JWT_EXPIRES_IN }
+        );
+        
+        // Establecer cookie httpOnly
+        res.cookie('auth_token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60 * 1000 // 24 horas
+        });
+        
+        console.log('[Auth BD] Login exitoso:', user.usuario);
+        
+        return res.json({
+          success: true,
+          message: 'Login exitoso',
+          user: {
+            id: user.id,
+            username: user.usuario,
+            rol: user.rol,
+            ures: user.ures
+          },
+          source: 'bd'
+        });
+      } catch (error) {
+        console.log('[Auth BD] Login fallido:', error.message);
+        return res.status(401).json({
+          success: false,
+          message: error.message || 'Credenciales inválidas',
+          source: 'bd'
+        });
+      }
+    }
+    
+    // MODO API: Proxy a UMICH
+    console.log('[Proxy Login] Intentando login con UMICH...');
+    
+    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
     const baseCandidates = [configuredBase];
     if (configuredBase.startsWith('http://')) {
       baseCandidates.push(configuredBase.replace('http://', 'https://'));
@@ -26,8 +118,6 @@ router.post('/auth/login', async (req, res) => {
       { user: username, password },
       { username: username?.trim(), password }
     ];
-    
-    console.log('[Proxy Login] Intentando login con UMICH...');
 
     let finalResponse = null;
     let jsessionId = null;
@@ -64,7 +154,8 @@ router.post('/auth/login', async (req, res) => {
             success: true,
             message: 'Login exitoso',
             sessionId: jsessionId,
-            user: response.data?.user || { username }
+            user: response.data?.user || { username },
+            source: 'api'
           });
         }
 
@@ -75,13 +166,14 @@ router.post('/auth/login', async (req, res) => {
     console.log('[Proxy Login] Login fallido:', finalResponse?.data || lastErrorMessage);
     res.status(401).json({
       success: false,
-      message: lastErrorMessage || 'Credenciales inválidas'
+      message: lastErrorMessage || 'Credenciales inválidas',
+      source: 'api'
     });
   } catch (error) {
-    console.error('[Proxy Login] Error:', error.message);
+    console.error('[Auth] Error:', error.message);
     res.status(500).json({
       success: false,
-      message: 'Error al conectar con UMICH'
+      message: 'Error en autenticación'
     });
   }
 });
@@ -90,13 +182,24 @@ router.post('/auth/login', async (req, res) => {
 // RUTAS QUE CONSUMEN LA API EXTERNA
 // =====================================================
 
+// Info del sistema (modo API/BD)
+router.get('/info', patrimonioApiController.getDataSourceInfo);
+router.get('/categorias/entrega', patrimonioApiController.getCategoriasEntrega);
+
 // === PATRIMONIO CI (Interno) ===
+router.get('/patrimonioci', patrimonioApiController.getAllPatrimonioci);
 router.get('/patrimonioci/:id', patrimonioApiController.getPatrimoniociById);
 router.post('/patrimonioci/insertar', patrimonioApiController.createPatrimonioci);
 router.put('/patrimonioci/actualizar/:id', patrimonioApiController.updatePatrimonioci);
+router.get('/patrimonioci/:id/fotos', patrimonioApiController.getFotosPatrimonioci);
+router.post('/patrimonioci/:id/fotos/:orden', upload.single('foto'), patrimonioApiController.upsertFotoPatrimonioci);
+router.delete('/patrimonioci/:id/fotos/:orden', patrimonioApiController.deleteFotoPatrimonioci);
 
-// === PATRIMONIO (Externo - solo lectura) ===
+// === PATRIMONIO (Externo) ===
+router.get('/patrimonio', patrimonioApiController.getAllPatrimonios);
 router.get('/patrimonio/:id', patrimonioApiController.getPatrimonioById);
+router.post('/patrimonio/insertar', patrimonioApiController.createPatrimonio);
+router.put('/patrimonio/actualizar/:id', patrimonioApiController.updatePatrimonio);
 
 // === Rutas antiguas (mantener por compatibilidad) ===
 // Obtener todos los inventarios (limitado a IDs de prueba)
@@ -122,5 +225,26 @@ router.post('/', patrimonioApiController.createPatrimonio);
 
 // Actualizar inventario
 router.put('/:id', patrimonioApiController.updatePatrimonio);
+
+// =====================================================
+// LOGOUT DUAL
+// =====================================================
+router.post('/auth/logout', async (req, res) => {
+  const dataSource = getDataSource();
+  
+  if (dataSource === 'bd') {
+    // Limpiar cookie JWT
+    res.clearCookie('auth_token');
+    return res.json({ success: true, message: 'Logout exitoso' });
+  } else {
+    // Logout de API externa (si existe)
+    return res.json({ success: true, message: 'Logout exitoso' });
+  }
+});
+
+// =====================================================
+// PERFIL DE USUARIO
+// =====================================================
+router.get('/auth/profile', authController.verifyToken, authController.getProfile);
 
 module.exports = router;

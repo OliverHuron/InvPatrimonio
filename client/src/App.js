@@ -11,8 +11,9 @@ import { useEffect } from 'react'
 // Componentes de react-router para manejo de rutas en el frontend.
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
-// Contexto de autenticación
+// Contexto de autenticación y datos
 import { AuthProvider } from './context/AuthContext'
+import { DataSourceProvider } from './context/DataSourceContext'
 
 // Componentes de protección de rutas
 import ProtectedRoute, { UserRoute } from './components/ProtectedRoute'
@@ -37,41 +38,43 @@ function App() {
   }, [])
 
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Ruta pública de login */}
-          <Route path="/login" element={<Login />} />
-          
-          {/* Rutas protegidas con Layout */}
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }>
-            {/* Ruta principal redirige a interno */}
-            <Route index element={<Navigate to="/interno" replace />} />
+    <DataSourceProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Ruta pública de login */}
+            <Route path="/login" element={<Login />} />
             
-            {/* Ruta de patrimonio interno (PatrimonioCI) */}
-            <Route path="interno" element={
-              <UserRoute>
-                <InternoView />
-              </UserRoute>
-            } />
-            
-            {/* Ruta de patrimonio externo (Patrimonio - solo lectura) */}
-            <Route path="externo" element={
-              <UserRoute>
-                <ExternoView />
-              </UserRoute>
-            } />
-          </Route>
+            {/* Rutas protegidas con Layout */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              {/* Ruta principal redirige a interno */}
+              <Route index element={<Navigate to="/interno" replace />} />
+              
+              {/* Ruta de patrimonio interno (PatrimonioCI) */}
+              <Route path="interno" element={
+                <UserRoute>
+                  <InternoView />
+                </UserRoute>
+              } />
+              
+              {/* Ruta de patrimonio externo (Patrimonio - solo lectura) */}
+              <Route path="externo" element={
+                <UserRoute>
+                  <ExternoView />
+                </UserRoute>
+              } />
+            </Route>
 
-          {/* Redirigir rutas no encontradas */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* Redirigir rutas no encontradas */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </DataSourceProvider>
   )
 }
 

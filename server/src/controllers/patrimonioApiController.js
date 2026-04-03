@@ -1,23 +1,26 @@
 // =====================================================
-// CONTROLADOR DE PATRIMONIO - API EXTERNA
+// CONTROLADOR DE PATRIMONIO - UNIFICADO (API/BD)
 // =====================================================
-const patrimonioApiService = require('../services/patrimonioApiService');
+const inventarioService = require('../services/inventarioService');
+const fs = require('fs');
+const path = require('path');
 
 /**
- * Obtener patrimonio por ID desde API externa
+ * Obtener patrimonio por ID (desde API o BD según configuración)
  */
 const getPatrimonioById = async (req, res) => {
   try {
     const { id } = req.params;
     const umichSessionId = req.headers['x-umich-session'];
     
-    console.log(`[Controller] Obteniendo patrimonio ${id} de API externa...`);
+    console.log(`[Controller] Obteniendo patrimonio ${id}...`);
     
-    const patrimonio = await patrimonioApiService.getPatrimonioById(id, umichSessionId);
+    const patrimonio = await inventarioService.getInventarioExternoById(id, umichSessionId);
     
     res.json({
       success: true,
-      data: patrimonio
+      data: patrimonio,
+      source: inventarioService.getDataSource()
     });
   } catch (error) {
     console.error(`[Controller] Error:`, error.message);
@@ -30,40 +33,20 @@ const getPatrimonioById = async (req, res) => {
 };
 
 /**
- * Listar patrimonios (limitado por la API)
- * NOTA: La API solo soporta consulta por ID individual
+ * Listar patrimonios (disponible solo en modo BD)
  */
 const getAllPatrimonios = async (req, res) => {
   try {
     console.log('[Controller] Listado de patrimonios solicitado');
-    const umichSessionId = req.headers['x-umich-session'];
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
     
-    // Como la API no soporta listado, devolvemos ejemplos de prueba
-    const testIds = [16932, 42]; // IDs de prueba disponibles
-    
-    const patrimonios = [];
-    
-    for (const id of testIds) {
-      try {
-        const item = await patrimonioApiService.getPatrimonioById(id, umichSessionId);
-        patrimonios.push(item);
-      } catch (error) {
-        console.warn(`No se pudo obtener item ${id}:`, error.message);
-      }
-    }
+    const result = await inventarioService.getAllInventariosExternos(page, limit);
     
     res.json({
       success: true,
-      data: {
-        items: patrimonios,
-        total: patrimonios.length,
-        pagination: {
-          hasMore: false,
-          nextCursor: null,
-          isFiltered: false
-        }
-      },
-      warning: 'La API externa solo soporta consulta por ID. Mostrando datos de prueba.'
+      data: result,
+      source: inventarioService.getDataSource()
     });
   } catch (error) {
     console.error(`[Controller] Error en listado:`, error.message);
@@ -76,21 +59,22 @@ const getAllPatrimonios = async (req, res) => {
 };
 
 /**
- * Crear patrimonio en API externa
+ * Crear patrimonio (en API o BD según configuración)
  */
 const createPatrimonio = async (req, res) => {
   try {
     const data = req.body;
     const umichSessionId = req.headers['x-umich-session'];
     
-    console.log('[Controller] Creando patrimonio en API externa...');
+    console.log('[Controller] Creando patrimonio...');
     
-    const result = await patrimonioApiService.createPatrimonio(data, umichSessionId);
+    const result = await inventarioService.createInventarioExterno(data, umichSessionId);
     
     res.status(201).json({
       success: true,
       message: 'Patrimonio creado exitosamente',
-      data: result
+      data: result,
+      source: inventarioService.getDataSource()
     });
   } catch (error) {
     console.error(`[Controller] Error al crear:`, error.message);
@@ -103,7 +87,7 @@ const createPatrimonio = async (req, res) => {
 };
 
 /**
- * Actualizar patrimonio en API externa
+ * Actualizar patrimonio (en API o BD según configuración)
  */
 const updatePatrimonio = async (req, res) => {
   try {
@@ -111,14 +95,15 @@ const updatePatrimonio = async (req, res) => {
     const data = req.body;
     const umichSessionId = req.headers['x-umich-session'];
     
-    console.log(`[Controller] Actualizando patrimonio ${id} en API externa...`);
+    console.log(`[Controller] Actualizando patrimonio ${id}...`);
     
-    const result = await patrimonioApiService.updatePatrimonio(id, data, umichSessionId);
+    const result = await inventarioService.updateInventarioExterno(id, data, umichSessionId);
     
     res.json({
       success: true,
       message: 'Patrimonio actualizado exitosamente',
-      data: result
+      data: result,
+      source: inventarioService.getDataSource()
     });
   } catch (error) {
     console.error(`[Controller] Error al actualizar:`, error.message);
@@ -185,20 +170,21 @@ const getDashboardStats = async (req, res) => {
 // =====================================================
 
 /**
- * Obtener PatrimonioCI por ID
+ * Obtener PatrimonioCI por ID (desde API o BD según configuración)
  */
 const getPatrimoniociById = async (req, res) => {
   try {
     const { id } = req.params;
     const umichSessionId = req.headers['x-umich-session'];
     
-    console.log(`[Controller] Obteniendo patrimonioci ${id} de API externa...`);
+    console.log(`[Controller] Obteniendo patrimonioci ${id}...`);
     
-    const patrimonioci = await patrimonioApiService.getPatrimoniociById(id, umichSessionId);
+    const patrimonioci = await inventarioService.getInventarioInternoById(id, umichSessionId);
     
     res.json({
       success: true,
-      data: patrimonioci
+      data: patrimonioci,
+      source: inventarioService.getDataSource()
     });
   } catch (error) {
     console.error(`[Controller] Error:`, error.message);
@@ -210,22 +196,49 @@ const getPatrimoniociById = async (req, res) => {
   }
 };
 
+const getAllPatrimonioci = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 200;
+    const filters = {
+      q: req.query.q || '',
+      responsable: req.query.responsable || '',
+      ubicacion_edificio: req.query.ubicacion_edificio || '',
+      fecha_elaboracion: req.query.fecha_elaboracion || '',
+      estado: req.query.estado || ''
+    };
+    const result = await inventarioService.getAllInventariosInternos(page, limit, filters);
+    res.json({
+      success: true,
+      data: result,
+      source: inventarioService.getDataSource()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al listar patrimonioci',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
 /**
- * Crear PatrimonioCI
+ * Crear PatrimonioCI (en API o BD según configuración)
  */
 const createPatrimonioci = async (req, res) => {
   try {
     const data = req.body;
     const umichSessionId = req.headers['x-umich-session'];
     
-    console.log('[Controller] Creando patrimonioci en API externa...');
+    console.log('[Controller] Creando patrimonioci...');
     
-    const result = await patrimonioApiService.createPatrimonioci(data, umichSessionId);
+    const result = await inventarioService.createInventarioInterno(data, umichSessionId);
     
     res.status(201).json({
       success: true,
       message: 'PatrimonioCI creado exitosamente',
-      data: result
+      data: result,
+      source: inventarioService.getDataSource()
     });
   } catch (error) {
     console.error(`[Controller] Error al crear:`, error.message);
@@ -238,7 +251,7 @@ const createPatrimonioci = async (req, res) => {
 };
 
 /**
- * Actualizar PatrimonioCI
+ * Actualizar PatrimonioCI (en API o BD según configuración)
  */
 const updatePatrimonioci = async (req, res) => {
   try {
@@ -246,14 +259,15 @@ const updatePatrimonioci = async (req, res) => {
     const data = req.body;
     const umichSessionId = req.headers['x-umich-session'];
     
-    console.log(`[Controller] Actualizando patrimonioci ${id} en API externa...`);
+    console.log(`[Controller] Actualizando patrimonioci ${id}...`);
     
-    const result = await patrimonioApiService.updatePatrimonioci(id, data, umichSessionId);
+    const result = await inventarioService.updateInventarioInterno(id, data, umichSessionId);
     
     res.json({
       success: true,
       message: 'PatrimonioCI actualizado exitosamente',
-      data: result
+      data: result,
+      source: inventarioService.getDataSource()
     });
   } catch (error) {
     console.error(`[Controller] Error al actualizar:`, error.message);
@@ -261,6 +275,123 @@ const updatePatrimonioci = async (req, res) => {
       success: false,
       message: error.message || 'Error al actualizar patrimonioci',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+const getFotosPatrimonioci = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fotos = await inventarioService.getFotosByItem('interno', id);
+    res.json({ success: true, data: fotos });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al obtener fotos'
+    });
+  }
+};
+
+const upsertFotoPatrimonioci = async (req, res) => {
+  try {
+    const { id, orden } = req.params;
+    const ordenNum = parseInt(orden, 10);
+
+    if (![1, 2, 3].includes(ordenNum)) {
+      return res.status(400).json({ success: false, message: 'El orden debe ser 1, 2 o 3' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Debes enviar una imagen' });
+    }
+
+    const fotoAnterior = await inventarioService.deleteFotoByOrden('interno', id, ordenNum);
+    const nuevaRutaRelativa = `uploads/patrimonio/${req.file.filename}`;
+    if (fotoAnterior?.ruta_archivo && fotoAnterior.ruta_archivo !== nuevaRutaRelativa) {
+      const previousAbsPath = path.join(__dirname, '..', '..', fotoAnterior.ruta_archivo);
+      if (fs.existsSync(previousAbsPath)) {
+        fs.unlinkSync(previousAbsPath);
+      }
+    }
+
+    const nuevaFoto = await inventarioService.upsertFotoSlot({
+      tipo_inventario: 'interno',
+      inventario_id: parseInt(id, 10),
+      ruta_archivo: nuevaRutaRelativa,
+      nombre_archivo: req.file.filename,
+      tamanio_bytes: req.file.size,
+      mime_type: req.file.mimetype,
+      orden: ordenNum,
+      es_principal: ordenNum === 1,
+      usuario_creacion: req.body?.usuario || 'system'
+    });
+
+    res.json({ success: true, data: nuevaFoto });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al guardar foto'
+    });
+  }
+};
+
+const deleteFotoPatrimonioci = async (req, res) => {
+  try {
+    const { id, orden } = req.params;
+    const ordenNum = parseInt(orden, 10);
+
+    if (![1, 2, 3].includes(ordenNum)) {
+      return res.status(400).json({ success: false, message: 'El orden debe ser 1, 2 o 3' });
+    }
+
+    const foto = await inventarioService.deleteFotoByOrden('interno', id, ordenNum);
+    if (foto?.ruta_archivo) {
+      const absPath = path.join(__dirname, '..', '..', foto.ruta_archivo);
+      if (fs.existsSync(absPath)) {
+        fs.unlinkSync(absPath);
+      }
+    }
+
+    res.json({ success: true, data: foto });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al eliminar foto'
+    });
+  }
+};
+
+/**
+ * Obtener información del modo de datos actual
+ */
+const getDataSourceInfo = async (req, res) => {
+  try {
+    const info = inventarioService.getDataSourceInfo();
+    res.json({
+      success: true,
+      data: info
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener información del sistema'
+    });
+  }
+};
+
+/**
+ * Obtener catálogo de categorías para ENTREGA Responsable
+ */
+const getCategoriasEntrega = async (req, res) => {
+  try {
+    const categorias = await inventarioService.getAllCategorias();
+    res.json({
+      success: true,
+      data: categorias
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al obtener categorías'
     });
   }
 };
@@ -275,7 +406,14 @@ module.exports = {
   searchInventarios,
   getDashboardStats,
   // Funciones PatrimonioCI
+  getAllPatrimonioci,
   getPatrimoniociById,
   createPatrimonioci,
-  updatePatrimonioci
+  updatePatrimonioci,
+  getFotosPatrimonioci,
+  upsertFotoPatrimonioci,
+  deleteFotoPatrimonioci,
+  getCategoriasEntrega,
+  // Info del sistema
+  getDataSourceInfo
 };

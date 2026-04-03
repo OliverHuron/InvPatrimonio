@@ -303,11 +303,17 @@
 .btn-close {
   background: none;
   border: none;
+  padding: 0;
   font-size: 1.6rem;
+  line-height: 1;
   color: #9e2c3f;
   cursor: pointer;
   width: 32px;
   height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   border-radius: 50%;
   transition: all 0.2s;
 }
@@ -320,6 +326,7 @@
 .drawer-content {
   padding: 1rem 1.1rem 1.4rem;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
 }
 
@@ -411,6 +418,11 @@
 .form-group {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.form-group-full {
+  grid-column: 1 / -1;
 }
 
 .form-group label {
@@ -426,11 +438,21 @@
 .form-group input,
 .form-group select,
 .form-group textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 0.8rem;
   border: 2px solid #ecf0f1;
   border-radius: 6px;
   font-size: 0.9rem;
   transition: border-color 0.2s;
+}
+
+.select-cascade-control {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .form-group input:focus,
@@ -454,6 +476,96 @@
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+}
+
+.photo-helper {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  margin-bottom: 0.5rem;
+}
+
+.photo-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.photo-slot {
+  border: 1px solid #ecf0f1;
+  border-radius: 8px;
+  padding: 0.6rem;
+  background: #fff;
+}
+
+.photo-slot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+  font-size: 0.8rem;
+  color: #2c3e50;
+}
+
+.photo-name {
+  color: #7f8c8d;
+}
+
+.photo-preview {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #ecf0f1;
+  background: #f8f9fa;
+}
+
+.photo-empty {
+  width: 100%;
+  height: 110px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #d0d7de;
+  border-radius: 6px;
+  color: #95a5a6;
+  font-size: 0.85rem;
+  background: #fafafa;
+}
+
+.photo-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.btn-upload {
+  position: relative;
+  overflow: hidden;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.btn-upload input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.btn-upload.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn-delete-photo {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.btn-delete-photo:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Responsive */
@@ -485,7 +597,8 @@
   }
 
   .drawer-summary,
-  .detail-grid.two-cols {
+  .detail-grid.two-cols,
+  .photo-slots {
     grid-template-columns: 1fr;
   }
   

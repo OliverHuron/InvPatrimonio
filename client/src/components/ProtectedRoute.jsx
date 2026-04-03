@@ -55,14 +55,14 @@ const ProtectedRoute = ({ children, requiredRole = null, allowedRoles = null }) 
 
 // Componente específico para rutas de administrador
 export const AdminRoute = ({ children }) => (
-  <ProtectedRoute requiredRole="admin">
+  <ProtectedRoute allowedRoles={['admin', 'administrador']}>
     {children}
   </ProtectedRoute>
 );
 
 // Componente para rutas que requieren admin o user
 export const UserRoute = ({ children }) => (
-  <ProtectedRoute allowedRoles={['admin', 'user']}>
+  <ProtectedRoute allowedRoles={['admin', 'administrador', 'user', 'usuario']}>
     {children}
   </ProtectedRoute>
 );
