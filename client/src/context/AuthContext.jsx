@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
   const API_BASE = API_BASE_URL.replace(/\/$/, '');
+  const API_BASE_LEGACY = `${API_BASE}/patrimonio-api`;
 
   // Configurar axios para enviar cookies
   axios.defaults.withCredentials = true;
@@ -27,7 +28,16 @@ export const AuthProvider = ({ children }) => {
     const initAuth = async () => {
       try {
         // Intentar obtener perfil desde la cookie
-        const response = await axios.get(`${API_BASE}/auth/profile`);
+        let response;
+        try {
+          response = await axios.get(`${API_BASE}/auth/profile`);
+        } catch (error) {
+          if (error.response?.status === 404) {
+            response = await axios.get(`${API_BASE_LEGACY}/auth/profile`);
+          } else {
+            throw error;
+          }
+        }
         
         if (response.data?.success) {
           const userData = response.data.user;
@@ -57,10 +67,19 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       
       const response = await axios.post(
-        `${API_BASE}/auth/login`, 
+        `${API_BASE}/auth/login`,
         credentials,
         { withCredentials: true }
-      );
+      ).catch(async (error) => {
+        if (error.response?.status === 404) {
+          return axios.post(
+            `${API_BASE_LEGACY}/auth/login`,
+            credentials,
+            { withCredentials: true }
+          );
+        }
+        throw error;
+      });
       
       if (response.data?.success) {
         const userData = response.data.user;
@@ -113,7 +132,16 @@ export const AuthProvider = ({ children }) => {
         `${API_BASE}/auth/logout`,
         {},
         { withCredentials: true }
-      );
+      ).catch(async (error) => {
+        if (error.response?.status === 404) {
+          return axios.post(
+            `${API_BASE_LEGACY}/auth/logout`,
+            {},
+            { withCredentials: true }
+          );
+        }
+        throw error;
+      });
     } catch (error) {
       console.error('Error en logout:', error);
     } finally {
