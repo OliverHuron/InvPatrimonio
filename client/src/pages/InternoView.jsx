@@ -57,6 +57,7 @@ const InternoView = () => {
     aniosElaboracion: []
   })
   const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false)
+  const [umaClasificacion, setUmaClasificacion] = useState(null)
   
   // Form data
   const [formData, setFormData] = useState({
@@ -233,6 +234,43 @@ const InternoView = () => {
     }
   }
   
+  // Calcular clasificación UMA
+  const calcularUma = async (item) => {
+    if (!item.costo || !item.fecha_elaboracion) {
+      setUmaClasificacion(null)
+      return
+    }
+    
+    const sessionId = getSessionId()
+    try {
+      const anio = new Date(item.fecha_elaboracion).getFullYear()
+      const params = new URLSearchParams({
+        costo: String(item.costo),
+        anio: String(anio)
+      })
+      
+      const response = await fetch(`${API_BASE}/umas/calcular?${params.toString()}`, {
+        credentials: 'include',
+        headers: { 'X-UMICH-Session': sessionId || '' }
+      })
+      
+      if (!response.ok) {
+        setUmaClasificacion(null)
+        return
+      }
+      
+      const data = await response.json()
+      if (data.success && data.data) {
+        setUmaClasificacion(data.data)
+      } else {
+        setUmaClasificacion(null)
+      }
+    } catch (error) {
+      console.error('Error calculando UMA:', error)
+      setUmaClasificacion(null)
+    }
+  }
+  
   // Abrir drawer para ver detalles
   const handleView = (item) => {
     setSelectedItem(item)
@@ -242,6 +280,7 @@ const InternoView = () => {
     setShowDrawer(true)
     setBrokenFotos({})
     loadFotos(item.id)
+    calcularUma(item)
   }
   
   // Abrir drawer para crear
@@ -300,6 +339,7 @@ const InternoView = () => {
     setBrokenFotos({})
     setEntregaPath([])
     setEntregaManualMode(false)
+    setUmaClasificacion(null)
   }
 
   const categoriasOrdenadas = categoriasEntrega
@@ -860,6 +900,40 @@ const InternoView = () => {
                       <div className="detail-item"><span className="detail-label">Estado</span><span className="detail-value">{showValue(formData.estado_localizacion)}</span></div>
                       <div className="detail-item"><span className="detail-label">Observaciones</span><span className="detail-value">{showValue(formData.observaciones)}</span></div>
                     </div>
+                  </div>
+
+                  {/* Sección de UMA */}
+                  <div className="drawer-section">
+                    <h3>Clasificación UMA</h3>
+                    {umaClasificacion && umaClasificacion.clasificacion !== 'Sin UMA' && umaClasificacion.clasificacion !== 'Error' ? (
+                      <div className="detail-grid two-cols">
+                        <div className="detail-item">
+                          <span className="detail-label">Año de referencia</span>
+                          <span className="detail-value">{umaClasificacion.anio}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">Valor UMA</span>
+                          <span className="detail-value">${umaClasificacion.umaValor}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">Umbral (UMA × 70)</span>
+                          <span className="detail-value">${umaClasificacion.umbral}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">Clasificación</span>
+                          <span className={`detail-value badge ${umaClasificacion.clasificacion === 'Mayor' ? 'badge-success' : 'badge-neutral'}`}>
+                            {umaClasificacion.clasificacion}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="detail-grid">
+                        <div className="detail-item">
+                          <span className="detail-label">No disponible</span>
+                          <span className="detail-value">No se encontró UMA para el año o hubo un error.</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="drawer-section">
