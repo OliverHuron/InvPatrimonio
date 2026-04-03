@@ -64,6 +64,7 @@ const getInventarioInternoById = async (id, umichSessionId = null) => {
         responsable_usuario: item.responsable_usuario,
         numero_empleado_usuario: item.numero_empleado_usuario,
         estado_uso: item.estado_uso,
+        estado_localizacion: item.estado_localizacion,
         costo: item.costo,
         activo: item.activo ? 1 : 0,
         _source: 'bd_local'

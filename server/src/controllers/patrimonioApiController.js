@@ -204,7 +204,7 @@ const getAllPatrimonioci = async (req, res) => {
       q: req.query.q || '',
       responsable: req.query.responsable || '',
       ubicacion: req.query.ubicacion || req.query.ubicacion_edificio || '',
-      fecha_elaboracion: req.query.fecha_elaboracion || '',
+      anio_elaboracion: req.query.anio_elaboracion || '',
       estado: req.query.estado || ''
     };
     const result = await inventarioService.getAllInventariosInternos(page, limit, filters);

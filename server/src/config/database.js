@@ -62,12 +62,17 @@ async function initializeDatabase() {
 
         const migrationPath = path.join(migrationsDir, file);
         const sql = fs.readFileSync(migrationPath, 'utf8');
-        await client.query(sql);
-        await client.query(
-          'INSERT INTO schema_migrations (filename) VALUES ($1)',
-          [file]
-        );
-        console.log(`Migracion aplicada: ${file}`);
+        try {
+          await client.query(sql);
+          await client.query(
+            'INSERT INTO schema_migrations (filename) VALUES ($1)',
+            [file]
+          );
+          console.log(`Migracion aplicada: ${file}`);
+        } catch (migrationError) {
+          console.error(`Error aplicando migracion ${file}:`, migrationError.message);
+          throw migrationError;
+        }
       }
     } else {
       console.warn('No se encontro directorio de migraciones, se omite auto-migracion');

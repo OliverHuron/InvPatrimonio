@@ -4,7 +4,7 @@
 // =====================================================
 
 import React, { useState, useEffect } from 'react'
-import { FaPlus, FaEdit, FaEye, FaSync, FaTrash } from 'react-icons/fa'
+import { FaPlus, FaEdit, FaEye, FaSync, FaTrash, FaUpload, FaCamera } from 'react-icons/fa'
 import { toast } from 'react-toastify'
 import './InternoView.css'
 
@@ -39,7 +39,7 @@ const InternoView = () => {
     q: '',
     responsable: '',
     ubicacion: '',
-    fecha_elaboracion: '',
+    anio_elaboracion: '',
     estado: ''
   })
   const [filterOptions, setFilterOptions] = useState({
@@ -66,6 +66,7 @@ const InternoView = () => {
     fecha_elaboracion: '',
     observaciones: '',
     estado_uso: '1-Bueno',
+    estado_localizacion: 'Localizado Activo',
     entrega_responsable: '',
     responsable_usuario: '',
     numero_empleado_usuario: '',
@@ -92,6 +93,7 @@ const InternoView = () => {
     fecha_elaboracion: normalizeDate(data.fecha_elaboracion),
     observaciones: data.observaciones || '',
     estado_uso: data.estado_uso || '1-Bueno',
+    estado_localizacion: data.estado_localizacion || (data.activo ? 'Localizado Activo' : 'Localizado No Activo'),
     entrega_responsable: data.entrega_responsable || data.dependencia || '',
     responsable_usuario: data.responsable_usuario || '',
     numero_empleado_usuario: data.numero_empleado_usuario || '',
@@ -118,7 +120,7 @@ const InternoView = () => {
       if (appliedFilters.q) params.set('q', appliedFilters.q)
       if (appliedFilters.responsable) params.set('responsable', appliedFilters.responsable)
       if (appliedFilters.ubicacion) params.set('ubicacion', appliedFilters.ubicacion)
-      if (appliedFilters.fecha_elaboracion) params.set('fecha_elaboracion', appliedFilters.fecha_elaboracion)
+      if (appliedFilters.anio_elaboracion) params.set('anio_elaboracion', appliedFilters.anio_elaboracion)
       if (appliedFilters.estado) params.set('estado', appliedFilters.estado)
 
       const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
@@ -211,6 +213,7 @@ const InternoView = () => {
       fecha_elaboracion: '',
       observaciones: '',
       estado_uso: '1-Bueno',
+      estado_localizacion: 'Localizado Activo',
       entrega_responsable: '',
       responsable_usuario: '',
       numero_empleado_usuario: '',
@@ -391,7 +394,7 @@ const InternoView = () => {
       q: '',
       responsable: '',
       ubicacion: '',
-      fecha_elaboracion: '',
+      anio_elaboracion: '',
       estado: ''
     }
     setFilters(emptyFilters)
@@ -417,7 +420,10 @@ const InternoView = () => {
           'X-UMICH-Session': sessionId || ''
         },
         credentials: 'include',
-        body: JSON.stringify({ ...formData })
+        body: JSON.stringify({
+          ...formData,
+          activo: formData.estado_localizacion === 'Localizado Activo'
+        })
       })
       
       const data = await response.json()
@@ -442,6 +448,16 @@ const InternoView = () => {
   const showValue = (value) => {
     if (value === undefined || value === null || value === '') return 'Sin dato'
     return value
+  }
+
+  const getEstadoBadgeClass = (estado) => {
+    if (estado === 'Localizado Activo') return 'badge-success'
+    if (estado === 'Localizado No Activo') return 'badge-danger'
+    return 'badge-neutral'
+  }
+
+  const getEstadoLocalizacion = (item) => {
+    return item?.estado_localizacion || (item?.activo === 1 ? 'Localizado Activo' : 'Localizado No Activo')
   }
   
   return (
@@ -484,16 +500,21 @@ const InternoView = () => {
         </select>
         <input
           className="search-input"
-          type="date"
-          name="fecha_elaboracion"
-          value={filters.fecha_elaboracion}
+          type="number"
+          min="1900"
+          max="2999"
+          step="1"
+          name="anio_elaboracion"
+          value={filters.anio_elaboracion}
           onChange={handleFilterChange}
-          title="Fecha de elaboración"
+          placeholder="Año elaboración"
+          title="Año de elaboración"
         />
         <select className="search-input" name="estado" value={filters.estado} onChange={handleFilterChange}>
           <option value="">Estado (todos)</option>
-          <option value="activo">Activo</option>
-          <option value="inactivo">Inactivo</option>
+          <option value="Localizado Activo">Localizado Activo</option>
+          <option value="Localizado No Activo">Localizado No Activo</option>
+          <option value="No Localizado">No Localizado</option>
         </select>
         <button className="btn-secondary" onClick={handleClearFilters} disabled={loading}>Limpiar</button>
       </div>
@@ -508,13 +529,11 @@ const InternoView = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>No. Registro</th>
+                <th>No. Patrimonio</th>
                 <th>Descripción</th>
-                <th>Marca</th>
-                <th>Modelo</th>
                 <th>No. Serie</th>
                 <th>Responsable</th>
-                <th>UR</th>
+                <th>Resguardante</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -524,14 +543,12 @@ const InternoView = () => {
                 <tr key={item.id}>
                   <td>{item.numero_registro_patrimonial}</td>
                   <td>{item.descripcion}</td>
-                  <td>{item.marca}</td>
-                  <td>{item.modelo}</td>
                   <td>{item.no_serie}</td>
                   <td>{item.entrega_responsable}</td>
-                  <td>{item.ur}</td>
+                  <td>{item.responsable_usuario || 'Sin dato'}</td>
                   <td>
-                    <span className={`badge ${item.activo === 1 ? 'badge-success' : 'badge-danger'}`}>
-                      {item.activo === 1 ? 'Activo' : 'Inactivo'}
+                    <span className={`badge ${getEstadoBadgeClass(getEstadoLocalizacion(item))}`}>
+                      {getEstadoLocalizacion(item)}
                     </span>
                   </td>
                   <td>
@@ -579,7 +596,7 @@ const InternoView = () => {
                 </h2>
                 {(drawerMode === 'view' || drawerMode === 'edit') && (
                   <p className="drawer-subtitle">
-                    Estado {selectedItem?.activo === 1 ? 'Activo' : 'Inactivo'}
+                    Estado {getEstadoLocalizacion(selectedItem)}
                   </p>
                 )}
               </div>
@@ -590,30 +607,41 @@ const InternoView = () => {
               {drawerMode === 'view' && (
                 <>
                   <div className="drawer-section">
-                    <h3>Detalle Patrimonio</h3>
+                    <h3>Identificación del bien</h3>
                     <div className="detail-grid two-cols">
-                      <div className="detail-item"><span className="detail-label">Número de registro patrimonial</span><span className="detail-value">{showValue(formData.numero_registro_patrimonial)}</span></div>
-                      <div className="detail-item"><span className="detail-label">No. de Registro</span><span className="detail-value">{showValue(formData.no_registro)}</span></div>
+                      <div className="detail-item"><span className="detail-label">No. Patrimonio</span><span className="detail-value">{showValue(formData.numero_registro_patrimonial)}</span></div>
                       <div className="detail-item"><span className="detail-label">Descripción</span><span className="detail-value">{showValue(formData.descripcion)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Elaboró</span><span className="detail-value">{showValue(formData.usuario_creacion)}</span></div>
                       <div className="detail-item"><span className="detail-label">Marca</span><span className="detail-value">{showValue(formData.marca)}</span></div>
                       <div className="detail-item"><span className="detail-label">Modelo</span><span className="detail-value">{showValue(formData.modelo)}</span></div>
                       <div className="detail-item"><span className="detail-label">No. de Serie</span><span className="detail-value">{showValue(formData.no_serie)}</span></div>
                       <div className="detail-item"><span className="detail-label">No. Factura</span><span className="detail-value">{showValue(formData.no_factura)}</span></div>
                       <div className="detail-item"><span className="detail-label">UUID (folio fiscal)</span><span className="detail-value">{showValue(formData.uuid)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Costo</span><span className="detail-value">{showValue(formData.costo)}</span></div>
-                      <div className="detail-item"><span className="detail-label">URES de asignación</span><span className="detail-value">{showValue(formData.ures_asignacion)}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="drawer-section">
+                    <h3>Control Interno</h3>
+                    <div className="detail-grid two-cols">
                       <div className="detail-item"><span className="detail-label">Ubicación</span><span className="detail-value">{showValue(formData.ubicacion)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Recurso</span><span className="detail-value">{showValue(formData.recurso)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Proveedor</span><span className="detail-value">{showValue(formData.proveedor)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Fecha de elaboración</span><span className="detail-value">{showValue(formData.fecha_elaboracion)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Observaciones</span><span className="detail-value">{showValue(formData.observaciones)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Estado de uso</span><span className="detail-value">{showValue(formData.estado_uso)}</span></div>
                       <div className="detail-item"><span className="detail-label">Responsable</span><span className="detail-value">{showValue(formData.entrega_responsable)}</span></div>
                       <div className="detail-item"><span className="detail-label">Resguardante (usuario)</span><span className="detail-value">{showValue(formData.responsable_usuario)}</span></div>
                       <div className="detail-item"><span className="detail-label">Número de empleado (usuario)</span><span className="detail-value">{showValue(formData.numero_empleado_usuario)}</span></div>
                       <div className="detail-item"><span className="detail-label">UR</span><span className="detail-value">{showValue(formData.ur)}</span></div>
-                      <div className="detail-item"><span className="detail-label">Estado</span><span className="detail-value">{formData.activo === 1 ? 'Activo' : 'Inactivo'}</span></div>
+                      <div className="detail-item"><span className="detail-label">URES de asignación</span><span className="detail-value">{showValue(formData.ures_asignacion)}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="drawer-section">
+                    <h3>Información Contable</h3>
+                    <div className="detail-grid two-cols">
+                      <div className="detail-item"><span className="detail-label">Elaboró</span><span className="detail-value">{showValue(formData.usuario_creacion)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Recurso</span><span className="detail-value">{showValue(formData.recurso)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Proveedor</span><span className="detail-value">{showValue(formData.proveedor)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Fecha de elaboración</span><span className="detail-value">{showValue(formData.fecha_elaboracion)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Costo</span><span className="detail-value">{showValue(formData.costo)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Estado de uso</span><span className="detail-value">{showValue(formData.estado_uso)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Estado</span><span className="detail-value">{showValue(formData.estado_localizacion)}</span></div>
+                      <div className="detail-item"><span className="detail-label">Observaciones</span><span className="detail-value">{showValue(formData.observaciones)}</span></div>
                     </div>
                   </div>
 
@@ -649,12 +677,12 @@ const InternoView = () => {
               {drawerMode !== 'view' && (
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>Número de registro patrimonial</label>
+                    <label>No. Patrimonio</label>
                     <input type="text" name="numero_registro_patrimonial" value={formData.numero_registro_patrimonial || ''} onChange={handleInputChange} />
                   </div>
 
                   <div className="form-group">
-                    <label>No. de Registro</label>
+                    <label>No. Patrimonio (alterno)</label>
                     <input type="text" name="no_registro" value={formData.no_registro || ''} onChange={handleInputChange} />
                   </div>
 
@@ -783,9 +811,10 @@ const InternoView = () => {
 
                   <div className="form-group">
                     <label>Estado</label>
-                    <select name="activo" value={formData.activo} onChange={handleInputChange}>
-                      <option value={1}>Activo</option>
-                      <option value={0}>Inactivo</option>
+                    <select name="estado_localizacion" value={formData.estado_localizacion || 'Localizado Activo'} onChange={handleInputChange}>
+                      <option value="Localizado Activo">Localizado Activo</option>
+                      <option value="Localizado No Activo">Localizado No Activo</option>
+                      <option value="No Localizado">No Localizado</option>
                     </select>
                   </div>
 
@@ -815,10 +844,24 @@ const InternoView = () => {
                             )}
                             <div className="photo-actions">
                               <label className={`btn-secondary btn-upload ${(!selectedItem?.id || uploadingOrden === orden) ? 'disabled' : ''}`}>
-                                Subir
+                                <FaUpload />
                                 <input
                                   type="file"
                                   accept="image/*"
+                                  disabled={!selectedItem?.id || uploadingOrden === orden}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) handleUploadFoto(orden, file)
+                                    e.target.value = ''
+                                  }}
+                                />
+                              </label>
+                              <label className={`btn-secondary btn-upload ${(!selectedItem?.id || uploadingOrden === orden) ? 'disabled' : ''}`} title="Tomar foto">
+                                <FaCamera />
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
                                   disabled={!selectedItem?.id || uploadingOrden === orden}
                                   onChange={(e) => {
                                     const file = e.target.files?.[0]

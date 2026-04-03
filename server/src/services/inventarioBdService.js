@@ -82,16 +82,15 @@ const getAllInventariosInternos = async (page = 1, limit = 50, filters = {}) => 
       paramIndex++;
     }
 
-    if (filters.fecha_elaboracion) {
-      query += ` AND fecha_elaboracion = $${paramIndex}`;
-      params.push(filters.fecha_elaboracion);
+    if (filters.anio_elaboracion) {
+      query += ` AND EXTRACT(YEAR FROM fecha_elaboracion) = $${paramIndex}`;
+      params.push(Number(filters.anio_elaboracion));
       paramIndex++;
     }
 
     if (filters.estado) {
-      const isActivo = String(filters.estado).toLowerCase() === 'activo';
-      query += ` AND activo = $${paramIndex}`;
-      params.push(isActivo);
+      query += ` AND estado_localizacion = $${paramIndex}`;
+      params.push(filters.estado);
       paramIndex++;
     }
 
@@ -152,14 +151,14 @@ const createInventarioInterno = async (data) => {
         numero_registro_patrimonial, no_registro, descripcion, marca, modelo,
         no_serie, no_factura, costo, ures_asignacion,
         ubicacion, recurso, proveedor, fecha_elaboracion, observaciones,
-        estado_uso, entrega_responsable, responsable_usuario, numero_empleado_usuario, ur, activo,
+        estado_uso, estado_localizacion, entrega_responsable, responsable_usuario, numero_empleado_usuario, ur, activo,
         usuario_creacion
       ) VALUES (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9,
         $10, $11, $12, $13, $14,
-        $15, $16, $17, $18, $19, $20,
-        $21
+        $15, $16, $17, $18, $19, $20, $21,
+        $22
       )
       RETURNING *
     `;
@@ -180,6 +179,7 @@ const createInventarioInterno = async (data) => {
       parseDateOrNull(data.fecha_elaboracion),
       data.observaciones,
       data.estado_uso || '1-Bueno',
+      data.estado_localizacion || 'Localizado Activo',
       data.entrega_responsable,
       data.responsable_usuario,
       data.numero_empleado_usuario,
@@ -218,14 +218,15 @@ const updateInventarioInterno = async (id, data) => {
         fecha_elaboracion = COALESCE($13, fecha_elaboracion),
         observaciones = COALESCE($14, observaciones),
         estado_uso = COALESCE($15, estado_uso),
-        entrega_responsable = COALESCE($16, entrega_responsable),
-        responsable_usuario = COALESCE($17, responsable_usuario),
-        numero_empleado_usuario = COALESCE($18, numero_empleado_usuario),
-        ur = COALESCE($19, ur),
-        activo = COALESCE($20, activo),
-        usuario_actualizacion = $21,
+        estado_localizacion = COALESCE($16, estado_localizacion),
+        entrega_responsable = COALESCE($17, entrega_responsable),
+        responsable_usuario = COALESCE($18, responsable_usuario),
+        numero_empleado_usuario = COALESCE($19, numero_empleado_usuario),
+        ur = COALESCE($20, ur),
+        activo = COALESCE($21, activo),
+        usuario_actualizacion = $22,
         fecha_actualizacion = CURRENT_TIMESTAMP
-      WHERE id = $22
+      WHERE id = $23
       RETURNING *
     `;
     
@@ -245,6 +246,7 @@ const updateInventarioInterno = async (id, data) => {
       parseDateOrNull(data.fecha_elaboracion),
       data.observaciones,
       data.estado_uso,
+      data.estado_localizacion,
       data.entrega_responsable,
       data.responsable_usuario,
       data.numero_empleado_usuario,

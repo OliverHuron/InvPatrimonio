@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS inventario_interno (
   fecha_elaboracion DATE,
   observaciones TEXT,
   estado_uso VARCHAR(20) CHECK (estado_uso IN ('1-Bueno', '2-Regular', '3-Malo')),
+  estado_localizacion VARCHAR(30) NOT NULL DEFAULT 'Localizado Activo'
+    CHECK (estado_localizacion IN ('Localizado Activo', 'Localizado No Activo', 'No Localizado')),
   entrega_responsable TEXT,
   responsable_usuario VARCHAR(255),
   numero_empleado_usuario VARCHAR(100),
@@ -37,6 +39,45 @@ CREATE TABLE IF NOT EXISTS inventario_interno (
   usuario_actualizacion VARCHAR(100)
 );
 
+DO $$
+BEGIN
+  IF to_regclass('public.inventario_interno') IS NOT NULL THEN
+    ALTER TABLE inventario_interno
+      ADD COLUMN IF NOT EXISTS ubicacion VARCHAR(255);
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'inventario_interno'
+        AND column_name = 'ubicacion_edificio'
+    ) THEN
+      EXECUTE '
+        UPDATE inventario_interno
+        SET ubicacion = COALESCE(NULLIF(ubicacion, ''''), ubicacion_edificio)
+        WHERE ubicacion IS NULL OR ubicacion = ''''
+      ';
+    END IF;
+
+    ALTER TABLE inventario_interno
+      ADD COLUMN IF NOT EXISTS estado_localizacion VARCHAR(30);
+
+    UPDATE inventario_interno
+    SET estado_localizacion = CASE
+      WHEN estado_localizacion IS NOT NULL THEN estado_localizacion
+      WHEN activo = true THEN 'Localizado Activo'
+      ELSE 'Localizado No Activo'
+    END
+    WHERE estado_localizacion IS NULL;
+  END IF;
+END $$;
+
+ALTER TABLE inventario_interno
+  ALTER COLUMN estado_localizacion SET DEFAULT 'Localizado Activo';
+
+ALTER TABLE inventario_interno
+  ALTER COLUMN estado_localizacion SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_interno_num_registro ON inventario_interno(numero_registro_patrimonial);
 CREATE INDEX IF NOT EXISTS idx_interno_marca ON inventario_interno(marca);
 CREATE INDEX IF NOT EXISTS idx_interno_modelo ON inventario_interno(modelo);
@@ -44,6 +85,19 @@ CREATE INDEX IF NOT EXISTS idx_interno_ubicacion ON inventario_interno(ubicacion
 CREATE INDEX IF NOT EXISTS idx_interno_responsable ON inventario_interno(responsable_usuario);
 CREATE INDEX IF NOT EXISTS idx_interno_activo ON inventario_interno(activo);
 CREATE INDEX IF NOT EXISTS idx_interno_fecha_creacion ON inventario_interno(fecha_creacion);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'inventario_interno_estado_localizacion_check'
+  ) THEN
+    ALTER TABLE inventario_interno
+      ADD CONSTRAINT inventario_interno_estado_localizacion_check
+      CHECK (estado_localizacion IN ('Localizado Activo', 'Localizado No Activo', 'No Localizado'));
+  END IF;
+END $$;
 
 CREATE OR REPLACE FUNCTION update_inventario_interno_timestamp()
 RETURNS TRIGGER AS $$
@@ -102,6 +156,49 @@ CREATE TABLE IF NOT EXISTS inventario_externo (
   usuario_creacion VARCHAR(100),
   usuario_actualizacion VARCHAR(100)
 );
+
+DO $$
+BEGIN
+  IF to_regclass('public.inventario_externo') IS NOT NULL THEN
+    ALTER TABLE inventario_externo
+      ADD COLUMN IF NOT EXISTS ubicacion VARCHAR(255);
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'inventario_externo'
+        AND column_name = 'ubicacion_edificio'
+    ) AND EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'inventario_externo'
+        AND column_name = 'ubicacion_salon'
+    ) THEN
+      EXECUTE '
+        UPDATE inventario_externo
+        SET ubicacion = COALESCE(
+          NULLIF(ubicacion, ''''),
+          NULLIF(TRIM(CONCAT_WS('' '', COALESCE(ubicacion_edificio, ''''), COALESCE(ubicacion_salon, ''''))), '''')
+        )
+        WHERE ubicacion IS NULL OR ubicacion = ''''
+      ';
+    ELSIF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'inventario_externo'
+        AND column_name = 'ubicacion_edificio'
+    ) THEN
+      EXECUTE '
+        UPDATE inventario_externo
+        SET ubicacion = COALESCE(NULLIF(ubicacion, ''''), ubicacion_edificio)
+        WHERE ubicacion IS NULL OR ubicacion = ''''
+      ';
+    END IF;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_externo_id_patrimonio ON inventario_externo(id_patrimonio);
 CREATE INDEX IF NOT EXISTS idx_externo_folio ON inventario_externo(folio);

@@ -164,6 +164,13 @@
   font-size: 0.9rem;
 }
 
+/* Columna de estado más ancha */
+.data-table th:nth-child(6),
+.data-table td:nth-child(6) {
+  min-width: 190px;
+  width: 190px;
+}
+
 /* Badges */
 .badge {
   padding: 0.3rem 0.8rem;
@@ -172,6 +179,8 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .badge-success {
@@ -182,6 +191,11 @@
 .badge-danger {
   background: #f8d7da;
   color: #721c24;
+}
+
+.badge-neutral {
+  background: #e2e3e5;
+  color: #495057;
 }
 
 /* Botones de acción */
@@ -382,16 +396,19 @@
 
 .detail-grid.two-cols {
   grid-template-columns: 1fr 1fr;
+  align-items: stretch;
 }
 
 .detail-item {
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   gap: 0.25rem;
   padding: 0.5rem 0.55rem;
   border: 1px dashed #eceff1;
   border-radius: 8px;
   background: #fff;
+  min-height: 74px;
 }
 
 .detail-label {
@@ -400,11 +417,15 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  min-height: 1.05rem;
+  display: flex;
+  align-items: center;
 }
 
 .detail-value {
   color: #3b4a59;
   font-size: 0.92rem;
+  line-height: 1.35;
   word-break: break-word;
   min-height: 1.2rem;
 }
@@ -544,6 +565,10 @@
   font-size: 0.8rem;
   padding: 0.45rem 0.7rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 
 .btn-upload input[type="file"] {
