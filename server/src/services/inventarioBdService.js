@@ -50,7 +50,7 @@ const getInventarioInternoById = async (id) => {
 /**
  * Listar inventarios internos (con paginación)
  */
-const getAllInventariosInternos = async (page = 1, limit = 50, filters = {}) => {
+const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) => {
   try {
     const offset = (page - 1) * limit;
     let query = 'SELECT * FROM inventario_interno WHERE 1=1';
@@ -73,6 +73,12 @@ const getAllInventariosInternos = async (page = 1, limit = 50, filters = {}) => 
     if (filters.ubicacion) {
       query += ` AND ubicacion = $${paramIndex}`;
       params.push(filters.ubicacion);
+      paramIndex++;
+    }
+
+    if (filters.resguardante) {
+      query += ` AND responsable_usuario = $${paramIndex}`;
+      params.push(filters.resguardante);
       paramIndex++;
     }
 

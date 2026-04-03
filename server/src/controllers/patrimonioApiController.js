@@ -199,11 +199,12 @@ const getPatrimoniociById = async (req, res) => {
 const getAllPatrimonioci = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 200;
+    const limit = 500;
     const filters = {
       q: req.query.q || '',
       responsable: req.query.responsable || '',
-      ubicacion: req.query.ubicacion || req.query.ubicacion_edificio || '',
+      resguardante: req.query.resguardante || '',
+      ubicacion: req.query.ubicacion || '',
       anio_elaboracion: req.query.anio_elaboracion || '',
       estado: req.query.estado || ''
     };

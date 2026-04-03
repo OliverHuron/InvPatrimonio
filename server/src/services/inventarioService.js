@@ -77,7 +77,7 @@ const getInventarioInternoById = async (id, umichSessionId = null) => {
 /**
  * Listar inventarios internos
  */
-const getAllInventariosInternos = async (page = 1, limit = 50, filters = {}) => {
+const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) => {
   logSource('getAllInventariosInternos');
   const source = getDataSource();
   

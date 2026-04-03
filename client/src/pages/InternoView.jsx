@@ -3,16 +3,18 @@
 // API: /api/patrimonioci - Soporta GET, POST, PUT
 // =====================================================
 
-import React, { useState, useEffect } from 'react'
-import { FaPlus, FaEdit, FaEye, FaSync, FaTrash, FaUpload, FaCamera } from 'react-icons/fa'
+import React, { useState, useEffect, useRef } from 'react'
+import { FaPlus, FaEdit, FaEye, FaSync, FaUpload, FaCamera, FaFileExcel, FaTrash } from 'react-icons/fa'
 import { toast } from 'react-toastify'
 import './InternoView.css'
 
 const InternoView = () => {
+  const PAGE_SIZE = 500
   const API_BASE_URL = process.env.REACT_APP_API_URL || '/api'
   const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}`
   const BACKEND_BASE_URL = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '')
   const [photoRefreshTs, setPhotoRefreshTs] = useState(0)
+  const tableScrollRef = useRef(null)
   const normalizeDate = (value) => (value ? String(value).split('T')[0] : '')
   const toFileUrl = (ruta) => {
     if (!ruta) return ''
@@ -38,14 +40,23 @@ const InternoView = () => {
   const [filters, setFilters] = useState({
     q: '',
     responsable: '',
+    resguardante: '',
     ubicacion: '',
     anio_elaboracion: '',
     estado: ''
   })
+  const [pagination, setPagination] = useState({
+    page: 1,
+    total: 0,
+    pages: 1
+  })
   const [filterOptions, setFilterOptions] = useState({
     responsables: [],
-    ubicaciones: []
+    resguardantes: [],
+    ubicaciones: [],
+    aniosElaboracion: []
   })
+  const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false)
   
   // Form data
   const [formData, setFormData] = useState({
@@ -111,14 +122,48 @@ const InternoView = () => {
     const value = (pathParts || []).filter(Boolean).join(' > ')
     setFormData((prev) => ({ ...prev, entrega_responsable: value }))
   }
+
+  // Cargar opciones de filtros una sola vez (todos los datos sin filtros)
+  const loadFilterOptions = async () => {
+    if (filterOptionsLoaded) return
+    const sessionId = getSessionId()
+    try {
+      const params = new URLSearchParams({ page: '1', limit: '10000' })
+      const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
+        credentials: 'include',
+        headers: { 'X-UMICH-Session': sessionId || '' }
+      })
+
+      if (!response.ok) return
+
+      const data = await response.json()
+      const payload = data?.data || {}
+      const records = payload.items || []
+      const normalized = records.map(normalizeInterno)
+
+      setFilterOptions({
+        responsables: [...new Set(normalized.map((x) => x.entrega_responsable).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        resguardantes: [...new Set(normalized.map((x) => x.responsable_usuario).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        ubicaciones: [...new Set(normalized.map((x) => x.ubicacion).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        aniosElaboracion: [...new Set(normalized
+          .map((x) => (x.fecha_elaboracion ? String(x.fecha_elaboracion).slice(0, 4) : ''))
+          .filter((year) => /^\d{4}$/.test(year))
+        )].sort((a, b) => Number(b) - Number(a))
+      })
+      setFilterOptionsLoaded(true)
+    } catch (error) {
+      console.error('Error cargando filter options:', error)
+    }
+  }
   
-  const loadAllItems = async (appliedFilters = filters) => {
+  const loadAllItems = async (appliedFilters = filters, targetPage = 1) => {
     const sessionId = getSessionId()
     try {
       setLoading(true)
-      const params = new URLSearchParams({ page: '1', limit: '500' })
+      const params = new URLSearchParams({ page: String(targetPage), limit: String(PAGE_SIZE) })
       if (appliedFilters.q) params.set('q', appliedFilters.q)
       if (appliedFilters.responsable) params.set('responsable', appliedFilters.responsable)
+      if (appliedFilters.resguardante) params.set('resguardante', appliedFilters.resguardante)
       if (appliedFilters.ubicacion) params.set('ubicacion', appliedFilters.ubicacion)
       if (appliedFilters.anio_elaboracion) params.set('anio_elaboracion', appliedFilters.anio_elaboracion)
       if (appliedFilters.estado) params.set('estado', appliedFilters.estado)
@@ -133,13 +178,19 @@ const InternoView = () => {
       }
 
       const data = await response.json()
-      const records = data?.data?.items || []
+      const payload = data?.data || {}
+      const records = payload.items || []
       const normalized = records.map(normalizeInterno)
       setItems(normalized)
-      setFilterOptions({
-        responsables: [...new Set(normalized.map((x) => x.entrega_responsable).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
-        ubicaciones: [...new Set(normalized.map((x) => x.ubicacion).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-      })
+      if (tableScrollRef.current) {
+        tableScrollRef.current.scrollTop = 0
+      }
+      setPagination((prev) => ({
+        ...prev,
+        page: payload.page || targetPage,
+        total: payload.total || 0,
+        pages: Math.max(1, Math.ceil((payload.total || 0) / PAGE_SIZE))
+      }))
     } catch (error) {
       console.error('Error cargando internos:', error)
       toast.error('Error al cargar datos')
@@ -150,7 +201,8 @@ const InternoView = () => {
   }
   
   useEffect(() => {
-    loadAllItems()
+    loadFilterOptions()
+    loadAllItems(filters, 1)
     loadEntregaOptions()
   }, [])
 
@@ -386,19 +438,142 @@ const InternoView = () => {
     const { name, value } = e.target
     const nextFilters = { ...filters, [name]: value }
     setFilters(nextFilters)
-    loadAllItems(nextFilters)
+    loadAllItems(nextFilters, 1)
   }
 
   const handleClearFilters = () => {
     const emptyFilters = {
       q: '',
       responsable: '',
+      resguardante: '',
       ubicacion: '',
       anio_elaboracion: '',
       estado: ''
     }
     setFilters(emptyFilters)
-    loadAllItems(emptyFilters)
+    loadAllItems(emptyFilters, 1)
+  }
+
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1 || nextPage > pagination.pages || nextPage === pagination.page) return
+    loadAllItems(filters, nextPage)
+  }
+
+  const toCsvCell = (value) => {
+    if (value === null || value === undefined) return '""'
+    const safe = String(value).replace(/"/g, '""')
+    return `"${safe}"`
+  }
+
+  const handleExportExcel = async () => {
+    const sessionId = getSessionId()
+    try {
+      setLoading(true)
+      const allRows = []
+      let currentPage = 1
+      let totalPages = 1
+
+      while (currentPage <= totalPages) {
+        const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) })
+        if (filters.q) params.set('q', filters.q)
+        if (filters.responsable) params.set('responsable', filters.responsable)
+        if (filters.resguardante) params.set('resguardante', filters.resguardante)
+        if (filters.ubicacion) params.set('ubicacion', filters.ubicacion)
+        if (filters.anio_elaboracion) params.set('anio_elaboracion', filters.anio_elaboracion)
+        if (filters.estado) params.set('estado', filters.estado)
+
+        const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
+          credentials: 'include',
+          headers: { 'X-UMICH-Session': sessionId || '' }
+        })
+
+        if (!response.ok) throw new Error(`Error ${response.status}`)
+
+        const data = await response.json()
+        const payload = data?.data || {}
+        const normalized = (payload.items || []).map(normalizeInterno)
+        allRows.push(...normalized)
+        totalPages = payload.pages || 1
+        currentPage += 1
+      }
+
+      const headers = [
+        'UUID',
+        'No. Patrimonio',
+        'No. Registro',
+        'Descripcion',
+        'Marca',
+        'Modelo',
+        'No. Serie',
+        'No. Factura',
+        'Costo',
+        'URES Asignacion',
+        'Ubicacion',
+        'Recurso',
+        'Proveedor',
+        'Fecha Elaboracion',
+        'Observaciones',
+        'Estado Uso',
+        'Estado Localizacion',
+        'Entrega Responsable',
+        'Responsable Usuario',
+        'Numero Empleado Usuario',
+        'UR',
+        'Activo',
+        'Fecha Creacion',
+        'Fecha Actualizacion',
+        'Usuario Creacion',
+        'Usuario Actualizacion'
+      ]
+
+      const lines = [
+        headers.join(','),
+        ...allRows.map((row) => ([
+          toCsvCell(row.uuid || ''),
+          toCsvCell(row.numero_registro_patrimonial || ''),
+          toCsvCell(row.no_registro || ''),
+          toCsvCell(row.descripcion || ''),
+          toCsvCell(row.marca || ''),
+          toCsvCell(row.modelo || ''),
+          toCsvCell(row.no_serie || ''),
+          toCsvCell(row.no_factura || ''),
+          toCsvCell(row.costo || ''),
+          toCsvCell(row.ures_asignacion || ''),
+          toCsvCell(row.ubicacion || ''),
+          toCsvCell(row.recurso || ''),
+          toCsvCell(row.proveedor || ''),
+          toCsvCell(row.fecha_elaboracion ? String(row.fecha_elaboracion).slice(0, 10) : ''),
+          toCsvCell(row.observaciones || ''),
+          toCsvCell(row.estado_uso || ''),
+          toCsvCell(getEstadoLocalizacion(row)),
+          toCsvCell(row.entrega_responsable || ''),
+          toCsvCell(row.responsable_usuario || ''),
+          toCsvCell(row.numero_empleado_usuario || ''),
+          toCsvCell(row.ur || ''),
+          toCsvCell(row.activo ? 'Sí' : 'No'),
+          toCsvCell(row.fecha_creacion ? String(row.fecha_creacion).slice(0, 10) : ''),
+          toCsvCell(row.fecha_actualizacion ? String(row.fecha_actualizacion).slice(0, 10) : ''),
+          toCsvCell(row.usuario_creacion || ''),
+          toCsvCell(row.usuario_actualizacion || '')
+        ].join(',')))
+      ]
+
+      const blob = new Blob([`\ufeff${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `inventario_interno_${new Date().toISOString().slice(0, 10)}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success(`Exportado: ${allRows.length} registros`)
+    } catch (error) {
+      console.error('Error exportando:', error)
+      toast.error('Error al exportar a Excel')
+    } finally {
+      setLoading(false)
+    }
   }
   
   // Guardar (crear o actualizar)
@@ -432,9 +607,9 @@ const InternoView = () => {
         toast.success(drawerMode === 'create' ? 'Creado exitosamente' : 'Actualizado exitosamente')
         handleCloseDrawer()
         if (drawerMode === 'create' && data.data?.id) {
-          await loadAllItems()
+          await loadAllItems(filters, 1)
         } else {
-          await loadAllItems()
+          await loadAllItems(filters, pagination.page)
         }
       } else {
         toast.error('Error al guardar: ' + (data.message || response.statusText))
@@ -468,8 +643,11 @@ const InternoView = () => {
           <h1>Patrimonio Interno</h1>
         </div>
         <div className="header-actions">
-          <button className="btn-refresh" onClick={loadAllItems} disabled={loading}>
+          <button className="btn-refresh" onClick={() => loadAllItems(filters, pagination.page)} disabled={loading}>
             <FaSync className={loading ? 'spinning' : ''} /> Actualizar
+          </button>
+          <button className="btn-secondary" onClick={handleExportExcel} disabled={loading}>
+            <FaFileExcel /> Exportar Excel
           </button>
           <button className="btn-primary" onClick={handleCreate}>
             <FaPlus /> Crear Nuevo
@@ -478,45 +656,49 @@ const InternoView = () => {
       </div>
 
       <div className="search-bar">
+        <div className="search-row search-row-main">
           <input
-          className="search-input"
-          type="text"
-          name="q"
-          value={filters.q}
-          onChange={handleFilterChange}
-          placeholder="Búsqueda inteligente"
-        />
-        <select className="search-input" name="responsable" value={filters.responsable} onChange={handleFilterChange}>
-          <option value="">Responsable (todos)</option>
-          {filterOptions.responsables.map((responsable) => (
-            <option key={responsable} value={responsable}>{responsable}</option>
-          ))}
-        </select>
-        <select className="search-input" name="ubicacion" value={filters.ubicacion} onChange={handleFilterChange}>
-          <option value="">Ubicación (todas)</option>
-          {filterOptions.ubicaciones.map((ubicacion) => (
-            <option key={ubicacion} value={ubicacion}>{ubicacion}</option>
-          ))}
-        </select>
-        <input
-          className="search-input"
-          type="number"
-          min="1900"
-          max="2999"
-          step="1"
-          name="anio_elaboracion"
-          value={filters.anio_elaboracion}
-          onChange={handleFilterChange}
-          placeholder="Año elaboración"
-          title="Año de elaboración"
-        />
-        <select className="search-input" name="estado" value={filters.estado} onChange={handleFilterChange}>
-          <option value="">Estado (todos)</option>
-          <option value="Localizado Activo">Localizado Activo</option>
-          <option value="Localizado No Activo">Localizado No Activo</option>
-          <option value="No Localizado">No Localizado</option>
-        </select>
-        <button className="btn-secondary" onClick={handleClearFilters} disabled={loading}>Limpiar</button>
+            className="search-input"
+            type="text"
+            name="q"
+            value={filters.q}
+            onChange={handleFilterChange}
+            placeholder="Búsqueda inteligente"
+          />
+        </div>
+        <div className="search-row search-row-filters">
+          <select className="search-input" name="resguardante" value={filters.resguardante} onChange={handleFilterChange}>
+            <option value="">Resguardante (todos)</option>
+            {filterOptions.resguardantes.map((resguardante) => (
+              <option key={resguardante} value={resguardante}>{resguardante}</option>
+            ))}
+          </select>
+          <select className="search-input" name="responsable" value={filters.responsable} onChange={handleFilterChange}>
+            <option value="">Responsable (todos)</option>
+            {filterOptions.responsables.map((responsable) => (
+              <option key={responsable} value={responsable}>{responsable}</option>
+            ))}
+          </select>
+          <select className="search-input" name="ubicacion" value={filters.ubicacion} onChange={handleFilterChange}>
+            <option value="">Ubicación (todas)</option>
+            {filterOptions.ubicaciones.map((ubicacion) => (
+              <option key={ubicacion} value={ubicacion}>{ubicacion}</option>
+            ))}
+          </select>
+          <select className="search-input" name="anio_elaboracion" value={filters.anio_elaboracion} onChange={handleFilterChange}>
+            <option value="">Año elaboración (todos)</option>
+            {filterOptions.aniosElaboracion.map((anio) => (
+              <option key={anio} value={anio}>{anio}</option>
+            ))}
+          </select>
+          <select className="search-input" name="estado" value={filters.estado} onChange={handleFilterChange}>
+            <option value="">Estado (todos)</option>
+            <option value="Localizado Activo">Localizado Activo</option>
+            <option value="Localizado No Activo">Localizado No Activo</option>
+            <option value="No Localizado">No Localizado</option>
+          </select>
+          <button className="btn-secondary search-clear-btn" onClick={handleClearFilters} disabled={loading}>Limpiar</button>
+        </div>
       </div>
       
       {/* Tabla */}
@@ -526,32 +708,42 @@ const InternoView = () => {
         ) : items.length === 0 ? (
           <div className="empty-state">No hay datos disponibles</div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>No. Patrimonio</th>
-                <th>Descripción</th>
-                <th>No. Serie</th>
-                <th>Responsable</th>
-                <th>Resguardante</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="table-header">
+              <div className="table-header-row">
+                <div className="th">No. Patrimonio</div>
+                <div className="th">Descripción</div>
+                <div className="th">No. Serie</div>
+                <div className="th">Responsable</div>
+                <div className="th">Resguardante</div>
+                <div className="th">Estado</div>
+                <div className="th">Acciones</div>
+              </div>
+            </div>
+            <div className="table-body" ref={tableScrollRef}>
               {items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.numero_registro_patrimonial}</td>
-                  <td>{item.descripcion}</td>
-                  <td>{item.no_serie}</td>
-                  <td>{item.entrega_responsable}</td>
-                  <td>{item.responsable_usuario || 'Sin dato'}</td>
-                  <td>
+                <div key={item.id} className="table-row">
+                  <div className="td" title={item.numero_registro_patrimonial || ''}>
+                    {item.numero_registro_patrimonial}
+                  </div>
+                  <div className="td" title={item.descripcion || ''}>
+                    {item.descripcion}
+                  </div>
+                  <div className="td" title={item.no_serie || ''}>
+                    {item.no_serie}
+                  </div>
+                  <div className="td" title={item.entrega_responsable || ''}>
+                    {item.entrega_responsable}
+                  </div>
+                  <div className="td" title={item.responsable_usuario || 'Sin dato'}>
+                    {item.responsable_usuario || 'Sin dato'}
+                  </div>
+                  <div className="td td-estado">
                     <span className={`badge ${getEstadoBadgeClass(getEstadoLocalizacion(item))}`}>
                       {getEstadoLocalizacion(item)}
                     </span>
-                  </td>
-                  <td>
+                  </div>
+                  <div className="td">
                     <div className="action-buttons">
                       <button
                         className="btn-icon btn-view"
@@ -574,13 +766,38 @@ const InternoView = () => {
                         <FaEdit />
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
+      {!loading && pagination.pages > 1 && (
+        <div className="pagination-bar">
+          <button className="btn-secondary" onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page === 1}>
+            Anterior
+          </button>
+          <div className="pagination-pages">
+            {Array.from({ length: pagination.pages }, (_, idx) => {
+              const pageNumber = idx + 1
+              return (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  className={`pagination-page ${pagination.page === pageNumber ? 'active' : ''}`}
+                  onClick={() => handlePageChange(pageNumber)}
+                >
+                  {pageNumber}
+                </button>
+              )
+            })}
+          </div>
+          <button className="btn-secondary" onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page === pagination.pages}>
+            Siguiente
+          </button>
+        </div>
+      )}
       
       {/* Drawer */}
       {showDrawer && (
