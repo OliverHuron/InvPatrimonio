@@ -198,9 +198,10 @@
   border-bottom: 2px solid rgba(255,255,255,0.15);
 }
 
+
 .table-header-row {
   display: grid;
-  grid-template-columns: 140px 1fr 140px 180px 180px 190px 120px;
+  grid-template-columns: 90px 140px 1fr 140px 180px 180px 190px 120px;
   gap: 0;
 }
 
@@ -248,9 +249,10 @@
   background-color: #7d8992;
 }
 
+
 .table-row {
   display: grid;
-  grid-template-columns: 140px 1fr 140px 180px 180px 190px 120px;
+  grid-template-columns: 90px 140px 1fr 140px 180px 180px 190px 120px;
   gap: 0;
   border-bottom: 1px solid #ecf0f1;
   transition: background 0.2s;

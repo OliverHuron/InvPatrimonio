@@ -711,6 +711,7 @@ const InternoView = () => {
           <>
             <div className="table-header">
               <div className="table-header-row">
+                <div className="th">ID</div>
                 <div className="th">No. Patrimonio</div>
                 <div className="th">Descripción</div>
                 <div className="th">No. Serie</div>
@@ -723,6 +724,9 @@ const InternoView = () => {
             <div className="table-body" ref={tableScrollRef}>
               {items.map((item) => (
                 <div key={item.id} className="table-row">
+                  <div className="td" title={item.id}>
+                    {item.id}
+                  </div>
                   <div className="td" title={item.numero_registro_patrimonial || ''}>
                     {item.numero_registro_patrimonial}
                   </div>
