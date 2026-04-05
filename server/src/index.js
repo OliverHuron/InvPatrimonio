@@ -95,15 +95,7 @@ app.use('/api', (req, res, next) => {
 const { initializeDatabase } = require('./config/database');
 const { initializeRedis } = require('./services/redis.service');
 
-// Routes
-const patrimonioApiRoutes = require('./routes/patrimonioApi.routes'); // API Inventario/Auth
-
-// Ruta principal limpia
-app.use('/api', patrimonioApiRoutes);
-// Compatibilidad temporal con clientes antiguos
-app.use('/api/patrimonio-api', patrimonioApiRoutes);
-
-// Health check
+// Health check (register before mounting other /api routes to avoid conflicts)
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -112,6 +104,14 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
+
+// Routes
+const patrimonioApiRoutes = require('./routes/patrimonioApi.routes'); // API Inventario/Auth
+
+// Ruta principal limpia
+app.use('/api', patrimonioApiRoutes);
+// Compatibilidad temporal con clientes antiguos
+app.use('/api/patrimonio-api', patrimonioApiRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

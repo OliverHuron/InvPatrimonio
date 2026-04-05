@@ -20,6 +20,11 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+const xmlDir = path.join(__dirname, '..', '..', 'uploads', 'xml');
+if (!fs.existsSync(xmlDir)) {
+  fs.mkdirSync(xmlDir, { recursive: true });
+}
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, uploadDir),
@@ -32,6 +37,28 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     if (!file.mimetype || !file.mimetype.startsWith('image/')) {
       return cb(new Error('Solo se permiten imágenes'));
+    }
+    cb(null, true);
+  }
+});
+
+const uploadXml = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, xmlDir),
+    filename: (req, _file, cb) => {
+      const { id } = req.params;
+      // use id.xml as filename for easy identification
+      cb(null, `${id}.xml`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['text/xml', 'application/xml', 'application/octet-stream'];
+    // allow .xml and common xml mime types
+    if (!file.mimetype || !allowed.includes(file.mimetype)) {
+      // also accept files with .xml extension as a fallback
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      if (ext !== '.xml') return cb(new Error('Solo se permiten archivos XML'));
     }
     cb(null, true);
   }
@@ -202,6 +229,11 @@ router.get('/patrimonioci/:id/fotos', patrimonioApiController.getFotosPatrimonio
 router.post('/patrimonioci/:id/fotos/:orden', upload.single('foto'), patrimonioApiController.upsertFotoPatrimonioci);
 router.delete('/patrimonioci/:id/fotos/:orden', patrimonioApiController.deleteFotoPatrimonioci);
 
+// === XML para Patrimonio CI ===
+router.get('/patrimonioci/:id/xml', patrimonioApiController.getXmlPatrimonioci);
+router.post('/patrimonioci/:id/xml', uploadXml.single('xmlfile'), patrimonioApiController.uploadXmlPatrimonioci);
+router.delete('/patrimonioci/:id/xml', patrimonioApiController.deleteXmlPatrimonioci);
+
 // === PATRIMONIO (Externo) ===
 router.get('/patrimonio', patrimonioApiController.getAllPatrimonios);
 router.get('/patrimonio/:id', patrimonioApiController.getPatrimonioById);
@@ -225,13 +257,15 @@ router.get('/marcas', patrimonioApiController.getAvailableMarcas);
 router.get('/ubicaciones', patrimonioApiController.getAvailableUbicaciones);
 
 // Obtener un inventario específico (DEBE IR AL FINAL)
-router.get('/:id', patrimonioApiController.getPatrimonioById);
+// Only match numeric IDs to avoid catching other static routes like /health
+router.get('/:id(\\d+)', patrimonioApiController.getPatrimonioById);
 
 // Crear nuevo inventario
 router.post('/', patrimonioApiController.createPatrimonio);
 
 // Actualizar inventario
-router.put('/:id', patrimonioApiController.updatePatrimonio);
+// Only match numeric IDs
+router.put('/:id(\\d+)', patrimonioApiController.updatePatrimonio);
 
 // =====================================================
 // LOGOUT DUAL

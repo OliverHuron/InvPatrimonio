@@ -111,6 +111,8 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
         OR COALESCE(no_factura, '') ILIKE $${paramIndex}
         OR COALESCE(ures_asignacion, '') ILIKE $${paramIndex}
         OR COALESCE(recurso, '') ILIKE $${paramIndex}
+        OR COALESCE(cuenta, '') ILIKE $${paramIndex}
+        OR COALESCE(tipo_bien, '') ILIKE $${paramIndex}
         OR COALESCE(proveedor, '') ILIKE $${paramIndex}
         OR COALESCE(observaciones, '') ILIKE $${paramIndex}
         OR COALESCE(responsable_usuario, '') ILIKE $${paramIndex}
@@ -156,19 +158,25 @@ const createInventarioInterno = async (data) => {
       INSERT INTO inventario_interno (
         numero_registro_patrimonial, no_registro, descripcion, marca, modelo,
         no_serie, no_factura, costo, ures_asignacion,
-        ubicacion, recurso, proveedor, fecha_elaboracion, observaciones,
+        ubicacion, recurso, proveedor,
+        cuenta, descripcion_cuenta, tipo_bien, ejercicio, solicitud_orden_compra, fondo, cuenta_por_pagar, idcon, usuario_registro,
+        fecha_registro, fecha_asignacion, fecha_aprobacion,
+        fecha_elaboracion, observaciones,
         estado_uso, estado_localizacion, entrega_responsable, responsable_usuario, numero_empleado_usuario, ur, activo,
         usuario_creacion
       ) VALUES (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9,
-        $10, $11, $12, $13, $14,
-        $15, $16, $17, $18, $19, $20, $21,
-        $22
+        $10, $11, $12,
+        $13, $14, $15, $16, $17, $18, $19, $20, $21,
+        $22, $23, $24,
+        $25, $26,
+        $27, $28, $29, $30, $31, $32, $33,
+        $34
       )
       RETURNING *
     `;
-    
+
     const values = [
       data.numero_registro_patrimonial,
       data.no_registro,
@@ -182,6 +190,18 @@ const createInventarioInterno = async (data) => {
       data.ubicacion,
       data.recurso,
       data.proveedor,
+      data.cuenta,
+      data.descripcion_cuenta,
+      data.tipo_bien,
+      data.ejercicio,
+      data.solicitud_orden_compra,
+      data.fondo,
+      data.cuenta_por_pagar,
+      data.idcon,
+      data.usuario_registro,
+      parseDateOrNull(data.fecha_registro),
+      parseDateOrNull(data.fecha_asignacion),
+      parseDateOrNull(data.fecha_aprobacion),
       parseDateOrNull(data.fecha_elaboracion),
       data.observaciones,
       data.estado_uso || '1-Bueno',
@@ -193,7 +213,7 @@ const createInventarioInterno = async (data) => {
       parseActivo(data.activo, true),
       data.usuario_creacion || 'system'
     ];
-    
+
     const result = await pool.query(query, values);
     return result.rows[0];
   } catch (error) {
@@ -221,21 +241,33 @@ const updateInventarioInterno = async (id, data) => {
         ubicacion = COALESCE($10, ubicacion),
         recurso = COALESCE($11, recurso),
         proveedor = COALESCE($12, proveedor),
-        fecha_elaboracion = COALESCE($13, fecha_elaboracion),
-        observaciones = COALESCE($14, observaciones),
-        estado_uso = COALESCE($15, estado_uso),
-        estado_localizacion = COALESCE($16, estado_localizacion),
-        entrega_responsable = COALESCE($17, entrega_responsable),
-        responsable_usuario = COALESCE($18, responsable_usuario),
-        numero_empleado_usuario = COALESCE($19, numero_empleado_usuario),
-        ur = COALESCE($20, ur),
-        activo = COALESCE($21, activo),
-        usuario_actualizacion = $22,
+        cuenta = COALESCE($13, cuenta),
+        descripcion_cuenta = COALESCE($14, descripcion_cuenta),
+        tipo_bien = COALESCE($15, tipo_bien),
+        ejercicio = COALESCE($16, ejercicio),
+        solicitud_orden_compra = COALESCE($17, solicitud_orden_compra),
+        fondo = COALESCE($18, fondo),
+        cuenta_por_pagar = COALESCE($19, cuenta_por_pagar),
+        idcon = COALESCE($20, idcon),
+        usuario_registro = COALESCE($21, usuario_registro),
+        fecha_registro = COALESCE($22, fecha_registro),
+        fecha_asignacion = COALESCE($23, fecha_asignacion),
+        fecha_aprobacion = COALESCE($24, fecha_aprobacion),
+        fecha_elaboracion = COALESCE($25, fecha_elaboracion),
+        observaciones = COALESCE($26, observaciones),
+        estado_uso = COALESCE($27, estado_uso),
+        estado_localizacion = COALESCE($28, estado_localizacion),
+        entrega_responsable = COALESCE($29, entrega_responsable),
+        responsable_usuario = COALESCE($30, responsable_usuario),
+        numero_empleado_usuario = COALESCE($31, numero_empleado_usuario),
+        ur = COALESCE($32, ur),
+        activo = COALESCE($33, activo),
+        usuario_actualizacion = $34,
         fecha_actualizacion = CURRENT_TIMESTAMP
-      WHERE id = $23
+      WHERE id = $35
       RETURNING *
     `;
-    
+
     const values = [
       data.numero_registro_patrimonial,
       data.no_registro,
@@ -249,6 +281,18 @@ const updateInventarioInterno = async (id, data) => {
       data.ubicacion,
       data.recurso,
       data.proveedor,
+      data.cuenta,
+      data.descripcion_cuenta,
+      data.tipo_bien,
+      data.ejercicio,
+      data.solicitud_orden_compra,
+      data.fondo,
+      data.cuenta_por_pagar,
+      data.idcon,
+      data.usuario_registro,
+      parseDateOrNull(data.fecha_registro),
+      parseDateOrNull(data.fecha_asignacion),
+      parseDateOrNull(data.fecha_aprobacion),
       parseDateOrNull(data.fecha_elaboracion),
       data.observaciones,
       data.estado_uso,
@@ -261,13 +305,13 @@ const updateInventarioInterno = async (id, data) => {
       data.usuario_actualizacion || 'system',
       id
     ];
-    
+
     const result = await pool.query(query, values);
-    
+
     if (result.rows.length === 0) {
       return null;
     }
-    
+
     return result.rows[0];
   } catch (error) {
     console.error('[BD Local] Error actualizando inventario interno:', error);

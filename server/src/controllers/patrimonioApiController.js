@@ -361,6 +361,55 @@ const deleteFotoPatrimonioci = async (req, res) => {
   }
 };
 
+// =====================
+// XML: obtener / subir / eliminar
+// =====================
+const getXmlPatrimonioci = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const xmlRel = path.join('uploads', 'xml', `${id}.xml`);
+    const absPath = path.join(__dirname, '..', '..', xmlRel);
+    if (!fs.existsSync(absPath)) {
+      return res.json({ success: true, data: { exists: false } });
+    }
+    const content = fs.readFileSync(absPath, { encoding: 'utf8' });
+    return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: `/${xmlRel.replace(/\\/g, '/')}`, content } });
+  } catch (error) {
+    console.error('Error al obtener XML:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al obtener XML' });
+  }
+};
+
+const uploadXmlPatrimonioci = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ success: false, message: 'Debes enviar un archivo XML' });
+
+    const nuevaRutaRelativa = `uploads/xml/${req.file.filename}`;
+    // No metadata stored in DB for now; we simply replace the file on disk
+    return res.json({ success: true, data: { filename: req.file.filename, ruta: nuevaRutaRelativa } });
+  } catch (error) {
+    console.error('Error al subir XML:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al subir XML' });
+  }
+};
+
+const deleteXmlPatrimonioci = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rel = path.join('uploads', 'xml', `${id}.xml`);
+    const absPath = path.join(__dirname, '..', '..', rel);
+    if (fs.existsSync(absPath)) {
+      fs.unlinkSync(absPath);
+      return res.json({ success: true, data: { deleted: true } });
+    }
+    return res.json({ success: true, data: { deleted: false } });
+  } catch (error) {
+    console.error('Error al eliminar XML:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al eliminar XML' });
+  }
+};
+
 /**
  * Obtener información del modo de datos actual
  */
@@ -414,6 +463,10 @@ module.exports = {
   getFotosPatrimonioci,
   upsertFotoPatrimonioci,
   deleteFotoPatrimonioci,
+  // XML
+  getXmlPatrimonioci,
+  uploadXmlPatrimonioci,
+  deleteXmlPatrimonioci,
   getCategoriasEntrega,
   // Info del sistema
   getDataSourceInfo

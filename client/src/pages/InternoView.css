@@ -3,15 +3,47 @@
    ===================================================== */
 
 .interno-view {
-  padding: 1rem 2rem 0.75rem;
+  padding: 1rem 1rem 0.75rem;
   max-width: 1400px;
   margin: 0 auto;
-  height: 100%;
+  /* make the view fit the viewport so inner table scroller is the only vertical scroller */
+  height: calc(100vh - 120px);
   min-height: 0;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden;
 }
+
+/* When this view is active, hide page scrollbar so internal scroller is primary */
+body.interno-active {
+  overflow: hidden;
+}
+
+/* ===== Fix: action buttons appearance on desktop ===== */
+@media (min-width: 1025px) {
+  .table-row .action-buttons { gap: 0.5rem !important; }
+  .table-row .action-buttons .btn-icon {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0.28rem !important;
+    min-width: 36px !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .interno-view .btn-icon svg, .interno-view .btn-icon > svg {
+    width: 70% !important;
+    height: 70% !important;
+    fill: currentColor !important;
+    display: block !important;
+  }
+  /* keep the semantic color backgrounds but slightly reduce opacity so the icon stands out */
+  .btn-view { background: rgba(249,230,234,0.98); }
+  .btn-edit { background: rgba(244,204,213,0.98); }
+}
+
 
 .view-header {
   display: flex;
@@ -154,7 +186,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  justify-content: space-between;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -188,8 +220,13 @@
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  overflow: hidden;
   border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden; /* keep scroll inside the table container */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .table-header {
@@ -201,8 +238,21 @@
 
 .table-header-row {
   display: grid;
-  grid-template-columns: 90px 140px 1fr 140px 180px 180px 190px 120px;
+  grid-template-columns:
+    clamp(40px, calc((90px - 24px) + 1.25vw), 90px) /* ID */
+    clamp(80px, calc((140px - 24px) + 1.25vw), 140px) /* No. Patrimonio */
+    minmax(clamp(120px, calc((300px - 24px) + 1.25vw), 300px), 1fr) /* Descripción */
+    clamp(80px, calc((140px - 24px) + 1.25vw), 140px) /* No. Serie */
+    clamp(120px, calc((180px - 24px) + 1.25vw), 180px) /* Responsable */
+    clamp(120px, calc((180px - 24px) + 1.25vw), 180px) /* Resguardante */
+    clamp(140px, calc((190px - 24px) + 1.25vw), 190px) /* Estado */
+    clamp(60px, calc((120px - 24px) + 1.25vw), 120px) /* Acciones */;
   gap: 0;
+}
+
+/* Ensure consistent box-sizing for header cells and row cells to avoid misalignment */
+.table-header-row, .table-row, .table-header .th, .table-row .td {
+  box-sizing: border-box;
 }
 
 .table-header .th {
@@ -213,46 +263,107 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-right: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 .table-header .th:last-child {
   border-right: none;
 }
 
+.table-header {
+  background: #34495e;
+  color: white;
+  border-bottom: 2px solid rgba(255,255,255,0.15);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
 .table-body {
-  overflow-y: auto;
-  overflow-x: auto;
-  height: 540px;
-  min-height: 540px;
-  max-height: 540px;
+  /* rows area: no independent scrolling here - scrolling happens on .table-scroll so header and rows align */
+  flex: none;
+  min-height: 0;
+  overflow: visible;
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
   background: #ffffff;
 }
 
-.table-body::-webkit-scrollbar {
-  width: 12px;
+/* Wrapper that allows horizontal scrolling for wide tables */
+.table-scroll {
+  width: 100%;
+  /* make the scroll container handle both vertical and horizontal scrolling so header and rows align */
+  overflow-y: auto;
+  /* allow horizontal scrolling when table is wider than container */
+  overflow-x: auto;
+  max-height: calc(100vh - 260px);
+  padding-bottom: 8px; /* give space for the horizontal scrollbar when present */
 }
 
-.table-body::-webkit-scrollbar-track {
+/* ensure padding doesn't create unexpected scroll width */
+.table-scroll { box-sizing: border-box; }
+
+/* Inner wrapper that holds header + body and expands to intrinsic width */
+.table-inner {
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure header stays visible and aligned when body scrolls vertically */
+.table-header {
+  /* header stays visible inside the scrolling container */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+/* Reserve space for the vertical scrollbar so header columns align with rows */
+.table-header {
+  padding-right: var(--table-scrollbar-width, 0px);
+}
+
+/* Let header and rows size to their content (grid columns define widths).
+   Using min-width:max-content allows the table to become wider than the
+   container and trigger horizontal scrolling only when necessary. */
+.table-header-row, .table-row {
+  /* allow header and rows to size to their intrinsic content width so
+     horizontal scrolling shows full header; grid-template-columns
+     already defines each column width via clamp/minmax. */
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Styled scrollbar for the horizontal scroller (WebKit) - will show only when overflow-x is active */
+.table-scroll.horizontal-scroll::-webkit-scrollbar {
+  height: 12px;
+}
+.table-scroll.horizontal-scroll::-webkit-scrollbar-track {
   background: #f8fafc;
+  border-radius: 8px;
 }
-
-.table-body::-webkit-scrollbar-thumb {
+.table-scroll.horizontal-scroll::-webkit-scrollbar-thumb {
   background-color: #9aa5ad;
   border-radius: 8px;
   border: 2px solid #f8fafc;
 }
-
-.table-body::-webkit-scrollbar-thumb:hover {
+.table-scroll.horizontal-scroll::-webkit-scrollbar-thumb:hover {
   background-color: #7d8992;
 }
 
 
 .table-row {
   display: grid;
-  grid-template-columns: 90px 140px 1fr 140px 180px 180px 190px 120px;
+  grid-template-columns:
+    clamp(40px, calc((90px - 24px) + 1.25vw), 90px)
+    clamp(80px, calc((140px - 24px) + 1.25vw), 140px)
+    minmax(clamp(120px, calc((300px - 24px) + 1.25vw), 300px), 1fr)
+    clamp(80px, calc((140px - 24px) + 1.25vw), 140px)
+    clamp(120px, calc((180px - 24px) + 1.25vw), 180px)
+    clamp(120px, calc((180px - 24px) + 1.25vw), 180px)
+    clamp(140px, calc((190px - 24px) + 1.25vw), 190px)
+    clamp(60px, calc((120px - 24px) + 1.25vw), 120px);
   gap: 0;
   border-bottom: 1px solid #ecf0f1;
   transition: background 0.2s;
@@ -274,12 +385,39 @@
   line-height: 1.5;
 }
 
+/* Allow description cells to wrap so layout adapts without forcing column collapse */
+.table-row .td.col-desc {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: block;
+}
+
 .table-row .td.td-estado {
   display: flex;
   align-items: center;
-  overflow: visible;
-  white-space: normal;
-  text-overflow: clip;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  gap: 0.4rem;
+}
+
+.table-row .td.td-estado .badge {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.table-row .td.col-acciones {
+  padding-left: 8px;
+  padding-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .table-row .td:last-child {
@@ -351,6 +489,29 @@
 .btn-edit:hover {
   background: #e9b4c0;
   transform: scale(1.1);
+}
+
+/* Compact in-row action icons so the actions column stays narrow */
+.table-row .td:last-child { justify-content: center; padding-left: 6px; padding-right: 6px; }
+.table-row .action-buttons { gap: 0.35rem; }
+.table-row .action-buttons .btn-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0.25rem;
+  min-width: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Slightly reduce the last-column width on tablet to better fit compact icons */
+@media (max-width: 1024px) {
+  /* Keep clamped/scaled grid-template from the base rules; no override here */
+}
+
+@media (max-width: 768px) {
+  /* Use the base clamped grid-template; do not override columns here */
+  .table-row .action-buttons .btn-icon { width: 28px; height: 28px; }
 }
 
 /* Estados vacíos/loading */
@@ -496,6 +657,74 @@
 
 .drawer-section {
   margin-bottom: 1.1rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.section-header h3 { margin: 0; }
+
+.section-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-export-rm {
+  padding: 0.22rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  border: none;
+  background: #95a5a6;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  line-height: 1;
+}
+
+.btn-export-rm:hover { background: #7f8c8d; }
+
+.section-toggle {
+  background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  color: #6b7280;
+}
+
+.section-toggle .rotated {
+  transform: rotate(180deg);
+  transition: transform 0.18s ease;
+}
+
+.section-toggle svg { transition: transform 0.18s ease; }
+
+/* RM-specific: centrar el título+botón y hacer el botón más compacto */
+.drawer-section:first-of-type .section-left {
+  flex: 1 1 0;
+  justify-content: flex-start;
+  gap: 0;
+}
+
+.drawer-section:first-of-type .btn-export-rm {
+  margin-left: 0.4rem;
+  margin-bottom: 0.4rem;
+  padding: 0.08rem 0.35rem;
+  font-size: 0.76rem;
+  height: 22px;
+  min-width: 0;
+  border-radius: 4px;
 }
 
 .drawer-section h3 {
@@ -677,6 +906,51 @@
   justify-content: space-between;
 }
 
+/* XML block styling (preview + empty states) */
+.xml-block {
+  border: 1px solid #ecf0f1;
+  border-radius: 8px;
+  padding: 0.6rem;
+  background: #fff;
+}
+
+.xml-meta {
+  font-size: 0.86rem;
+  color: #7f8c8d;
+  margin-bottom: 0.45rem;
+}
+
+.xml-preview {
+  max-height: 260px;
+  overflow: auto;
+  background: #f6f7f8;
+  padding: 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #eceff1;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.xml-empty {
+  width: 100%;
+  height: 110px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #d0d7de;
+  border-radius: 6px;
+  color: #95a5a6;
+  font-size: 0.9rem;
+  background: #fafafa;
+}
+
+.xml-actions {
+  margin-top: 0.6rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
 .btn-upload {
   position: relative;
   overflow: hidden;
@@ -712,56 +986,705 @@
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .interno-view {
     padding: 1rem;
   }
-  
   .view-header {
     flex-direction: column;
     gap: 1rem;
   }
-  
+  /* header actions: match filter distribution (2 columns x 3 rows on tablet) */
   .header-actions {
     width: 100%;
-    flex-direction: column;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    align-items: center;
   }
-
+  /* make the third action span the full row so 3 buttons arrange like filters */
+  .header-actions > *:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+  .header-actions > * { width: 100%; }
   .search-bar {
     flex-direction: column;
   }
-
   .search-row {
     flex-direction: column;
     align-items: stretch;
   }
-  
   .table-container {
-    overflow: hidden;
+    width: 100%;
   }
-
-  .table-scroll {
-    overflow-x: auto;
-    height: 62vh;
-    min-height: 240px;
-    max-height: 62vh;
+  /* Use the base clamped grid-template; do not override columns here */
+  .table-header .th, .table-row .td {
+    padding: 0.55rem;
+    font-size: 0.78rem;
   }
-
-  .data-table {
-    min-width: 900px;
+  /* arrange filters in a 2-column grid (3 rows x 2 cols) */
+  .search-row-filters {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
   }
-  
+  /* allow horizontal scrolling when needed */
+  .table-scroll { overflow-x: auto; }
+  .table-scroll.horizontal-scroll, .table-scroll { overflow-x: auto; }
   .form-grid {
     grid-template-columns: 1fr;
   }
-
   .drawer-summary,
   .detail-grid.two-cols,
   .photo-slots {
     grid-template-columns: 1fr;
   }
-  
   .drawer-panel {
     width: 100vw;
   }
 }
+
+/* Smaller screens adjustments */
+@media (max-width: 768px) {
+  .search-bar {
+    padding: 8px;
+  }
+  .search-row-filters {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  /* allow horizontal scrolling when needed */
+  .table-scroll { overflow-x: auto; }
+  .table-scroll.horizontal-scroll, .table-scroll { overflow-x: auto; }
+  .search-row-filters .search-input {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding: 7px;
+    font-size: 0.82rem;
+  }
+  /* Use the base clamped grid-template; do not override columns here */
+  .table-header .th, .table-row .td {
+    padding: 0.42rem;
+    font-size: 0.72rem;
+  }
+  /* prefer the page scrollbar on small screens */
+  .table-body {
+    max-height: none;
+    overflow-y: visible;
+  }
+  /* compact action buttons */
+  .action-buttons { gap: 0.6rem; }
+  .action-buttons .btn-icon { padding: 0.4rem; }
+  /* header actions: keep same distribution as filters on smaller tablets */
+  .header-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .header-actions > *:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+  .header-actions > * { width: 100%; }
+}
+
+/* Fine-grained scaling for small and medium screens */
+@media (max-width: 1024px) {
+  .view-header h1 { font-size: 1.4rem; }
+  .view-header p { font-size: 0.85rem; }
+  .btn-primary, .btn-secondary, .btn-refresh {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.85rem;
+  }
+  .btn-icon { padding: 0.45rem; }
+  .search-input { padding: 8px; font-size: 0.9rem; }
+  .pagination-page { min-width: 30px; height: 32px; font-size: 0.82rem; }
+  .table-header .th, .table-row .td { font-size: 0.82rem; }
+  .form-group label { font-size: 0.85rem; }
+}
+
+@media (max-width: 768px) {
+  .view-header h1 { font-size: 1.15rem; }
+  .view-header p { font-size: 0.8rem; }
+  .btn-primary, .btn-secondary, .btn-refresh {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  .btn-icon { padding: 0.4rem; }
+  .search-input { padding: 7px; font-size: 0.85rem; }
+  .pagination-page { min-width: 28px; height: 30px; font-size: 0.78rem; }
+  .table-header .th, .table-row .td { font-size: 0.78rem; padding: 0.45rem; }
+  .form-group label { font-size: 0.82rem; }
+  .drawer-header h2 { font-size: 1.05rem; }
+}
+
+@media (max-width: 480px) {
+  .view-header h1 { font-size: 1rem; }
+  .view-header p { font-size: 0.75rem; }
+  .btn-primary, .btn-secondary, .btn-refresh {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.78rem;
+  }
+  .btn-icon { padding: 0.3rem; font-size: 0.85rem; }
+  .search-input { padding: 6px; font-size: 0.8rem; }
+  .pagination-page { min-width: 26px; height: 28px; font-size: 0.72rem; }
+  .table-header .th, .table-row .td { font-size: 0.72rem; padding: 0.35rem; }
+  .form-group label { font-size: 0.78rem; }
+  .drawer-header h2 { font-size: 1rem; }
+  .interno-view { padding: 0.6rem 0.75rem 0.5rem; }
+  .header-actions { gap: 0.5rem; }
+  /* ensure selects and inputs don't become huge */
+  .search-row-filters .search-input { font-size: 0.82rem; padding: 7px; }
+  /* slightly increase table density */
+  .table-row .td { line-height: 1.2; }
+}
+
+/* Extra small screens (phones) */
+@media (max-width: 480px) {
+  .search-bar { padding: 8px; }
+  .search-row { gap: 6px; }
+  .search-row-filters { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .search-row-filters .search-input { padding: 8px; font-size: 0.85rem; }
+  .header-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+  .table-header .th, .table-row .td { padding: 0.35rem; font-size: 0.72rem; }
+  /* Keep clamped/scaled grid-template from the base rules; skip per-breakpoint override */
+  /* hide less-important columns on very small screens (4,5,6) */
+  .table-header-row .th:nth-child(4), .table-row .td:nth-child(4),
+  .table-header-row .th:nth-child(5), .table-row .td:nth-child(5),
+  .table-header-row .th:nth-child(6), .table-row .td:nth-child(6) { display: none; }
+  .action-buttons .btn-icon { padding: 0.25rem; font-size: 0.85rem; }
+  .pagination-bar { padding: 6px 8px; gap: 6px; }
+  /* ensure table has an internal vertical scrollbar on very small screens */
+  .table-body { max-height: 40vh; overflow-y: auto; }
+  /* pagination sits below the table inside the container */
+  .table-container > .pagination-bar { margin-top: 6px; }
+  .search-row-filters .search-input::placeholder { font-size: 0.78rem; }
+}
+
+/* DEBUG HELPERS removed */
+
+/* Progressive font-size reductions for very small screens */
+@media (max-width: 420px) {
+  .view-header h1 { font-size: 0.90rem; }
+  .view-header p { font-size: 0.70rem; }
+
+  .btn-primary, .btn-secondary, .btn-refresh {
+    padding: 0.28rem 0.5rem;
+    font-size: 0.72rem;
+  }
+  .btn-icon { padding: 0.24rem; font-size: 0.78rem; }
+
+  .search-input { padding: 6px; font-size: 0.78rem; }
+
+  .table-header .th, .table-row .td {
+    font-size: 0.66rem;
+    padding: 0.32rem;
+  }
+
+  .pagination-page { min-width: 26px; height: 26px; font-size: 0.66rem; }
+
+  /* Card styles for mobile */
+  .card-title { font-size: 0.95rem; }
+  .card-body { font-size: 0.82rem; }
+}
+
+/* XML modal styles */
+.xml-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1200;
+}
+.xml-modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(900px, 95vw);
+  max-height: 80vh;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
+  z-index: 1201;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+}
+.xml-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #eceff1;
+}
+.xml-modal-body {
+  padding: 0.9rem 1rem;
+  overflow: auto;
+  flex: 1 1 auto;
+}
+.xml-modal-footer {
+  padding: 0.6rem 1rem;
+  border-top: 1px solid #eceff1;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.xml-modal .xml-preview {
+  max-height: calc(80vh - 180px);
+  overflow: auto;
+  background: #f6f7f8;
+  padding: 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #eceff1;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 360px) {
+  .view-header h1 { font-size: 0.85rem; }
+  .view-header p { font-size: 0.68rem; }
+
+  .btn-primary, .btn-secondary, .btn-refresh {
+    padding: 0.22rem 0.45rem;
+    font-size: 0.68rem;
+  }
+  .btn-icon { padding: 0.18rem; font-size: 0.72rem; width: 28px; height: 28px; }
+
+  .search-input { padding: 5px; font-size: 0.72rem; }
+
+  .table-header .th, .table-row .td {
+    font-size: 0.60rem;
+    padding: 0.28rem;
+  }
+
+  .pagination-page { min-width: 22px; height: 24px; font-size: 0.60rem; }
+
+  .card-title { font-size: 0.92rem; }
+  .card-body { font-size: 0.76rem; }
+}
+
+/* ---- Mobile cards + tablet hint + adaptive filters ----------------------- */
+
+/* Default: card list hidden, table visible */
+.card-list { display: none; }
+.asset-card { display: block; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.card-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.card-title { font-weight: 600; color: #2c3e50; }
+.card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.92rem; color: #3b4a59; }
+.card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+.table-hint { display: none; font-size: 0.87rem; color: #6b7280; padding: 6px 12px 0 12px; }
+
+/* Filters: adaptive grid (mobile first) */
+.search-row-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+@media (min-width: 480px) {
+  .search-row-filters { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 640px) {
+  .search-row-filters { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .search-row-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+}
+
+/* Tablet: enable horizontal scrolling and show hint */
+@media (min-width: 640px) and (max-width: 1024px) {
+  .table-scroll { overflow-x: auto; }
+  .table-hint { display: block; }
+}
+
+/* Mobile: hide table, show cards */
+@media (max-width: 639px) {
+  .table-scroll { display: none; }
+  .card-list { display: block; padding: 0 12px 12px 12px; }
+  .header-actions { display: flex; flex-direction: column; gap: 8px; }
+  .action-buttons { gap: 0.5rem; }
+  .card-body { grid-template-columns: 1fr; }
+  .pagination-bar { padding: 8px 12px; }
+}
+
+/* Tighter sizing for badges, icons and card padding on mobile */
+@media (max-width: 639px) {
+  .badge { font-size: 0.68rem; padding: 0.2rem 0.5rem; border-radius: 10px; }
+  .asset-card { padding: 10px; }
+  .card-title { font-size: 0.95rem; }
+  .card-body { font-size: 0.86rem; }
+  .btn-icon { width: 28px; height: 28px; padding: 0.22rem; }
+}
+
+/* ==========================
+   Aggressive reductions
+   User requested considerable shrinking of headers, badges and text
+   These rules intentionally use !important to ensure overrides
+   ========================== */
+@media (max-width: 1024px) {
+  .view-header h1 { font-size: 1.20rem !important; }
+  .view-header p { font-size: 0.78rem !important; }
+  .table-header .th, .table-row .td { font-size: 0.75rem !important; padding: 0.40rem !important; }
+  .badge { font-size: 0.64rem !important; padding: 0.16rem 0.40rem !important; border-radius: 10px !important; }
+  .card-title { font-size: 0.96rem !important; }
+  .card-body { font-size: 0.84rem !important; }
+  .btn-primary, .btn-secondary, .btn-refresh { font-size: 0.80rem !important; padding: 0.34rem 0.7rem !important; }
+}
+
+@media (max-width: 768px) {
+  .view-header h1 { font-size: 1.05rem !important; }
+  .view-header p { font-size: 0.74rem !important; }
+  .table-header .th, .table-row .td { font-size: 0.70rem !important; padding: 0.32rem !important; }
+  .badge { font-size: 0.60rem !important; padding: 0.14rem 0.36rem !important; }
+  .card-title { font-size: 0.92rem !important; }
+  .card-body { font-size: 0.80rem !important; }
+  .btn-icon { width: 26px !important; height: 26px !important; padding: 0.16rem !important; }
+}
+
+@media (max-width: 639px) {
+  .view-header h1 { font-size: 0.95rem !important; }
+  .view-header p { font-size: 0.70rem !important; }
+  .table-header .th, .table-row .td { font-size: 0.62rem !important; padding: 0.24rem !important; }
+  .badge { font-size: 0.56rem !important; padding: 0.12rem 0.30rem !important; border-radius: 8px !important; }
+  .card-title { font-size: 0.88rem !important; }
+  .card-body { font-size: 0.76rem !important; }
+  .btn-primary, .btn-secondary, .btn-refresh { font-size: 0.72rem !important; padding: 0.26rem 0.5rem !important; }
+  .btn-icon { width: 24px !important; height: 24px !important; padding: 0.12rem !important; }
+}
+
+@media (max-width: 420px) {
+  .view-header h1 { font-size: 0.88rem !important; }
+  .view-header p { font-size: 0.66rem !important; }
+  .table-header .th, .table-row .td { font-size: 0.56rem !important; padding: 0.20rem !important; }
+  .badge { font-size: 0.52rem !important; padding: 0.10rem 0.24rem !important; }
+  .card-title { font-size: 0.84rem !important; }
+  .card-body { font-size: 0.72rem !important; }
+  .btn-icon { width: 22px !important; height: 22px !important; padding: 0.10rem !important; }
+}
+
+@media (max-width: 360px) {
+  .view-header h1 { font-size: 0.82rem !important; }
+  .view-header p { font-size: 0.64rem !important; }
+  .table-header .th, .table-row .td { font-size: 0.50rem !important; padding: 0.14rem !important; }
+  .badge { font-size: 0.48rem !important; padding: 0.08rem 0.20rem !important; }
+  .card-title { font-size: 0.80rem !important; }
+  .card-body { font-size: 0.68rem !important; }
+  .btn-icon { width: 20px !important; height: 20px !important; padding: 0.08rem !important; }
+  .table-row .action-buttons .btn-icon { min-width: 20px !important; }
+}
+
+
+@media (max-width: 420px) {
+  .badge { font-size: 0.62rem; padding: 0.18rem 0.4rem; border-radius: 8px; }
+  .asset-card { padding: 8px; }
+  .card-title { font-size: 0.92rem; }
+  .card-body { font-size: 0.82rem; }
+  .btn-icon { width: 26px; height: 26px; padding: 0.18rem; }
+}
+
+@media (max-width: 360px) {
+  .badge { font-size: 0.56rem; padding: 0.14rem 0.35rem; border-radius: 6px; }
+  .asset-card { padding: 6px; }
+  .card-title { font-size: 0.9rem; }
+  .card-body { font-size: 0.76rem; }
+  .btn-icon { width: 24px; height: 24px; padding: 0.14rem; }
+}
+
+/* ==============================================================
+   Fluid linear decrement scaling (expert responsive fix)
+   - Baseline: 1920px viewport where element uses its base size
+   - For every 80px decrease in viewport width, size decreases ~1px
+   - Implemented with: calc(base - ((1920px - 100vw) / 80)) and clamped
+   - Placed at the end to override previous rules and avoid jumps
+   ============================================================== */
+.interno-view {
+  --h1-base: 24px;
+  --p-base: 14px;
+  --th-base: 13px;
+  --td-base: 14px;
+  --badge-base: 12px;
+  --btn-base: 14px;
+  --icon-base: 16px;
+}
+
+/* formula: size = clamp(min, calc(base - ((1920px - vw) / 80)), base) */
+.interno-view .view-header h1 {
+  font-size: clamp(12px, calc(var(--h1-base) - ((1920px - 100vw) / 80)), var(--h1-base)) !important;
+}
+.interno-view .view-header p {
+  font-size: clamp(10px, calc(var(--p-base) - ((1920px - 100vw) / 80)), var(--p-base)) !important;
+}
+
+.interno-view .table-header .th {
+  font-size: clamp(10px, calc(var(--th-base) - ((1920px - 100vw) / 80)), var(--th-base)) !important;
+}
+.interno-view .table-row .td {
+  font-size: clamp(10px, calc(var(--td-base) - ((1920px - 100vw) / 80)), var(--td-base)) !important;
+}
+
+.interno-view .card-title {
+  font-size: clamp(10px, calc(18px - ((1920px - 100vw) / 80)), 18px) !important;
+}
+.interno-view .card-body {
+  font-size: clamp(9px, calc(16px - ((1920px - 100vw) / 80)), 16px) !important;
+}
+
+.interno-view .badge {
+  font-size: clamp(8px, calc(var(--badge-base) - ((1920px - 100vw) / 80)), var(--badge-base)) !important;
+  padding: clamp(3px, calc(8px - ((1920px - 100vw) / 80)), 8px) !important;
+}
+
+.interno-view .btn-primary,
+.interno-view .btn-secondary,
+.interno-view .btn-refresh {
+  font-size: clamp(9px, calc(var(--btn-base) - ((1920px - 100vw) / 80)), var(--btn-base)) !important;
+  padding: clamp(4px, calc(12px - ((1920px - 100vw) / 80)), 12px) clamp(6px, calc(20px - ((1920px - 100vw) / 80)), 20px) !important;
+}
+
+.interno-view .btn-icon {
+  width: clamp(16px, calc(var(--icon-base) - ((1920px - 100vw) / 80)), var(--icon-base)) !important;
+  height: clamp(16px, calc(var(--icon-base) - ((1920px - 100vw) / 80)), var(--icon-base)) !important;
+  padding: clamp(2px, calc(6px - ((1920px - 100vw) / 80)), 6px) !important;
+}
+.interno-view .btn-icon svg { width: 60%; height: 60%; }
+
+.interno-view .pagination-page {
+  min-width: clamp(18px, calc(34px - ((1920px - 100vw) / 80)), 34px) !important;
+  height: clamp(18px, calc(34px - ((1920px - 100vw) / 80)), 34px) !important;
+  font-size: clamp(8px, calc(14px - ((1920px - 100vw) / 80)), 14px) !important;
+}
+
+.interno-view .search-input {
+  font-size: clamp(10px, calc(14px - ((1920px - 100vw) / 80)), 14px) !important;
+  padding: clamp(6px, calc(10px - ((1920px - 100vw) / 80)), 10px) !important;
+}
+
+
+/* ------------------------------------------------------------------
+   Linear decrement: for every 80px decrease in viewport width reduce
+   element size by ~1px (i.e. slope = 1/80). Implemented using vw.
+
+   Formula (continuous): size(px) = base_px - 24 + (width_px / 80)
+   Implemented as: calc((var(--base) - 24px) + 1.25vw)
+   We wrap with clamp(min, computed, base) to avoid growing above base
+   and to provide a reasonable minimum.
+   ------------------------------------------------------------------ */
+
+.interno-view {
+  /* base values represent the size at 1920px viewport */
+  --h1-base: 28px;      --h1-min: 12px;
+  --p-base: 14px;       --p-min: 10px;
+  --th-base: 14px;      --th-min: 9px;
+  --td-base: 14px;      --td-min: 8px;
+  --badge-base: 12px;   --badge-min: 6px;
+  --btn-base: 14px;     --btn-min: 8px;
+  --icon-base: 16px;    --icon-min: 8px;
+}
+
+/* helper: 1.25vw = width_px/80 */
+.interno-view .view-header h1 {
+  font-size: clamp(var(--h1-min), calc((var(--h1-base) - 24px) + 1.25vw), var(--h1-base));
+}
+.interno-view .view-header p {
+  font-size: clamp(var(--p-min), calc((var(--p-base) - 24px) + 1.25vw), var(--p-base));
+}
+
+.interno-view .table-header .th {
+  font-size: clamp(var(--th-min), calc((var(--th-base) - 24px) + 1.25vw), var(--th-base));
+  padding: calc(0.85rem * 0.9); /* keep comfortable padding; not critical to scale */
+}
+.interno-view .table-row .td {
+  font-size: clamp(var(--td-min), calc((var(--td-base) - 24px) + 1.25vw), var(--td-base));
+}
+
+.interno-view .badge {
+  font-size: clamp(var(--badge-min), calc((var(--badge-base) - 24px) + 1.25vw), var(--badge-base));
+  padding: clamp(4px, calc((8px - 24px) + 1.25vw), 8px);
+}
+
+.interno-view .card-title {
+  font-size: clamp(12px, calc((18px - 24px) + 1.25vw), 18px);
+}
+.interno-view .card-body {
+  font-size: clamp(10px, calc((16px - 24px) + 1.25vw), 16px);
+}
+
+.interno-view .btn-primary, .interno-view .btn-secondary, .interno-view .btn-refresh {
+  font-size: clamp(var(--btn-min), calc((var(--btn-base) - 24px) + 1.25vw), var(--btn-base));
+  padding: clamp(6px, calc((10px - 24px) + 1.25vw), 12px) calc(8px + 6px * 0.5);
+}
+
+.interno-view .btn-icon {
+  width: clamp(var(--icon-min), calc((var(--icon-base) - 24px) + 1.25vw), var(--icon-base));
+  height: clamp(var(--icon-min), calc((var(--icon-base) - 24px) + 1.25vw), var(--icon-base));
+  padding: 4px;
+}
+.interno-view .btn-icon svg, .interno-view .btn-icon > svg {
+  width: 70%; height: 70%;
+}
+
+.interno-view .pagination-page {
+  min-width: clamp(18px, calc((34px - 24px) + 1.25vw), 34px);
+  height: clamp(18px, calc((34px - 24px) + 1.25vw), 34px);
+  font-size: clamp(9px, calc((14px - 24px) + 1.25vw), 14px);
+}
+
+@media (max-width: 639px) {
+  .interno-view .card-body { grid-template-columns: 1fr !important; }
+}
+
+
+/* Desktop compact action override: keep icons small so table fits */
+@media (min-width: 1024px) {
+  .table-row .action-buttons { gap: 0.35rem !important; }
+  .table-row .action-buttons .btn-icon {
+    width: 26px !important;
+    height: 26px !important;
+    padding: 0.12rem !important;
+    min-width: 26px !important;
+    border-radius: 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .table-row .action-buttons .btn-icon svg,
+  .table-row .action-buttons .btn-icon > svg {
+    width: 60% !important;
+    height: 60% !important;
+    display: block !important;
+  }
+  .table-row .td.col-acciones { padding-left: 4px !important; padding-right: 4px !important; }
+}
+
+/* ===== Desktop wide: make table fit container (avoid horizontal scroll when possible) ===== */
+/* Keep compact/clamped column widths for 1200-1399px; apply wide layout from 1400px up */
+@media (min-width: 1400px) {
+  /* let inner wrapper fill available space instead of forcing max-content */
+  .table-inner { width: 100% !important; min-width: 0 !important; }
+  .table-header-row, .table-row { width: 100% !important; min-width: 0 !important; }
+
+  /* use percentage widths so columns distribute proportionally across the container */
+  .table-header-row, .table-row {
+    /* ID 4%, No.Patrim 8%, Descripción 28%, No.Serie 10%, Responsable 18%, Resguardante 10%, Estado 12%, Acciones 10% */
+    grid-template-columns: 4% 8% 28% 10% 18% 10% 12% 10%;
+  }
+
+  /* Slightly tighter padding to gain horizontal space */
+  .table-header .th, .table-row .td { padding: 0.6rem !important; }
+
+  /* keep the horizontal scrollbar available if content still overflows */
+  .table-scroll { overflow-x: auto; }
+}
+
+  /* On very wide screens, let the view grow nearly full-width so table fits more columns */
+  @media (min-width: 1600px) {
+    .interno-view {
+      max-width: 98% !important;
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+  }
+
+  /* ===== Header actions: force horizontal boxed layout across all viewports ===== */
+  /* Placed at file end to override earlier responsive rules that stacked buttons */
+  .header-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+    align-items: center !important;
+    background: rgba(0,0,0,0.03);
+    padding: 6px !important;
+    border-radius: 8px !important;
+    overflow-x: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    /* limit header actions max width and align to the right */
+    width: min(760px, 100%) !important;
+    max-width: 760px !important;
+    margin-left: auto !important;
+    justify-content: flex-end !important;
+  }
+
+  .header-actions > * {
+    /* allow buttons to size to their content and avoid forced equal stretching */
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .header-actions .btn-primary,
+  .header-actions .btn-secondary,
+  .header-actions .btn-refresh {
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    /* increase vertical padding while keeping horizontal compact */
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.9rem !important;
+    max-width: 260px !important;
+  }
+
+  /* Slightly larger gap on wide screens */
+  @media (min-width: 1024px) {
+    .header-actions { gap: 1rem !important; padding: 8px !important; }
+  }
+
+
+  /* ===== Badge sizing: make estado badges smaller and tighter in table rows ===== */
+  /* Specific and placed at file end so it overrides earlier rules */
+  .table-row .td .badge,
+  .table-row .td .badge-success,
+  .table-row .td .badge-danger,
+  .table-row .td .badge-neutral {
+    font-size: 0.66rem !important;
+    padding: 0.18rem 0.42rem !important;
+    border-radius: 10px !important;
+    line-height: 1 !important;
+    text-transform: none !important;
+    letter-spacing: 0.2px !important;
+    max-width: 96px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+  }
+
+  /* slightly reduce badge on very small screens too */
+  @media (max-width: 639px) {
+    .table-row .td .badge { font-size: 0.6rem !important; padding: 0.12rem 0.36rem !important; max-width: 84px !important; }
+  }
+
+    /* Restored: keep scrolling inside the table container on small screens (internal scroller) */
+
+    /* Mobile: make the card list itself scrollable so pagination remains reachable while keeping page scroll disabled */
+    @media (max-width: 639px) {
+      .card-list {
+        display: block !important;
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+        padding: 0 12px 12px 12px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .table-container > .pagination-bar {
+        margin-top: 8px;
+        position: relative;
+        z-index: 2;
+      }
+    }
+
+
+
+
+
+
+
+
+

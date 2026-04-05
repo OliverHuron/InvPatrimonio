@@ -444,7 +444,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1199px) {
   .siaf-sidebar-toggle {
     display: inline-flex;
   }

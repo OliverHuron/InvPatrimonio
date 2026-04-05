@@ -31,7 +31,6 @@ const getInventarioInternoById = async (id, umichSessionId = null) => {
   const source = getDataSource();
   
   if (source === 'api') {
-    // Usar API externa
     return await patrimonioApiService.getPatrimoniociById(id, umichSessionId);
   } else {
     // Usar Base de Datos local
