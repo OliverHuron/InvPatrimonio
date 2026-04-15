@@ -15,6 +15,8 @@ const multer = require('multer');
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_super_secreto_cambialo_en_produccion';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
+// NOTE: removed in-memory session->user mapping to simplify auth flow (no role mapping)
+
 const uploadDir = path.join(__dirname, '..', '..', 'uploads', 'patrimonio');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -70,18 +72,24 @@ const getDataSource = () => {
   return source.toLowerCase();
 };
 
+// Obtener modo de autenticación (puede ser distinto de la fuente de datos)
+const getAuthSource = () => {
+  const source = process.env.INVENTARIO_AUTH_SOURCE || process.env.INVENTARIO_DATA_SOURCE || 'bd';
+  return source.toLowerCase();
+};
+
 // =====================================================
 // LOGIN DUAL - BD (JWT httpOnly) o API (sessionId)
 // =====================================================
 router.post('/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const dataSource = getDataSource();
+    const authSource = getAuthSource();
     
-    console.log(`[Auth] Modo: ${dataSource.toUpperCase()}`);
+    console.log(`[Auth] Auth Modo: ${authSource.toUpperCase()}`);
     
     // MODO BD: Autenticación local con JWT httpOnly cookies
-    if (dataSource === 'bd') {
+    if (authSource === 'bd') {
       try {
         const user = await authBdService.loginLocal(username, password);
         
@@ -184,11 +192,31 @@ router.post('/auth/login', async (req, res) => {
         if (isSuccess && jsessionId) {
           console.log('[Proxy Login] Login exitoso con UMICH');
           console.log('[Proxy Login] Base exitosa:', baseUrl);
+          // Establecer cookie httpOnly con el token de sesión proveniente de UMICH
+          const cookieOpts = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 horas
+          };
+          try {
+            // Set both `auth_token` (app conventions) and `JSESSIONID` (UMICH convention)
+            res.cookie('auth_token', jsessionId, cookieOpts);
+            res.cookie('JSESSIONID', jsessionId, cookieOpts);
+          } catch (errCookie) {
+            console.warn('[Proxy Login] No se pudo establecer cookie:', errCookie.message || errCookie);
+          }
+
+          // Simplificar: devolver lo que la API externa entregue (sin intentar enriquecer rol)
+          let userPayload = response.data?.user || { username };
+          if (!userPayload.username && userPayload.usuario) userPayload.username = userPayload.usuario;
+          if (!userPayload.usuario && userPayload.username) userPayload.usuario = userPayload.username;
+
           return res.json({
             success: true,
             message: 'Login exitoso',
             sessionId: jsessionId,
-            user: response.data?.user || { username },
+            user: userPayload,
             source: 'api'
           });
         }
@@ -231,6 +259,7 @@ router.delete('/patrimonioci/:id/fotos/:orden', patrimonioApiController.deleteFo
 
 // === XML para Patrimonio CI ===
 router.get('/patrimonioci/:id/xml', patrimonioApiController.getXmlPatrimonioci);
+router.get('/patrimonioci/:id/xml/proxy', patrimonioApiController.getXmlPatrimoniociProxy);
 router.post('/patrimonioci/:id/xml', uploadXml.single('xmlfile'), patrimonioApiController.uploadXmlPatrimonioci);
 router.delete('/patrimonioci/:id/xml', patrimonioApiController.deleteXmlPatrimonioci);
 
@@ -271,21 +300,85 @@ router.put('/:id(\\d+)', patrimonioApiController.updatePatrimonio);
 // LOGOUT DUAL
 // =====================================================
 router.post('/auth/logout', async (req, res) => {
-  const dataSource = getDataSource();
+  const authSource = getAuthSource();
   
-  if (dataSource === 'bd') {
+  if (authSource === 'bd') {
     // Limpiar cookie JWT
     res.clearCookie('auth_token');
     return res.json({ success: true, message: 'Logout exitoso' });
   } else {
     // Logout de API externa (si existe)
+    try {
+      const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
+      const baseUrl = configuredBase;
+      // Obtener JSESSIONID desde cookie o header
+      const jsession = req.cookies?.auth_token || req.cookies?.JSESSIONID || req.headers['x-umich-session'] || null;
+      if (jsession) {
+        // Llamar al endpoint de logout de UMICH pasando la cookie
+        await axios.post(`${baseUrl}/auth/logout`, {}, {
+          headers: { Cookie: `JSESSIONID=${jsession}` },
+          timeout: parseInt(process.env.EXTERNAL_API_TIMEOUT || '10000', 10),
+          validateStatus: () => true
+        });
+      }
+    } catch (err) {
+      console.warn('[Proxy Logout] Error llamando logout externo:', err.message || err);
+    } finally {
+      // Limpiar cookies locales
+
+      res.clearCookie('auth_token');
+      res.clearCookie('JSESSIONID');
+    }
+
     return res.json({ success: true, message: 'Logout exitoso' });
   }
 });
 
 // =====================================================
-// PERFIL DE USUARIO
+// PERFIL DE USUARIO (soporta BD y API externa)
 // =====================================================
-router.get('/auth/profile', authController.verifyToken, authController.getProfile);
+router.get('/auth/profile', async (req, res) => {
+  const authSource = getAuthSource();
+  if (authSource === 'bd') {
+    // Usar verificación JWT local
+    return authController.verifyToken(req, res, () => authController.getProfile(req, res));
+  }
+
+  // Modo API: obtener perfil desde UMICH usando la cookie de sesión
+  try {
+    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
+    const baseUrl = configuredBase;
+    const jsession = req.cookies?.auth_token || req.cookies?.JSESSIONID || req.headers['x-umich-session'] || null;
+    if (!jsession) return res.status(401).json({ success: false, message: 'No autenticado' });
+
+    const response = await axios.get(`${baseUrl}/auth/profile`, {
+      headers: { Cookie: `JSESSIONID=${jsession}` },
+      timeout: parseInt(process.env.EXTERNAL_API_TIMEOUT || '10000', 10),
+      validateStatus: () => true
+    });
+    if (response.status !== 200) {
+      return res.status(response.status).json({ success: false, message: response.data?.message || 'No autenticado' });
+    }
+
+    // Normalizar forma de respuesta para que el frontend reciba `response.data.user`
+    const external = response.data || {};
+    const userFromExternal = external.user || external.data || external || {};
+
+    const mappedUser = {
+      id: userFromExternal.id || userFromExternal.id_usuario || userFromExternal.userId || null,
+      usuario: userFromExternal.usuario || userFromExternal.username || userFromExternal.user || null,
+      username: userFromExternal.username || userFromExternal.usuario || userFromExternal.user || null,
+      // No forzamos rol: devolver lo que venga (si no viene, frontend debe aceptar sesión sin rol)
+      rol: userFromExternal.rol || userFromExternal.role || (Array.isArray(userFromExternal.roles) ? userFromExternal.roles[0] : null) || null,
+      ures: userFromExternal.ures || userFromExternal.ures_id || null,
+      raw: userFromExternal
+    };
+
+    return res.json({ success: true, user: mappedUser });
+  } catch (error) {
+    console.error('[Auth Profile] Error obteniendo perfil externo:', error.message || error);
+    return res.status(500).json({ success: false, message: 'Error obteniendo perfil' });
+  }
+});
 
 module.exports = router;

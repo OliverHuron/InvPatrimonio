@@ -26,6 +26,13 @@ export const AuthProvider = ({ children }) => {
   // Verificar autenticación al iniciar
   useEffect(() => {
     const initAuth = async () => {
+      // Si hay sessionId en localStorage, añadir header para fallback
+      try {
+        const stored = localStorage.getItem('sessionId');
+        if (stored) axios.defaults.headers.common['X-UMICH-Session'] = stored;
+      } catch (err) {
+        console.warn('No se pudo setear X-UMICH-Session header:', err);
+      }
       try {
         // Intentar obtener perfil desde la cookie
         let response;
@@ -88,6 +95,8 @@ export const AuthProvider = ({ children }) => {
         // Modo API: Guardar sessionId
         if (response.data.source === 'api' && response.data.sessionId) {
           localStorage.setItem('sessionId', response.data.sessionId);
+          // Añadir header por defecto para futuras peticiones cuando la cookie no esté disponible
+          axios.defaults.headers.common['X-UMICH-Session'] = response.data.sessionId;
         }
         
         setUser({
@@ -146,6 +155,12 @@ export const AuthProvider = ({ children }) => {
       console.error('Error en logout:', error);
     } finally {
       clearAuth();
+      // Remover header fallback
+      try {
+        delete axios.defaults.headers.common['X-UMICH-Session'];
+      } catch (err) {
+        console.warn('No se pudo borrar X-UMICH-Session header:', err);
+      }
     }
   };
 

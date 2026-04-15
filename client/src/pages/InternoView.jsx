@@ -43,7 +43,7 @@ const InternoView = () => {
     responsable: '',
     resguardante: '',
     ubicacion: '',
-    anio_elaboracion: '',
+    ejercicio: '',
     estado: ''
   })
   const [pagination, setPagination] = useState({
@@ -51,70 +51,19 @@ const InternoView = () => {
     total: 0,
     pages: 1
   })
-  const [filterOptions, setFilterOptions] = useState({
-    responsables: [],
-    resguardantes: [],
-    ubicaciones: [],
-    aniosElaboracion: []
-  })
+  // Form state and UI helpers
+  const [formData, setFormData] = useState({})
+  const [collapsedSections, setCollapsedSections] = useState({})
+  const [filterOptions, setFilterOptions] = useState({ responsables: [], resguardantes: [], ubicaciones: [], aniosElaboracion: [] })
   const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false)
-  
-  // Form data
-  const [formData, setFormData] = useState({
-    numero_registro_patrimonial: '',
-    no_registro: '',
-    descripcion: '',
-    usuario_creacion: '',
-    marca: '',
-    modelo: '',
-    no_serie: '',
-    no_factura: '',
-    uuid: '',
-    costo: '',
-    ures_asignacion: '',
-    ubicacion: '',
-    recurso: '',
-    proveedor: '',
-    fecha_elaboracion: '',
-    observaciones: '',
-    cuenta: '',
-    descripcion_cuenta: '',
-    tipo_bien: '',
-    ejercicio: '',
-    solicitud_orden_compra: '',
-    fondo: '',
-    cuenta_por_pagar: '',
-    idcon: '',
-    usuario_registro: '',
-    fecha_registro: '',
-    fecha_asignacion: '',
-    fecha_aprobacion: '',
-    estado_uso: '1-Bueno',
-    estado_localizacion: 'Localizado Activo',
-    entrega_responsable: '',
-    responsable_usuario: '',
-    numero_empleado_usuario: '',
-    ur: '',
-    activo: 1
-  })
-  // Secciones colapsables en el drawer (view y edit)
-  const [collapsedSections, setCollapsedSections] = useState({
-    rm: false,
-    identificacion: false,
-    controlInterno: false,
-    informacionContable: false,
-    fotografia: false,
-    xml: false
-  })
 
-  const toggleSection = (key) => {
-    setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }))
+  const toggleSection = (sectionKey) => {
+    setCollapsedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }))
   }
-
   // XML state + ref for file input
-  const [xmlInfo, setXmlInfo] = useState({ exists: false, filename: '', content: '' })
+  const [xmlInfo, setXmlInfo] = useState({ exists: false, filename: '', content: '', url: '' })
   const xmlInputRef = useRef(null)
-  const [xmlModal, setXmlModal] = useState({ open: false, filename: '', content: '', id: null })
+  const [xmlModal, setXmlModal] = useState({ open: false, filename: '', content: '', id: null, url: '' })
 
   const closeXmlModal = () => setXmlModal({ open: false, filename: '', content: '', id: null })
 
@@ -139,7 +88,31 @@ const InternoView = () => {
         if (data && data.success && data.data && data.data.exists) {
           // keep selectedItem in sync so delete/edit work from modal
           setSelectedItem(item)
-          setXmlModal({ open: true, filename: data.data.filename || `${item.id}.xml`, content: data.data.content || '', id: item.id })
+          setXmlModal({
+            open: true,
+            filename: data.data.filename || `${item.id}.xml`,
+            content: data.data.content || '',
+            id: item.id,
+            url: data.data.url || '',
+            origin: data.data.origin || (data.data.url ? 'api' : 'local')
+          })
+          // If API only returned a URL (no inline content), ask server to proxy-fetch the content
+          if ((!data.data.content || data.data.content === '') && data.data.url) {
+            try {
+              const proxyResp = await fetch(`${API_BASE}/patrimonioci/${item.id}/xml/proxy`, {
+                credentials: 'include',
+                headers: { 'X-UMICH-Session': sessionId || '' }
+              })
+              if (proxyResp.ok) {
+                const proxyData = await proxyResp.json()
+                if (proxyData && proxyData.success && proxyData.data && proxyData.data.content) {
+                  setXmlModal((prev) => ({ ...prev, content: proxyData.data.content || '', url: proxyData.data.url || prev.url, origin: proxyData.data.origin || prev.origin }))
+                }
+              }
+            } catch (err) {
+              console.error('Error proxy-fetching XML:', err)
+            }
+          }
           return
         }
       }
@@ -157,39 +130,39 @@ const InternoView = () => {
   // Metadata de campos y asignación por secciones.
   const FIELD_META = {
     id: { label: 'Id', type: 'text', readOnly: true },
-    numero_registro_patrimonial: { label: 'Clave patrimonial', type: 'text' },
-    no_registro: { label: 'Folio', type: 'text' },
+    clave_patrimonial: { label: 'Clave patrimonial', type: 'text' },
+    folio: { label: 'Folio', type: 'text' },
     descripcion: { label: 'Descripción', type: 'text' },
     marca: { label: 'Marca', type: 'text' },
     modelo: { label: 'Modelo', type: 'text' },
     no_serie: { label: 'Serie', type: 'text' },
     no_factura: { label: 'No. Factura', type: 'text' },
+    fec_fact: { label: 'Fecha Factura', type: 'date' },
     uuid: { label: 'UUID (folio fiscal)', type: 'text', readOnly: true },
-    recurso: { label: 'Recurso (COG)', type: 'text' },
+    cog: { label: 'COG', type: 'text' },
     cuenta: { label: 'Cuenta', type: 'text' },
     descripcion_cuenta: { label: 'Descripción Cuenta', type: 'text' },
     tipo_bien: { label: 'Tipo de bien', type: 'text' },
     ejercicio: { label: 'Ejercicio', type: 'text' },
     idcon: { label: 'IDCON', type: 'text' },
     proveedor: { label: 'Proveedor', type: 'text' },
-    fecha_elaboracion: { label: 'Fecha de elaboración', type: 'date' },
+    // fecha_elaboracion removed per request (DB control)
     costo: { label: 'Costo', type: 'number' },
     fecha_registro: { label: 'Fecha Registro', type: 'date' },
     fecha_asignacion: { label: 'Fecha Asignación', type: 'date' },
     fecha_aprobacion: { label: 'Fecha Aprobación', type: 'date' },
-    estado_uso: { label: 'Estado de uso', type: 'select', options: ['1-Bueno', '2-Regular', '3-Malo'] },
-    estado_localizacion: { label: 'Estado', type: 'select', options: ['Localizado Activo', 'Localizado No Activo', 'No Localizado'] },
-    observaciones: { label: 'Observaciones', type: 'text' },
+    estado: { label: 'Estado', type: 'select', options: ['Sin asignar', 'Localizado', 'Baja', 'No Localizado'] },
+    comentarios: { label: 'Comentarios', type: 'text' },
     ubicacion: { label: 'Ubicación', type: 'text' },
-    entrega_responsable: { label: 'Responsable', type: 'cascade' },
+    responsable: { label: 'Responsable', type: 'cascade' },
     solicitud_orden_compra: { label: 'Solicitud / Ord. Compra', type: 'text' },
     fondo: { label: 'Fondo', type: 'text' },
     cuenta_por_pagar: { label: 'Cuenta por pagar', type: 'text' },
-    responsable_usuario: { label: 'Resguardante (usuario)', type: 'text' },
+    usu_asig: { label: 'Resguardante(Usuario Asignado)', type: 'text' },
     numero_empleado_usuario: { label: 'Número de empleado (usuario)', type: 'text' },
-    ur: { label: 'UR', type: 'text' },
+    ures_gasto: { label: 'Ures de gasto', type: 'text' },
     ures_asignacion: { label: 'URES de asignación', type: 'text' },
-    usuario_creacion: { label: 'Elaboró', type: 'text' },
+    // usuario_creacion: control DB-only field, not shown in form
     usuario_registro: { label: 'Usuario registro', type: 'text' }
   }
 
@@ -205,14 +178,14 @@ const InternoView = () => {
   const SECTION_FIELDS = {
     // RM: campos que deben aparecer también en la sección RM
     rm: [
-      'id', 'descripcion', 'marca', 'modelo', 'no_serie', 'numero_registro_patrimonial', 'responsable_usuario', 'entrega_responsable', 'estado_uso', 'ur', 'numero_empleado_usuario'
+      'id', 'descripcion', 'marca', 'modelo', 'no_serie', 'clave_patrimonial', 'usu_asig', 'responsable', 'ures_gasto', 'numero_empleado_usuario'
     ],
     // Identificación del bien (sin UUID ni No. Factura — esos van a Información Contable)
-    identificacion: ['id','numero_registro_patrimonial','descripcion','marca','modelo','no_serie'],
+    identificacion: ['id','clave_patrimonial','descripcion','marca','modelo','no_serie'],
     // Información Contable (Folio, cuentas, proveedor, fechas, etc.) — incluye entrega_responsable, solicitud_orden_compra, fondo, cuenta_por_pagar, usuario_registro
-    informacionContable: ['no_registro','usuario_creacion','usuario_registro','entrega_responsable','solicitud_orden_compra','fondo','cuenta_por_pagar','recurso','cuenta','descripcion_cuenta','tipo_bien','ejercicio','idcon','proveedor','no_factura','uuid','fecha_elaboracion','costo','fecha_registro','fecha_asignacion','fecha_aprobacion','observaciones'],
+    informacionContable: ['folio','usuario_registro','responsable','solicitud_orden_compra','fondo','cuenta_por_pagar','cog','cuenta','descripcion_cuenta','tipo_bien','ejercicio','idcon','proveedor','no_factura','fec_fact','uuid','costo','fecha_registro','fecha_asignacion','fecha_aprobacion','comentarios'],
     // Control Interno (incluye estado_uso y estado_localizacion). quitar campos contables que no pertenecen aquí
-    controlInterno: ['ubicacion','responsable_usuario','numero_empleado_usuario','ur','ures_asignacion','estado_uso','estado_localizacion']
+    controlInterno: ['ubicacion','usu_asig','numero_empleado_usuario','ures_gasto','ures_asignacion','estado']
   }
 
   const renderDetailField = (key) => {
@@ -228,15 +201,15 @@ const InternoView = () => {
 
   const renderFormField = (key) => {
     const meta = FIELD_META[key] || { label: key, type: 'text' }
-    // Special-case: entrega_responsable uses the cascade selector UI from above
-    if (key === 'entrega_responsable') {
+    // Special-case: responsable uses the cascade selector UI from above
+    if (key === 'responsable') {
       return (
         <div key={`form-${key}`} className="form-group detail-item">
           <label>{meta.label}</label>
           <select
             value=""
             className="select-cascade-control"
-            title={formData.entrega_responsable || 'Seleccionar responsable'}
+            title={formData.responsable || 'Seleccionar responsable'}
             onChange={(e) => handleEntregaStep(e.target.value)}
           >
             <option value="">{entregaPath.length === 0 ? 'Seleccionar responsable' : 'Selecciona categoría dependiente'}</option>
@@ -247,7 +220,7 @@ const InternoView = () => {
             ))}
           </select>
           {entregaManualMode && (
-            <input type="text" name="entrega_responsable" value={formData.entrega_responsable || ''} onChange={handleInputChange} placeholder="Escribe el nombre manualmente" style={{ marginTop: '0.4rem' }} />
+            <input type="text" name="responsable" value={formData.responsable || ''} onChange={handleInputChange} placeholder="Escribe el nombre manualmente" style={{ marginTop: '0.4rem' }} />
           )}
         </div>
       )
@@ -314,13 +287,13 @@ const InternoView = () => {
     if (!id) return setXmlInfo({ exists: false, filename: '', content: '' })
     try {
       const response = await fetch(`${API_BASE}/patrimonioci/${id}/xml`, { credentials: 'include' })
-      if (!response.ok) return setXmlInfo({ exists: false, filename: '', content: '' })
+      if (!response.ok) return setXmlInfo({ exists: false, filename: '', content: '', url: '' })
       const data = await response.json()
-      if (!data.success) return setXmlInfo({ exists: false, filename: '', content: '' })
-      setXmlInfo(data.data || { exists: false, filename: '', content: '' })
+      if (!data.success) return setXmlInfo({ exists: false, filename: '', content: '', url: '' })
+      setXmlInfo(data.data || { exists: false, filename: '', content: '', url: '', origin: 'local' })
     } catch (error) {
       console.error('Error cargando XML:', error)
-      setXmlInfo({ exists: false, filename: '', content: '' })
+      setXmlInfo({ exists: false, filename: '', content: '', origin: 'local' })
     }
   }
 
@@ -329,6 +302,12 @@ const InternoView = () => {
     if (!file) return
     if (!selectedItem || !selectedItem.id) {
       toast.info('Guarda el registro antes de subir el XML')
+      return
+    }
+    // If XML origin is from API, disallow uploading local XML
+    if ((xmlInfo && xmlInfo.origin === 'api') || (xmlModal && xmlModal.origin === 'api')) {
+      toast.info('No se puede subir XML: el fxml proviene de la API externa')
+      if (xmlInputRef.current) xmlInputRef.current.value = null
       return
     }
     try {
@@ -362,6 +341,12 @@ const InternoView = () => {
   const handleDeleteXml = async (id) => {
     const targetId = id || selectedItem?.id
     if (!targetId) return
+    // Prevent deletion if XML origin is external API
+    const origin = (xmlModal && xmlModal.open && xmlModal.id === targetId) ? xmlModal.origin : (xmlInfo && xmlInfo.origin)
+    if (origin === 'api') {
+      toast.info('No se puede eliminar el XML: proviene de la API externa')
+      return
+    }
     try {
       setLoading(true)
       const sessionId = getSessionId()
@@ -392,19 +377,20 @@ const InternoView = () => {
   
   const normalizeInterno = (data) => ({
     id: data.id,
-    numero_registro_patrimonial: data.numero_registro_patrimonial || '',
-    no_registro: data.no_registro || data.no_obsequio || '',
+    clave_patrimonial: data.clave_patrimonial || data.numero_registro_patrimonial || '',
+    folio: data.folio || data.no_registro || data.no_obsequio || '',
     descripcion: data.descripcion || '',
-    usuario_creacion: data.usuario_creacion || '',
     marca: data.marca || '',
     modelo: data.modelo || '',
     no_serie: data.no_serie || data.no_docente || data.numero_serie || '',
     no_factura: data.no_factura || '',
+    fec_fact: normalizeDate(data.fec_fact || data.fecha_factura),
     uuid: data.uuid || '',
     costo: data.costo || '',
     ures_asignacion: data.ures_asignacion || data.llaves_adquisicion || '',
+    ures_gasto: data.ures_gasto || data.ur || data.ures || '',
     ubicacion: data.ubicacion || data.ubicacion_edificio || '',
-    recurso: data.recurso || data.insauro || '',
+    cog: data.cog || data.recurso || '',
     proveedor: data.proveedor || '',
     cuenta: data.cuenta || '',
     descripcion_cuenta: data.descripcion_cuenta || '',
@@ -418,15 +404,11 @@ const InternoView = () => {
     fecha_registro: normalizeDate(data.fecha_registro),
     fecha_asignacion: normalizeDate(data.fecha_asignacion),
     fecha_aprobacion: normalizeDate(data.fecha_aprobacion),
-    fecha_elaboracion: normalizeDate(data.fecha_elaboracion),
-    observaciones: data.observaciones || '',
-    estado_uso: data.estado_uso || '1-Bueno',
-    estado_localizacion: data.estado_localizacion || (data.activo ? 'Localizado Activo' : 'Localizado No Activo'),
-    entrega_responsable: data.entrega_responsable || data.dependencia || '',
-    responsable_usuario: data.responsable_usuario || '',
-    numero_empleado_usuario: data.numero_empleado_usuario || '',
-    ur: data.ur || data.ures || '',
-    activo: data.activo ? 1 : 0
+    comentarios: data.comentarios || data.observaciones || '',
+    estado: data.estado || 'Sin asignar',
+    responsable: data.responsable || data.entrega_responsable || data.dependencia || '',
+    usu_asig: data.usu_asig || data.responsable_usuario || '',
+    numero_empleado_usuario: data.numero_empleado_usuario || ''
   })
 
   const parseEntregaPath = (value = '') => {
@@ -437,7 +419,7 @@ const InternoView = () => {
 
   const updateEntregaFromPath = (pathParts) => {
     const value = (pathParts || []).filter(Boolean).join(' > ')
-    setFormData((prev) => ({ ...prev, entrega_responsable: value }))
+    setFormData((prev) => ({ ...prev, responsable: value }))
   }
 
   // Cargar opciones de filtros una sola vez (todos los datos sin filtros)
@@ -459,13 +441,13 @@ const InternoView = () => {
       const normalized = records.map(normalizeInterno)
 
       setFilterOptions({
-        responsables: [...new Set(normalized.map((x) => x.entrega_responsable).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
-        resguardantes: [...new Set(normalized.map((x) => x.responsable_usuario).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        responsables: [...new Set(normalized.map((x) => x.responsable).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        resguardantes: [...new Set(normalized.map((x) => x.usu_asig).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
         ubicaciones: [...new Set(normalized.map((x) => x.ubicacion).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
         aniosElaboracion: [...new Set(normalized
-          .map((x) => (x.fecha_elaboracion ? String(x.fecha_elaboracion).slice(0, 4) : ''))
-          .filter((year) => /^\d{4}$/.test(year))
-        )].sort((a, b) => Number(b) - Number(a))
+            .map((x) => (x.ejercicio ? String(x.ejercicio) : ''))
+            .filter((year) => /^\d{4}$/.test(year))
+          )].sort((a, b) => Number(b) - Number(a))
       })
       setFilterOptionsLoaded(true)
     } catch (error) {
@@ -482,7 +464,7 @@ const InternoView = () => {
       if (appliedFilters.responsable) params.set('responsable', appliedFilters.responsable)
       if (appliedFilters.resguardante) params.set('resguardante', appliedFilters.resguardante)
       if (appliedFilters.ubicacion) params.set('ubicacion', appliedFilters.ubicacion)
-      if (appliedFilters.anio_elaboracion) params.set('anio_elaboracion', appliedFilters.anio_elaboracion)
+      if (appliedFilters.ejercicio) params.set('ejercicio', appliedFilters.ejercicio)
       if (appliedFilters.estado) params.set('estado', appliedFilters.estado)
 
       const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
@@ -610,7 +592,7 @@ const InternoView = () => {
   const handleView = (item) => {
     setSelectedItem(item)
     setFormData({ ...item })
-    setEntregaPath(parseEntregaPath(item.entrega_responsable))
+    setEntregaPath(parseEntregaPath(item.responsable))
     setDrawerMode('view')
     setShowDrawer(true)
     setBrokenFotos({})
@@ -622,29 +604,34 @@ const InternoView = () => {
   const handleCreate = () => {
     setSelectedItem(null)
       setFormData({
-      numero_registro_patrimonial: '',
-      no_registro: '',
+      clave_patrimonial: '',
+      folio: '',
       descripcion: '',
-      usuario_creacion: '',
       marca: '',
       modelo: '',
       no_serie: '',
       no_factura: '',
       uuid: '',
-        costo: '',
-        ures_asignacion: '',
-        ubicacion: '',
-        recurso: '',
+      costo: '',
+      ures_asignacion: '',
+      ures_gasto: '',
+      ubicacion: '',
+      cog: '',
       proveedor: '',
-      fecha_elaboracion: '',
-      observaciones: '',
-      estado_uso: '1-Bueno',
-      estado_localizacion: 'Localizado Activo',
-      entrega_responsable: '',
-      responsable_usuario: '',
+      comentarios: '',
+      estado: 'Sin asignar',
+      responsable: '',
+      usu_asig: '',
       numero_empleado_usuario: '',
-      ur: '',
-      activo: 1
+      cuenta: '',
+      descripcion_cuenta: '',
+      tipo_bien: '',
+      ejercicio: '',
+      solicitud_orden_compra: '',
+      fondo: '',
+      cuenta_por_pagar: '',
+      idcon: '',
+      usuario_registro: ''
     })
     setEntregaPath([])
     setEntregaManualMode(false)
@@ -657,7 +644,7 @@ const InternoView = () => {
   const handleEdit = (item) => {
     setSelectedItem(item)
     setFormData({ ...item })
-    setEntregaPath(parseEntregaPath(item.entrega_responsable))
+    setEntregaPath(parseEntregaPath(item.responsable))
     setEntregaManualMode(false)
     setDrawerMode('edit')
     setShowDrawer(true)
@@ -822,7 +809,7 @@ const InternoView = () => {
       responsable: '',
       resguardante: '',
       ubicacion: '',
-      anio_elaboracion: '',
+      ejercicio: '',
       estado: ''
     }
     setFilters(emptyFilters)
@@ -854,7 +841,7 @@ const InternoView = () => {
         if (filters.responsable) params.set('responsable', filters.responsable)
         if (filters.resguardante) params.set('resguardante', filters.resguardante)
         if (filters.ubicacion) params.set('ubicacion', filters.ubicacion)
-        if (filters.anio_elaboracion) params.set('anio_elaboracion', filters.anio_elaboracion)
+        if (filters.ejercicio) params.set('ejercicio', filters.ejercicio)
         if (filters.estado) params.set('estado', filters.estado)
 
         const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
@@ -874,8 +861,8 @@ const InternoView = () => {
 
       const headers = [
         'UUID',
-        'No. Patrimonio',
-        'No. Registro',
+        'Clave patrimonial',
+        'Folio',
         'Descripcion',
         'Marca',
         'Modelo',
@@ -883,30 +870,35 @@ const InternoView = () => {
         'No. Factura',
         'Costo',
         'URES Asignacion',
+        'URES Gasto',
         'Ubicacion',
-        'Recurso',
+        'COG',
         'Proveedor',
-        'Fecha Elaboracion',
-        'Observaciones',
-        'Estado Uso',
-        'Estado Localizacion',
-        'Entrega Responsable',
-        'Responsable Usuario',
+        'Comentarios',
+        'Estado',
+        'Responsable',
+        'Resguardante (Usuario Asignado)',
         'Numero Empleado Usuario',
-        'UR',
-        'Activo',
-        'Fecha Creacion',
-        'Fecha Actualizacion',
-        'Usuario Creacion',
-        'Usuario Actualizacion'
+        'Cuenta',
+        'Descripcion Cuenta',
+        'Tipo de bien',
+        'Ejercicio',
+        'Solicitud/Ord. Compra',
+        'Fondo',
+        'Cuenta por pagar',
+        'IDCON',
+        'Usuario registro',
+        'Fec Registro',
+        'Fec Asig',
+        'Fec Aprob'
       ]
 
       const lines = [
         headers.join(','),
         ...allRows.map((row) => ([
           toCsvCell(row.uuid || ''),
-          toCsvCell(row.numero_registro_patrimonial || ''),
-          toCsvCell(row.no_registro || ''),
+          toCsvCell(row.clave_patrimonial || ''),
+          toCsvCell(row.folio || ''),
           toCsvCell(row.descripcion || ''),
           toCsvCell(row.marca || ''),
           toCsvCell(row.modelo || ''),
@@ -914,22 +906,27 @@ const InternoView = () => {
           toCsvCell(row.no_factura || ''),
           toCsvCell(row.costo || ''),
           toCsvCell(row.ures_asignacion || ''),
+          toCsvCell(row.ures_gasto || ''),
           toCsvCell(row.ubicacion || ''),
-          toCsvCell(row.recurso || ''),
+          toCsvCell(row.cog || ''),
           toCsvCell(row.proveedor || ''),
-          toCsvCell(row.fecha_elaboracion ? String(row.fecha_elaboracion).slice(0, 10) : ''),
-          toCsvCell(row.observaciones || ''),
-          toCsvCell(row.estado_uso || ''),
+          toCsvCell(row.comentarios || ''),
           toCsvCell(getEstadoLocalizacion(row)),
-          toCsvCell(row.entrega_responsable || ''),
-          toCsvCell(row.responsable_usuario || ''),
+          toCsvCell(row.responsable || ''),
+          toCsvCell(row.usu_asig || ''),
           toCsvCell(row.numero_empleado_usuario || ''),
-          toCsvCell(row.ur || ''),
-          toCsvCell(row.activo ? 'Sí' : 'No'),
-          toCsvCell(row.fecha_creacion ? String(row.fecha_creacion).slice(0, 10) : ''),
-          toCsvCell(row.fecha_actualizacion ? String(row.fecha_actualizacion).slice(0, 10) : ''),
-          toCsvCell(row.usuario_creacion || ''),
-          toCsvCell(row.usuario_actualizacion || '')
+          toCsvCell(row.cuenta || ''),
+          toCsvCell(row.descripcion_cuenta || ''),
+          toCsvCell(row.tipo_bien || ''),
+          toCsvCell(row.ejercicio || ''),
+          toCsvCell(row.solicitud_orden_compra || ''),
+          toCsvCell(row.fondo || ''),
+          toCsvCell(row.cuenta_por_pagar || ''),
+          toCsvCell(row.idcon || ''),
+          toCsvCell(row.usuario_registro || ''),
+          toCsvCell(row.fecha_registro ? String(row.fecha_registro).slice(0, 10) : ''),
+          toCsvCell(row.fecha_asignacion ? String(row.fecha_asignacion).slice(0, 10) : ''),
+          toCsvCell(row.fecha_aprobacion ? String(row.fecha_aprobacion).slice(0, 10) : '')
         ].join(',')))
       ]
 
@@ -955,7 +952,7 @@ const InternoView = () => {
   // cuyo `entrega_responsable` coincida con el del elemento seleccionado.
   const handleExportRM = async (mode = 'view') => {
     const row = selectedItem || formData || {}
-    const responsable = (row.entrega_responsable || row.responsable_usuario || '').trim()
+    const responsable = (row.responsable || row.usu_asig || '').trim()
     if (!responsable) {
       toast.info('El registro no tiene Responsable asignado')
       return
@@ -992,7 +989,7 @@ const InternoView = () => {
 
       const headers = [
         'Descripción', 'Marca', 'Modelo', 'No. de Serie', 'No. de Patrimonio', 'No. de Resguardo Interno',
-        'Estado de Uso', 'UR', 'No. de Empleado', 'Responsable', 'Puesto del Usuario Resguardante'
+        'Estado', 'UR', 'No. de Empleado', 'Responsable', 'Puesto del Usuario Resguardante'
       ]
 
       const lines = [
@@ -1002,12 +999,12 @@ const InternoView = () => {
           toCsvCell(r.marca || ''),
           toCsvCell(r.modelo || ''),
           toCsvCell(r.no_serie || ''),
-          toCsvCell(r.numero_registro_patrimonial || ''),
-          toCsvCell(r.no_registro || ''),
-          toCsvCell(r.estado_uso || ''),
-          toCsvCell(r.ur || ''),
+          toCsvCell(r.clave_patrimonial || ''),
+          toCsvCell(r.folio || ''),
+          toCsvCell(r.estado || r.estado_uso || ''),
+          toCsvCell(r.ures_gasto || r.ur || ''),
           toCsvCell(r.numero_empleado_usuario || ''),
-          toCsvCell(r.entrega_responsable || r.responsable_usuario || ''),
+          toCsvCell(r.responsable || r.usu_asig || ''),
           toCsvCell('') // Puesto del Usuario Resguardante (no disponible)
         ].join(',')))
       ]
@@ -1050,10 +1047,7 @@ const InternoView = () => {
           'X-UMICH-Session': sessionId || ''
         },
         credentials: 'include',
-        body: JSON.stringify({
-          ...formData,
-          activo: formData.estado_localizacion === 'Localizado Activo'
-        })
+        body: JSON.stringify({ ...formData })
       })
       
       const data = await response.json()
@@ -1081,13 +1075,15 @@ const InternoView = () => {
   }
 
   const getEstadoBadgeClass = (estado) => {
-    if (estado === 'Localizado Activo') return 'badge-success'
-    if (estado === 'Localizado No Activo') return 'badge-danger'
+    const s = String(estado || '').trim().toLowerCase()
+    if (s === 'localizado') return 'badge-yellow'
+    if (s === 'baja') return 'badge-green'
+    if (s === 'no localizado') return 'badge-blue'
     return 'badge-neutral'
   }
 
   const getEstadoLocalizacion = (item) => {
-    return item?.estado_localizacion || (item?.activo === 1 ? 'Localizado Activo' : 'Localizado No Activo')
+    return item?.estado || 'Sin asignar'
   }
   
   return (
@@ -1141,16 +1137,17 @@ const InternoView = () => {
               <option key={ubicacion} value={ubicacion}>{ubicacion}</option>
             ))}
           </select>
-          <select className="search-input" name="anio_elaboracion" value={filters.anio_elaboracion} onChange={handleFilterChange}>
-            <option value="">Año elaboración (todos)</option>
+          <select className="search-input" name="ejercicio" value={filters.ejercicio} onChange={handleFilterChange}>
+            <option value="">Ejercicio (todos)</option>
             {filterOptions.aniosElaboracion.map((anio) => (
               <option key={anio} value={anio}>{anio}</option>
             ))}
           </select>
           <select className="search-input" name="estado" value={filters.estado} onChange={handleFilterChange}>
             <option value="">Estado (todos)</option>
-            <option value="Localizado Activo">Localizado Activo</option>
-            <option value="Localizado No Activo">Localizado No Activo</option>
+            <option value="Sin asignar">Sin asignar</option>
+            <option value="Localizado">Localizado</option>
+            <option value="Baja">Baja</option>
             <option value="No Localizado">No Localizado</option>
           </select>
           <button className="btn-secondary search-clear-btn" onClick={handleClearFilters} disabled={loading}>Limpiar</button>
@@ -1184,11 +1181,11 @@ const InternoView = () => {
               {items.map((item) => (
                 <div key={item.id} className="table-row">
                   <div className="td col-id" title={String(item.id)}>{item.id}</div>
-                  <div className="td col-num" title={item.numero_registro_patrimonial || ''}>{item.numero_registro_patrimonial}</div>
+                  <div className="td col-num" title={item.clave_patrimonial || ''}>{item.clave_patrimonial}</div>
                   <div className="td col-desc" title={item.descripcion || ''}>{item.descripcion}</div>
                   <div className="td col-serie" title={item.no_serie || ''}>{item.no_serie}</div>
-                  <div className="td col-responsable" title={item.entrega_responsable || ''}>{item.entrega_responsable}</div>
-                  <div className="td col-resguardante" title={item.responsable_usuario || 'Sin dato'}>{item.responsable_usuario || 'Sin dato'}</div>
+                  <div className="td col-responsable" title={item.responsable || ''}>{item.responsable}</div>
+                  <div className="td col-resguardante" title={item.usu_asig || 'Sin dato'}>{item.usu_asig || 'Sin dato'}</div>
                   <div className="td td-estado col-estado">
                     <span className={`badge ${getEstadoBadgeClass(getEstadoLocalizacion(item))}`}>
                       {getEstadoLocalizacion(item)}
@@ -1225,10 +1222,10 @@ const InternoView = () => {
                   </div>
                 </div>
                 <div className="card-body">
-                  <div><strong>ID:</strong> {item.id} {item.numero_registro_patrimonial ? `- No. ${item.numero_registro_patrimonial}` : ''}</div>
+                  <div><strong>ID:</strong> {item.id} {item.clave_patrimonial ? `- No. ${item.clave_patrimonial}` : ''}</div>
                   <div><strong>No. Serie:</strong> {item.no_serie || '—'}</div>
-                  <div><strong>Responsable:</strong> {item.entrega_responsable || '—'}</div>
-                  <div><strong>Resguardante:</strong> {item.responsable_usuario || '—'}</div>
+                  <div><strong>Responsable:</strong> {item.responsable || '—'}</div>
+                  <div><strong>Resguardante:</strong> {item.usu_asig || '—'}</div>
                 </div>
                 <div className="card-actions">
                   <div className="action-buttons">
@@ -1314,7 +1311,7 @@ const InternoView = () => {
                             <div className="xml-meta">{xmlInfo.filename || `${selectedItem?.id}.xml`}</div>
                             <pre className="xml-preview">{xmlInfo.content || '—'}</pre>
                             <div className="xml-actions">
-                              <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(`${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${selectedItem?.id}.xml`, '_blank') }}>Abrir</button>
+                              <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(xmlInfo.url || `${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${selectedItem?.id}.xml`, '_blank') }}>Abrir</button>
                               <button className="btn-edit" onClick={(e) => { e.stopPropagation(); setDrawerMode('edit') }}>Editar</button>
                               <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleDeleteXml() }}>Eliminar</button>
                             </div>
@@ -1389,7 +1386,7 @@ const InternoView = () => {
                         </div>
                         {xmlInfo.exists && (
                           <div className="xml-actions">
-                            <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(`${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${selectedItem?.id}.xml`, '_blank') }}>Abrir</button>
+                            <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(xmlModal.url || `${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${selectedItem?.id}.xml`, '_blank') }}>Abrir</button>
                             <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleDeleteXml() }}>Eliminar</button>
                           </div>
                         )}
@@ -1484,7 +1481,7 @@ const InternoView = () => {
               <pre className="xml-preview">{xmlModal.content || '—'}</pre>
             </div>
             <div className="xml-modal-footer">
-              <a className="btn-secondary" href={`${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${xmlModal.id}.xml`} target="_blank" rel="noopener noreferrer">Abrir en nueva pestaña</a>
+              <a className="btn-secondary" href={xmlModal.url || `${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${xmlModal.id}.xml`} target="_blank" rel="noopener noreferrer">Abrir en nueva pestaña</a>
               <button className="btn-secondary" onClick={() => { closeXmlModal(); handleEdit(selectedItem) }}>Editar</button>
               <button className="btn-secondary" onClick={() => handleDeleteXml(xmlModal.id)}>Eliminar</button>
             </div>

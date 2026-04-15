@@ -41,8 +41,8 @@ const getInventarioInternoById = async (id, umichSessionId = null) => {
       return {
         id: item.id,
         id_pat_ci: item.id,
-        numero_registro_patrimonial: item.numero_registro_patrimonial,
-        no_registro: item.no_registro,
+        clave_patrimonial: item.clave_patrimonial || item.numero_registro_patrimonial,
+        folio: item.folio || item.no_registro,
         descripcion: item.descripcion,
         usuario_creacion: item.usuario_creacion,
         marca: item.marca,
@@ -51,21 +51,18 @@ const getInventarioInternoById = async (id, umichSessionId = null) => {
         no_factura: item.no_factura,
         uuid: item.uuid,
         ures_asignacion: item.ures_asignacion,
+        ures_gasto: item.ures_gasto || item.ur || item.ures,
         ubicacion: item.ubicacion,
-        recurso: item.recurso,
-        dependencia: item.entrega_responsable,
-        ures: item.ur,
-        ur: item.ur,
+        cog: item.cog || item.recurso,
+        dependencia: item.responsable || item.entrega_responsable,
+        responsable: item.responsable || item.entrega_responsable,
         proveedor: item.proveedor,
-        observaciones: item.observaciones,
+        comentarios: item.comentarios || item.observaciones,
         fecha_elaboracion: item.fecha_elaboracion,
-        entrega_responsable: item.entrega_responsable,
-        responsable_usuario: item.responsable_usuario,
+        usu_asig: item.usu_asig || item.responsable_usuario,
         numero_empleado_usuario: item.numero_empleado_usuario,
-        estado_uso: item.estado_uso,
-        estado_localizacion: item.estado_localizacion,
+        estado: item.estado,
         costo: item.costo,
-        activo: item.activo ? 1 : 0,
         _source: 'bd_local'
       };
     }
@@ -81,14 +78,20 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
   const source = getDataSource();
   
   if (source === 'api') {
-    // API no soporta listado completo, retornar mensaje
-    return {
-      items: [],
-      total: 0,
-      page: 1,
-      pages: 0,
-      message: 'Listado no disponible en modo API'
-    };
+    // API por defecto no soporta listado completo. Intentar fallback a BD si está disponible.
+    try {
+      console.log('[Inventario Service] Modo API: intentando fallback a BD para listado');
+      return await inventarioBdService.getAllInventariosInternos(page, limit, filters);
+    } catch (err) {
+      console.warn('[Inventario Service] Fallback a BD falló:', err.message || err);
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        pages: 0,
+        message: 'Listado no disponible en modo API'
+      };
+    }
   } else {
     return await inventarioBdService.getAllInventariosInternos(page, limit, filters);
   }

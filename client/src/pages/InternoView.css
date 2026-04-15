@@ -454,6 +454,22 @@ body.interno-active {
   color: #495057;
 }
 
+/* New semantic badges used by InternoView */
+.badge-yellow {
+  background: #fff3cd; /* light yellow */
+  color: #856404;
+}
+
+.badge-green {
+  background: #d4edda; /* match success */
+  color: #155724;
+}
+
+.badge-blue {
+  background: #cfe2ff; /* light blue */
+  color: #084298;
+}
+
 /* Botones de acción */
 .action-buttons {
   display: flex;
@@ -1570,8 +1586,8 @@ body.interno-active {
 
   /* use percentage widths so columns distribute proportionally across the container */
   .table-header-row, .table-row {
-    /* ID 4%, No.Patrim 8%, Descripción 28%, No.Serie 10%, Responsable 18%, Resguardante 10%, Estado 12%, Acciones 10% */
-    grid-template-columns: 4% 8% 28% 10% 18% 10% 12% 10%;
+    /* ID 6%, No.Patrim 8%, Descripción 30%, No.Serie 10%, Responsable 18%, Resguardante 10%, Estado 8%, Acciones 10% */
+    grid-template-columns: 6% 8% 30% 10% 18% 10% 8% 10%;
   }
 
   /* Slightly tighter padding to gain horizontal space */

@@ -120,3 +120,24 @@ module.exports = {
   userExists,
   changePassword
 };
+
+/**
+ * Obtener usuario (sin contraseña) por nombre de usuario
+ */
+const getUserByUsername = async (usuario) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, usuario, rol, ures, activo FROM public.usuarios WHERE usuario = $1',
+      [usuario]
+    );
+
+    if (result.rows.length === 0) return null;
+    const u = result.rows[0];
+    return { id: u.id, usuario: u.usuario, rol: u.rol, ures: u.ures, activo: u.activo };
+  } catch (error) {
+    console.error('[Auth BD] Error obteniendo usuario:', error.message);
+    throw error;
+  }
+};
+
+module.exports.getUserByUsername = getUserByUsername;

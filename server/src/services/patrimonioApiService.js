@@ -362,6 +362,42 @@ const getAllPatrimonios = async (page = 1, limit = 50) => {
 // =====================================================
 // EXPORTAR FUNCIONES
 // =====================================================
+
+/**
+ * Obtener el JSON crudo (raw) devuelto por la API externa para un patrimonio
+ * Devuelve el objeto tal como lo retorna la API externa (sin transformaciones)
+ */
+const getRawPatrimonioById = async (id, umichSessionId = null) => {
+  try {
+    const config = umichSessionId ? { umichSessionId } : {};
+    const apiData = await get(`/api/patrimonio/${id}`, config);
+    const raw = Array.isArray(apiData) ? apiData[0] : (apiData.data ? apiData.data[0] || apiData.data : apiData);
+    return raw;
+  } catch (error) {
+    console.error(`[Patrimonio API] Error obteniendo raw patrimonio ${id}:`, error.message);
+    throw error;
+  }
+};
+
+/**
+ * Obtener el campo `fxml` desde la API externa (si existe)
+ * Devuelve null si no se encuentra.
+ */
+const getPatrimonioFxmlById = async (id, umichSessionId = null) => {
+  try {
+    const raw = await getRawPatrimonioById(id, umichSessionId);
+    if (!raw) return null;
+    // Comprobar variantes comunes de nombre de campo
+    return raw.fxml || raw.fxmlContent || raw.fXml || raw.xml || null;
+  } catch (error) {
+    console.error(`[Patrimonio API] Error obteniendo campo fxml para ${id}:`, error.message);
+    throw error;
+  }
+};
+
+// =====================================================
+// EXPORTAR FUNCIONES (al final para evitar referencia antes de inicialización)
+// =====================================================
 module.exports = {
   // Operaciones principales
   getPatrimonioById,
@@ -374,6 +410,9 @@ module.exports = {
   updatePatrimonio,
   searchPatrimonios,
   getAllPatrimonios,
+  // Raw/raw-fxml accessors
+  getRawPatrimonioById,
+  getPatrimonioFxmlById,
   
   // Utilidades
   transformApiToInternal,

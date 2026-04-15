@@ -53,6 +53,7 @@ const getInventarioInternoById = async (id) => {
 const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) => {
   try {
     const offset = (page - 1) * limit;
+    console.log('[BD] getAllInventariosInternos filters:', filters);
     let query = 'SELECT * FROM inventario_interno WHERE 1=1';
     const params = [];
     let paramIndex = 1;
@@ -77,49 +78,71 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
     }
 
     if (filters.resguardante) {
-      query += ` AND responsable_usuario = $${paramIndex}`;
+      // 'resguardante' in UI corresponds to `usu_asig` column in DB
+      query += ` AND COALESCE(usu_asig, '') = $${paramIndex}`;
       params.push(filters.resguardante);
       paramIndex++;
     }
 
     if (filters.responsable) {
-      query += ` AND entrega_responsable = $${paramIndex}`;
+      query += ` AND responsable = $${paramIndex}`;
       params.push(filters.responsable);
       paramIndex++;
     }
 
-    if (filters.anio_elaboracion) {
-      query += ` AND EXTRACT(YEAR FROM fecha_elaboracion) = $${paramIndex}`;
-      params.push(Number(filters.anio_elaboracion));
+    // Filtrado por año/ejercicio: preferir `ejercicio`, aceptar también `anio_elaboracion` por compatibilidad
+    // Normalizar comparaciones: recortar espacios y comparar como texto
+    if (filters.ejercicio) {
+      query += ` AND COALESCE(TRIM(ejercicio::text), '') = $${paramIndex}`;
+      params.push(String(filters.ejercicio).trim());
+      paramIndex++;
+    } else if (filters.anio_elaboracion) {
+      // Compatibilidad: aceptar `anio_elaboracion` y buscar por columna `ejercicio`
+      query += ` AND COALESCE(TRIM(ejercicio::text), '') = $${paramIndex}`;
+      params.push(String(filters.anio_elaboracion).trim());
       paramIndex++;
     }
 
     if (filters.estado) {
-      query += ` AND estado_localizacion = $${paramIndex}`;
+      query += ` AND estado = $${paramIndex}`;
       params.push(filters.estado);
       paramIndex++;
     }
 
     if (filters.q) {
+      // Búsqueda inteligente: revisar los campos solicitados por el usuario
       query += ` AND (
-        COALESCE(numero_registro_patrimonial, '') ILIKE $${paramIndex}
-        OR COALESCE(no_registro, '') ILIKE $${paramIndex}
+        COALESCE(id::text, '') ILIKE $${paramIndex}
+        OR COALESCE(folio, '') ILIKE $${paramIndex}
+        OR COALESCE(clave_patrimonial, '') ILIKE $${paramIndex}
         OR COALESCE(descripcion, '') ILIKE $${paramIndex}
+        OR COALESCE(comentarios, '') ILIKE $${paramIndex}
+        OR COALESCE(responsable, '') ILIKE $${paramIndex}
+        OR COALESCE(ures_gasto, '') ILIKE $${paramIndex}
+        OR COALESCE(ures_asignacion, '') ILIKE $${paramIndex}
+        OR COALESCE(ubicacion, '') ILIKE $${paramIndex}
+        OR COALESCE(costo::text, '') ILIKE $${paramIndex}
+        OR COALESCE(cog, '') ILIKE $${paramIndex}
+        OR COALESCE(cuenta, '') ILIKE $${paramIndex}
+        OR COALESCE(descripcion_cuenta, '') ILIKE $${paramIndex}
+        OR COALESCE(tipo_bien, '') ILIKE $${paramIndex}
+        OR COALESCE(no_factura, '') ILIKE $${paramIndex}
+        OR COALESCE(fec_fact::text, '') ILIKE $${paramIndex}
+        OR COALESCE(uuid::text, '') ILIKE $${paramIndex}
         OR COALESCE(marca, '') ILIKE $${paramIndex}
         OR COALESCE(modelo, '') ILIKE $${paramIndex}
         OR COALESCE(no_serie, '') ILIKE $${paramIndex}
-        OR COALESCE(no_factura, '') ILIKE $${paramIndex}
-        OR COALESCE(ures_asignacion, '') ILIKE $${paramIndex}
-        OR COALESCE(recurso, '') ILIKE $${paramIndex}
-        OR COALESCE(cuenta, '') ILIKE $${paramIndex}
-        OR COALESCE(tipo_bien, '') ILIKE $${paramIndex}
+        OR COALESCE(ejercicio::text, '') ILIKE $${paramIndex}
+        OR COALESCE(solicitud_orden_compra, '') ILIKE $${paramIndex}
+        OR COALESCE(fondo, '') ILIKE $${paramIndex}
+        OR COALESCE(cuenta_por_pagar, '') ILIKE $${paramIndex}
+        OR COALESCE(idcon::text, '') ILIKE $${paramIndex}
         OR COALESCE(proveedor, '') ILIKE $${paramIndex}
-        OR COALESCE(observaciones, '') ILIKE $${paramIndex}
-        OR COALESCE(responsable_usuario, '') ILIKE $${paramIndex}
-        OR COALESCE(numero_empleado_usuario, '') ILIKE $${paramIndex}
-        OR COALESCE(ur, '') ILIKE $${paramIndex}
-        OR COALESCE(estado_uso, '') ILIKE $${paramIndex}
-        OR COALESCE(costo::text, '') ILIKE $${paramIndex}
+        OR COALESCE(usu_asig, '') ILIKE $${paramIndex}
+        OR COALESCE(usuario_registro, '') ILIKE $${paramIndex}
+        OR COALESCE(fecha_registro::text, '') ILIKE $${paramIndex}
+        OR COALESCE(fecha_asignacion::text, '') ILIKE $${paramIndex}
+        OR COALESCE(fecha_aprobacion::text, '') ILIKE $${paramIndex}
       )`;
       params.push(`%${filters.q}%`);
       paramIndex++;
@@ -127,6 +150,8 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
     
     // Contar total
     const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+    console.log('[BD] countQuery:', countQuery);
+    console.log('[BD] countParams:', params);
     const countResult = await pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
     
@@ -134,6 +159,8 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
     query += ` ORDER BY fecha_creacion DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
     
+    console.log('[BD] finalQuery:', query);
+    console.log('[BD] finalParams:', params);
     const result = await pool.query(query, params);
     
     return {
@@ -152,44 +179,49 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
 /**
  * Crear inventario interno
  */
-const createInventarioInterno = async (data) => {
+  const createInventarioInterno = async (data) => {
   try {
     const query = `
       INSERT INTO inventario_interno (
-        numero_registro_patrimonial, no_registro, descripcion, marca, modelo,
-        no_serie, no_factura, costo, ures_asignacion,
-        ubicacion, recurso, proveedor,
-        cuenta, descripcion_cuenta, tipo_bien, ejercicio, solicitud_orden_compra, fondo, cuenta_por_pagar, idcon, usuario_registro,
+        clave_patrimonial, folio, descripcion, marca, modelo,
+        no_serie, no_factura, fec_fact, costo, ures_asignacion,
+        ures_gasto, ubicacion, cog, proveedor, comentarios,
+        responsable, usu_asig, numero_empleado_usuario,
+        cuenta, descripcion_cuenta, tipo_bien, ejercicio, solicitud_orden_compra,
+        fondo, cuenta_por_pagar, idcon, usuario_registro,
         fecha_registro, fecha_asignacion, fecha_aprobacion,
-        fecha_elaboracion, observaciones,
-        estado_uso, estado_localizacion, entrega_responsable, responsable_usuario, numero_empleado_usuario, ur, activo,
-        usuario_creacion
+        estado, usuario_creacion
       ) VALUES (
         $1, $2, $3, $4, $5,
-        $6, $7, $8, $9,
-        $10, $11, $12,
-        $13, $14, $15, $16, $17, $18, $19, $20, $21,
-        $22, $23, $24,
-        $25, $26,
-        $27, $28, $29, $30, $31, $32, $33,
-        $34
+        $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15,
+        $16, $17, $18, $19, $20,
+        $21, $22, $23, $24, $25,
+        $26, $27, $28, $29, $30,
+        $31, $32
       )
       RETURNING *
     `;
 
     const values = [
-      data.numero_registro_patrimonial,
-      data.no_registro,
+      data.clave_patrimonial || data.numero_registro_patrimonial,
+      data.folio || data.no_registro,
       data.descripcion,
       data.marca,
       data.modelo,
       data.no_serie,
       data.no_factura,
+      parseDateOrNull(data.fec_fact || data.fecha_factura),
       data.costo,
       data.ures_asignacion,
+      data.ures_gasto || data.ur || data.ures,
       data.ubicacion,
-      data.recurso,
+      data.cog || data.recurso,
       data.proveedor,
+      data.comentarios || data.observaciones,
+      data.responsable || data.entrega_responsable,
+      data.usu_asig || data.responsable_usuario,
+      data.numero_empleado_usuario,
       data.cuenta,
       data.descripcion_cuenta,
       data.tipo_bien,
@@ -202,15 +234,7 @@ const createInventarioInterno = async (data) => {
       parseDateOrNull(data.fecha_registro),
       parseDateOrNull(data.fecha_asignacion),
       parseDateOrNull(data.fecha_aprobacion),
-      parseDateOrNull(data.fecha_elaboracion),
-      data.observaciones,
-      data.estado_uso || '1-Bueno',
-      data.estado_localizacion || 'Localizado Activo',
-      data.entrega_responsable,
-      data.responsable_usuario,
-      data.numero_empleado_usuario,
-      data.ur,
-      parseActivo(data.activo, true),
+      data.estado || 'Sin asignar',
       data.usuario_creacion || 'system'
     ];
 
@@ -229,57 +253,57 @@ const updateInventarioInterno = async (id, data) => {
   try {
     const query = `
       UPDATE inventario_interno SET
-        numero_registro_patrimonial = COALESCE($1, numero_registro_patrimonial),
-        no_registro = COALESCE($2, no_registro),
+        clave_patrimonial = COALESCE($1, clave_patrimonial),
+        folio = COALESCE($2, folio),
         descripcion = COALESCE($3, descripcion),
         marca = COALESCE($4, marca),
         modelo = COALESCE($5, modelo),
         no_serie = COALESCE($6, no_serie),
         no_factura = COALESCE($7, no_factura),
-        costo = COALESCE($8, costo),
-        ures_asignacion = COALESCE($9, ures_asignacion),
-        ubicacion = COALESCE($10, ubicacion),
-        recurso = COALESCE($11, recurso),
-        proveedor = COALESCE($12, proveedor),
-        cuenta = COALESCE($13, cuenta),
-        descripcion_cuenta = COALESCE($14, descripcion_cuenta),
-        tipo_bien = COALESCE($15, tipo_bien),
-        ejercicio = COALESCE($16, ejercicio),
-        solicitud_orden_compra = COALESCE($17, solicitud_orden_compra),
-        fondo = COALESCE($18, fondo),
-        cuenta_por_pagar = COALESCE($19, cuenta_por_pagar),
-        idcon = COALESCE($20, idcon),
-        usuario_registro = COALESCE($21, usuario_registro),
-        fecha_registro = COALESCE($22, fecha_registro),
-        fecha_asignacion = COALESCE($23, fecha_asignacion),
-        fecha_aprobacion = COALESCE($24, fecha_aprobacion),
-        fecha_elaboracion = COALESCE($25, fecha_elaboracion),
-        observaciones = COALESCE($26, observaciones),
-        estado_uso = COALESCE($27, estado_uso),
-        estado_localizacion = COALESCE($28, estado_localizacion),
-        entrega_responsable = COALESCE($29, entrega_responsable),
-        responsable_usuario = COALESCE($30, responsable_usuario),
-        numero_empleado_usuario = COALESCE($31, numero_empleado_usuario),
-        ur = COALESCE($32, ur),
-        activo = COALESCE($33, activo),
-        usuario_actualizacion = $34,
+        fec_fact = COALESCE($8, fec_fact),
+        costo = COALESCE($9, costo),
+        ures_asignacion = COALESCE($10, ures_asignacion),
+        ures_gasto = COALESCE($11, ures_gasto),
+        ubicacion = COALESCE($12, ubicacion),
+        cog = COALESCE($13, cog),
+        proveedor = COALESCE($14, proveedor),
+        cuenta = COALESCE($15, cuenta),
+        descripcion_cuenta = COALESCE($16, descripcion_cuenta),
+        tipo_bien = COALESCE($17, tipo_bien),
+        ejercicio = COALESCE($18, ejercicio),
+        solicitud_orden_compra = COALESCE($19, solicitud_orden_compra),
+        fondo = COALESCE($20, fondo),
+        cuenta_por_pagar = COALESCE($21, cuenta_por_pagar),
+        idcon = COALESCE($22, idcon),
+        usuario_registro = COALESCE($23, usuario_registro),
+        fecha_registro = COALESCE($24, fecha_registro),
+        fecha_asignacion = COALESCE($25, fecha_asignacion),
+        fecha_aprobacion = COALESCE($26, fecha_aprobacion),
+        comentarios = COALESCE($27, comentarios),
+        responsable = COALESCE($28, responsable),
+        usu_asig = COALESCE($29, usu_asig),
+        numero_empleado_usuario = COALESCE($30, numero_empleado_usuario),
+        estado = COALESCE($31, estado),
+        usuario_actualizacion = $32,
         fecha_actualizacion = CURRENT_TIMESTAMP
-      WHERE id = $35
+      WHERE id = $33
       RETURNING *
     `;
 
     const values = [
-      data.numero_registro_patrimonial,
-      data.no_registro,
+      data.clave_patrimonial,
+      data.folio,
       data.descripcion,
       data.marca,
       data.modelo,
       data.no_serie,
       data.no_factura,
+      parseDateOrNull(data.fec_fact || data.fecha_factura),
       data.costo,
       data.ures_asignacion,
+      data.ures_gasto || data.ur,
       data.ubicacion,
-      data.recurso,
+      data.cog || data.recurso,
       data.proveedor,
       data.cuenta,
       data.descripcion_cuenta,
@@ -293,15 +317,11 @@ const updateInventarioInterno = async (id, data) => {
       parseDateOrNull(data.fecha_registro),
       parseDateOrNull(data.fecha_asignacion),
       parseDateOrNull(data.fecha_aprobacion),
-      parseDateOrNull(data.fecha_elaboracion),
-      data.observaciones,
-      data.estado_uso,
-      data.estado_localizacion,
-      data.entrega_responsable,
-      data.responsable_usuario,
+      data.comentarios,
+      data.responsable,
+      data.usu_asig,
       data.numero_empleado_usuario,
-      data.ur,
-      data.activo === undefined ? null : parseActivo(data.activo, true),
+      data.estado,
       data.usuario_actualizacion || 'system',
       id
     ];

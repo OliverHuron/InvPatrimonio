@@ -2,8 +2,15 @@
 // CONTROLADOR DE PATRIMONIO - UNIFICADO (API/BD)
 // =====================================================
 const inventarioService = require('../services/inventarioService');
+const patrimonioApiService = require('../services/patrimonioApiService');
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+
+// Helper: extraer session id UMICH desde header o cookies
+const getUmichSessionFromRequest = (req) => {
+  return req.headers['x-umich-session'] || req.cookies?.auth_token || req.cookies?.JSESSIONID || null;
+};
 
 /**
  * Obtener patrimonio por ID (desde API o BD según configuración)
@@ -11,7 +18,7 @@ const path = require('path');
 const getPatrimonioById = async (req, res) => {
   try {
     const { id } = req.params;
-    const umichSessionId = req.headers['x-umich-session'];
+    const umichSessionId = getUmichSessionFromRequest(req);
     
     console.log(`[Controller] Obteniendo patrimonio ${id}...`);
     
@@ -64,7 +71,7 @@ const getAllPatrimonios = async (req, res) => {
 const createPatrimonio = async (req, res) => {
   try {
     const data = req.body;
-    const umichSessionId = req.headers['x-umich-session'];
+    const umichSessionId = getUmichSessionFromRequest(req);
     
     console.log('[Controller] Creando patrimonio...');
     
@@ -93,7 +100,7 @@ const updatePatrimonio = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
-    const umichSessionId = req.headers['x-umich-session'];
+    const umichSessionId = getUmichSessionFromRequest(req);
     
     console.log(`[Controller] Actualizando patrimonio ${id}...`);
     
@@ -175,7 +182,7 @@ const getDashboardStats = async (req, res) => {
 const getPatrimoniociById = async (req, res) => {
   try {
     const { id } = req.params;
-    const umichSessionId = req.headers['x-umich-session'];
+    const umichSessionId = getUmichSessionFromRequest(req);
     
     console.log(`[Controller] Obteniendo patrimonioci ${id}...`);
     
@@ -205,9 +212,14 @@ const getAllPatrimonioci = async (req, res) => {
       responsable: req.query.responsable || '',
       resguardante: req.query.resguardante || '',
       ubicacion: req.query.ubicacion || '',
-      anio_elaboracion: req.query.anio_elaboracion || '',
+      ejercicio: req.query.ejercicio || req.query.anio_elaboracion || '',
       estado: req.query.estado || ''
     };
+
+    // Debugging: log received filters and current data source
+    console.log('[Controller] getAllPatrimonioci called. Filters:', filters);
+    console.log('[Controller] ENV INVENTARIO_DATA_SOURCE =', process.env.INVENTARIO_DATA_SOURCE);
+
     const result = await inventarioService.getAllInventariosInternos(page, limit, filters);
     res.json({
       success: true,
@@ -229,7 +241,7 @@ const getAllPatrimonioci = async (req, res) => {
 const createPatrimonioci = async (req, res) => {
   try {
     const data = req.body;
-    const umichSessionId = req.headers['x-umich-session'];
+    const umichSessionId = getUmichSessionFromRequest(req);
     
     console.log('[Controller] Creando patrimonioci...');
     
@@ -258,7 +270,7 @@ const updatePatrimonioci = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
-    const umichSessionId = req.headers['x-umich-session'];
+    const umichSessionId = getUmichSessionFromRequest(req);
     
     console.log(`[Controller] Actualizando patrimonioci ${id}...`);
     
@@ -367,22 +379,119 @@ const deleteFotoPatrimonioci = async (req, res) => {
 const getXmlPatrimonioci = async (req, res) => {
   try {
     const { id } = req.params;
-    const xmlRel = path.join('uploads', 'xml', `${id}.xml`);
-    const absPath = path.join(__dirname, '..', '..', xmlRel);
-    if (!fs.existsSync(absPath)) {
-      return res.json({ success: true, data: { exists: false } });
+    const umichSessionId = getUmichSessionFromRequest(req);
+    const dataSource = inventarioService.getDataSource();
+
+    console.log(`[Controller] getXmlPatrimonioci id=${id} umichSession=${umichSessionId ? 'present' : 'missing'}`);
+
+    if (typeof patrimonioApiService.getPatrimonioFxmlById !== 'function') {
+      return res.status(500).json({ success: false, message: 'Servicio de fxml no disponible' });
     }
-    const content = fs.readFileSync(absPath, { encoding: 'utf8' });
-    return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: `/${xmlRel.replace(/\\/g, '/')}`, content } });
+
+    const fxmlField = await patrimonioApiService.getPatrimonioFxmlById(id, umichSessionId);
+    if (!fxmlField) return res.json({ success: true, data: { exists: false } });
+
+    const raw = String(fxmlField || '').trim();
+    // Inline XML
+    if (raw.startsWith('<')) {
+      return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, content: raw, origin: dataSource === 'api' ? 'api' : 'local' } });
+    }
+
+    // Si viene como URL o ruta, resolver a URL absoluta
+    let resolved = raw;
+    if (resolved.includes('{id}')) resolved = resolved.replace(/\{id\}/g, String(id));
+    if (!/^https?:\/\//i.test(resolved)) {
+      const apiBase = process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+      try {
+        const baseUrl = new URL(apiBase);
+        if (resolved.startsWith('/')) resolved = `${baseUrl.origin}${resolved}`;
+        else resolved = `${apiBase.replace(/\/$/, '')}/${resolved.replace(/^\//, '')}`;
+      } catch (e) {
+        if (resolved.startsWith('/')) {
+          const origin = apiBase.split('/').slice(0, 3).join('/');
+          resolved = `${origin}${resolved}`;
+        } else {
+          resolved = `${apiBase.replace(/\/$/, '')}/${resolved.replace(/^\//, '')}`;
+        }
+      }
+    }
+
+    return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: resolved, content: '', origin: dataSource === 'api' ? 'api' : 'local' } });
   } catch (error) {
     console.error('Error al obtener XML:', error);
-    res.status(500).json({ success: false, message: error.message || 'Error al obtener XML' });
+    return res.status(500).json({ success: false, message: error.message || 'Error al obtener XML' });
+  }
+};
+
+/**
+ * Proxy-fetch del XML remoto para mostrar en el modal (evita CORS)
+ * Ruta: GET /patrimonioci/:id/xml/proxy
+ */
+const getXmlPatrimoniociProxy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const umichSessionId = getUmichSessionFromRequest(req);
+    const dataSource = inventarioService.getDataSource();
+
+    console.log(`[Controller] getXmlPatrimoniociProxy id=${id} umichSession=${umichSessionId ? 'present' : 'missing'}`);
+
+    if (typeof patrimonioApiService.getPatrimonioFxmlById !== 'function') {
+      return res.status(500).json({ success: false, message: 'Servicio de fxml no disponible' });
+    }
+
+    const fxmlField = await patrimonioApiService.getPatrimonioFxmlById(id, umichSessionId);
+    if (!fxmlField) return res.json({ success: true, data: { exists: false } });
+
+    const raw = String(fxmlField || '').trim();
+    if (raw.startsWith('<')) {
+      return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, content: raw, origin: dataSource === 'api' ? 'api' : 'local' } });
+    }
+
+    // Resolver URL
+    let resolved = raw;
+    if (resolved.includes('{id}')) resolved = resolved.replace(/\{id\}/g, String(id));
+    if (!/^https?:\/\//i.test(resolved)) {
+      const apiBase = process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+      try {
+        const baseUrl = new URL(apiBase);
+        if (resolved.startsWith('/')) resolved = `${baseUrl.origin}${resolved}`;
+        else resolved = `${apiBase.replace(/\/$/, '')}/${resolved.replace(/^\//, '')}`;
+      } catch (e) {
+        if (resolved.startsWith('/')) {
+          const origin = apiBase.split('/').slice(0, 3).join('/');
+          resolved = `${origin}${resolved}`;
+        } else {
+          resolved = `${apiBase.replace(/\/$/, '')}/${resolved.replace(/^\//, '')}`;
+        }
+      }
+    }
+
+    // Intentar descargar el recurso remoto usando cookie de sesión si existe
+    try {
+      const headers = {};
+      if (umichSessionId) headers.Cookie = `JSESSIONID=${umichSessionId}`;
+      const fetchResp = await axios.get(resolved, { responseType: 'text', timeout: 20000, headers });
+      if (fetchResp && fetchResp.status === 200 && fetchResp.data) {
+        return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: resolved, content: String(fetchResp.data), origin: dataSource === 'api' ? 'api' : 'local' } });
+      }
+      return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: resolved, content: '', origin: dataSource === 'api' ? 'api' : 'local' } });
+    } catch (err) {
+      console.warn('[Controller] Proxy fetch failed for fxml URL:', err.message || err);
+      return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: resolved, content: '', origin: dataSource === 'api' ? 'api' : 'local' } });
+    }
+  } catch (error) {
+    console.error('Error en proxy XML:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Error al proxy-fetch XML' });
   }
 };
 
 const uploadXmlPatrimonioci = async (req, res) => {
   try {
     const { id } = req.params;
+    const dataSource = inventarioService.getDataSource();
+    if (dataSource === 'api') {
+      return res.status(403).json({ success: false, message: 'No se puede subir XML cuando la fuente de datos es la API externa' });
+    }
     if (!req.file) return res.status(400).json({ success: false, message: 'Debes enviar un archivo XML' });
 
     const nuevaRutaRelativa = `uploads/xml/${req.file.filename}`;
@@ -397,6 +506,12 @@ const uploadXmlPatrimonioci = async (req, res) => {
 const deleteXmlPatrimonioci = async (req, res) => {
   try {
     const { id } = req.params;
+    const dataSource = inventarioService.getDataSource();
+    // If source is external API, disallow deleting XML (it's not managed locally)
+    if (dataSource === 'api') {
+      return res.status(403).json({ success: false, message: 'No se puede eliminar XML: la fuente de datos es la API externa' });
+    }
+
     const rel = path.join('uploads', 'xml', `${id}.xml`);
     const absPath = path.join(__dirname, '..', '..', rel);
     if (fs.existsSync(absPath)) {
@@ -465,6 +580,7 @@ module.exports = {
   deleteFotoPatrimonioci,
   // XML
   getXmlPatrimonioci,
+  getXmlPatrimoniociProxy,
   uploadXmlPatrimonioci,
   deleteXmlPatrimonioci,
   getCategoriasEntrega,
