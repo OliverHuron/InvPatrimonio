@@ -1085,6 +1085,12 @@ const InternoView = () => {
   const getEstadoLocalizacion = (item) => {
     return item?.estado || 'Sin asignar'
   }
+
+  // Resumen de resultados para mostrar en la UI
+  const totalResults = pagination.total || 0
+  const pageSize = PAGE_SIZE
+  const resultsStart = totalResults === 0 ? 0 : ((pagination.page - 1) * pageSize) + 1
+  const resultsEnd = Math.min(pagination.page * pageSize, totalResults)
   
   return (
     <div className="interno-view">
@@ -1151,6 +1157,11 @@ const InternoView = () => {
             <option value="No Localizado">No Localizado</option>
           </select>
           <button className="btn-secondary search-clear-btn" onClick={handleClearFilters} disabled={loading}>Limpiar</button>
+        </div>
+        <div className="search-row">
+          <div className="results-summary">
+            Mostrando {resultsStart} - {resultsEnd} de {totalResults} resultados
+          </div>
         </div>
       </div>
       
