@@ -206,7 +206,11 @@ const getPatrimoniociById = async (req, res) => {
 const getAllPatrimonioci = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = 500;
+    // Allow client to request a different limit (used by the UI to load all items for filter options)
+    // but cap it to a reasonable maximum to avoid heavy queries.
+    const MAX_LIMIT = 10000;
+    const requestedLimit = parseInt(req.query.limit, 10) || 500;
+    const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
     const filters = {
       q: req.query.q || '',
       responsable: req.query.responsable || '',
@@ -217,7 +221,7 @@ const getAllPatrimonioci = async (req, res) => {
     };
 
     // Debugging: log received filters and current data source
-    console.log('[Controller] getAllPatrimonioci called. Filters:', filters);
+    console.log('[Controller] getAllPatrimonioci called. Filters:', filters, 'page:', page, 'limit:', limit);
     console.log('[Controller] ENV INVENTARIO_DATA_SOURCE =', process.env.INVENTARIO_DATA_SOURCE);
 
     const result = await inventarioService.getAllInventariosInternos(page, limit, filters);
