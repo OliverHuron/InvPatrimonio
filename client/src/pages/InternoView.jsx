@@ -4,9 +4,12 @@
 // =====================================================
 
 import React, { useState, useEffect, useRef } from 'react'
-import { FaPlus, FaEdit, FaEye, FaSync, FaUpload, FaCamera, FaFileExcel, FaTrash, FaChevronDown, FaFileCode } from 'react-icons/fa'
+import { FaPlus, FaEdit, FaEye, FaSync, FaUpload, FaCamera, FaFileExcel, FaTrash, FaChevronDown, FaFileCode, FaPrint } from 'react-icons/fa'
 import { toast } from 'react-toastify'
 import './InternoView.css'
+import umsnhLogo from '../assets/umsnh-.png'
+import patrLogo from '../assets/patrimonio logo.png'
+import watermarkImg from '../assets/Marca de Agua.png'
 
 const InternoView = () => {
   const PAGE_SIZE = 500
@@ -373,6 +376,256 @@ const InternoView = () => {
 
   const handleOpenXml = (item) => {
     openXmlModal(item)
+  }
+
+  // Generar ventana con formato de impresión
+  const escHtml = (v) => {
+    if (v === null || v === undefined) return ''
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  }
+
+  const generatePrintHtml = (it, assets = {}) => {
+    const c = (k) => escHtml(it && it[k] ? it[k] : '')
+    const photo = assets.photo || toFileUrl(it && (it.foto || it.photo || it.imagen)) || ''
+    const folioText = (c('folio') || '').replace(/-/g, '\u2011')
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tarjeta Informativa de Activos – BM-A-0183-20</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#f0f0f0; font-family:Arial,Helvetica,sans-serif; color:#000; -webkit-font-smoothing:antialiased; }
+    .page { width:215mm; min-height:278mm; margin:18px auto; background:#fff; padding:16mm; position:relative; overflow:hidden; box-shadow:0 3px 18px rgba(0,0,0,0.15); }
+    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .header img.logo-umsnh { width:120px; height:auto; object-fit:contain; }
+    .header img.logo-pat { width:72px; height:auto; object-fit:contain; }
+    .header-center { flex:1; text-align:center; padding:0 8px; }
+    .header-center p.univ { font-size:12.5px; font-weight:bold; text-transform:uppercase; margin:0 0 2px 0; letter-spacing:0.6px; }
+    .header-center p.dir { font-size:11.2px; font-weight:bold; text-transform:uppercase; margin:0; }
+    .header-center p.title { font-size:12px; font-weight:bold; text-transform:uppercase; margin-top:6px; }
+    .header-center p.sub { font-size:11px; font-weight:bold; text-transform:uppercase; margin-top:2px; }
+    .pat-wrap { position:relative; display:inline-block; }
+    .no-print { display:block; }
+    .folio-bm {
+      position:absolute;
+      top:calc(100% + 3mm);
+      right:6mm;
+      transform:translateX(-12%);
+      font-size:12px;
+      font-weight:bold;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:70mm;
+      display:inline-block;
+      line-height:1;
+    }
+    .fields { width:100%; }
+    table.fields-table { width:100%; border-collapse:collapse; font-size:12px; }
+    table.fields-table td { padding:8px 6px; vertical-align:top; line-height:1.04; }
+    table.fields-table tr.spacer td { padding-top:10px }
+    td.lbl { text-align:right; font-weight:bold; white-space:nowrap; padding-right:2px; width:30%; }
+    td.colon { text-align:left; width:18px; padding-left:2px; padding-right:6px; }
+    td.val { text-align:left; padding-left:10px; }
+    td.lbl { text-align:right; font-weight:bold; white-space:nowrap; padding-right:6px; width:30%; }
+    td.colon { text-align:center; width:6px; }
+    td.val { text-align:left; padding-left:12px; }
+    .photo-wrap { display:flex; justify-content:center; margin:18px 0 12px 0; }
+    .photo-box { width:220px; height:160px; border:0.9px solid #555; overflow:hidden; }
+    .photo-box img { width:100%; height:100%; object-fit:cover; }
+    .sigs { display:flex; justify-content:space-between; gap:16px; margin-top:28px; }
+    .sig { flex:1; text-align:center; }
+    .sig-line { border-top:0.8px solid #000; margin-bottom:6px; }
+    .header-center p { line-height:1.04; }
+    .sig-name { font-size:10px; font-weight:bold; text-transform:uppercase; line-height:1.04; }
+    .sig-role { font-size:9px; line-height:1.04; }
+    @media print { body { background:none; } .page { margin:0; box-shadow:none; } .no-print { display:none !important; } }
+  </style>
+</head>
+<body>
+  <div class="page" role="main">
+    ${assets.watermark ? `<img src="${assets.watermark}" alt="Marca de agua" style="position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);opacity:0.13;max-width:50%;pointer-events:none;z-index:0;" />` : ''}
+    <div class="header">
+      <img class="logo-umsnh" src="${assets.umsnh || umsnhLogo}" alt="Escudo UMSNH">
+      <div class="header-center">
+        <p class="univ">UNIVERSIDAD MICHOACANA SAN NICOLÁS HIDALGO</p>
+        <p class="dir">DIRECCIÓN DE PATRIMONIO UNIVERSITARIO</p>
+        <p class="title">TARJETA INFORMATIVA DE ACTIVOS</p>
+        <p class="sub">RESGUARDO INDIVIDUAL</p>
+      </div>
+      <div class="pat-wrap">
+        <img class="logo-pat" src="${assets.patr || patrLogo}" alt="Logo Patrimonio">
+        <div class="folio-bm">Folio: <strong>${folioText}</strong></div>
+      </div>
+    </div>
+
+    <div class="fields">
+      <table class="fields-table">
+        <tr><td class="lbl">Clave del bien</td><td class="colon">:</td><td class="val">${c('clave_patrimonial')}</td></tr>
+        <tr><td class="lbl">Id</td><td class="colon">:</td><td class="val">${c('id')}</td></tr>
+        <tr><td class="lbl">Descripción</td><td class="colon">:</td><td class="val">${c('descripcion')}</td></tr>
+        <tr><td class="lbl">Comentarios</td><td class="colon">:</td><td class="val">${c('comentarios')}</td></tr>
+        <tr class="spacer"><td colspan="3"></td></tr>
+        <tr><td class="lbl">Responsable</td><td class="colon">:</td><td class="val">${c('responsable')}</td></tr>
+        <tr><td class="lbl">URes de gasto</td><td class="colon">:</td><td class="val">${c('ures_gasto')}</td></tr>
+        <tr><td class="lbl">URes de asignación</td><td class="colon">:</td><td class="val">${c('ures_asignacion')}</td></tr>
+        <tr><td class="lbl">Ubicación</td><td class="colon">:</td><td class="val">${c('ubicacion')}</td></tr>
+        <tr class="spacer"><td colspan="3"></td></tr>
+        <tr><td class="lbl">Costo</td><td class="colon">:</td><td class="val">${c('costo')}</td></tr>
+        <tr><td class="lbl">No Factura</td><td class="colon">:</td><td class="val">${c('no_factura')}</td></tr>
+        <tr><td class="lbl">Fecha factura</td><td class="colon">:</td><td class="val">${c('fec_fact')}</td></tr>
+        <tr><td class="lbl">UUID</td><td class="colon">:</td><td class="val">${c('uuid')}</td></tr>
+        <tr><td class="lbl">Fondo</td><td class="colon">:</td><td class="val">${c('fondo')}</td></tr>
+        <tr class="spacer"><td colspan="3"></td></tr>
+        <tr><td class="lbl">Marca</td><td class="colon">:</td><td class="val">${c('marca')}</td></tr>
+        <tr><td class="lbl">Modelo</td><td class="colon">:</td><td class="val">${c('modelo')}</td></tr>
+        <tr><td class="lbl">Serie</td><td class="colon">:</td><td class="val">${c('no_serie')}</td></tr>
+        <tr><td class="lbl">Proveedor</td><td class="colon">:</td><td class="val">${c('proveedor')}</td></tr>
+        <tr><td class="lbl">Usuario que asigna</td><td class="colon">:</td><td class="val">${c('usu_asig')}</td></tr>
+      </table>
+    </div>
+
+    <div class="photo-wrap">
+      <div class="photo-box">${photo ? `<img src="${photo}" alt="Foto del bien" />` : ''}</div>
+    </div>
+
+    <div class="sigs">
+      <div class="sig"><div class="sig-line"></div><div class="sig-name">J. Trinidad Ferreira Almanza</div><div class="sig-role">Dirección de Patrimonio Universitario</div></div>
+      <div class="sig"><div class="sig-line"></div><div class="sig-name">Rigoberto Lopez Escalera</div><div class="sig-role">Facultad de Contaduría y Ciencias Administrativas</div></div>
+      <div class="sig"><div class="sig-line"></div><div class="sig-name">${(c('responsable') || 'Responsable').toUpperCase()}</div><div class="sig-role">Responsable</div></div>
+    </div>
+
+    <div class="no-print" style="margin-top:12px;text-align:right;"><button onclick="window.print()">Imprimir</button></div>
+
+  </div>
+
+</body>
+</html>`
+  }
+  const fetchAsDataUrl = async (url) => {
+    if (!url) return ''
+    try {
+      const resp = await fetch(url)
+      if (!resp.ok) return ''
+      const blob = await resp.blob()
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+    } catch (err) {
+      console.error('fetchAsDataUrl error', err)
+      return ''
+    }
+  }
+
+  const handlePrintFormat = async (item) => {
+    try {
+      const it = item || selectedItem || {}
+      const umsnhUrl = umsnhLogo
+      const patrUrl = patrLogo
+      const watermarkUrl = watermarkImg
+      const photoUrl = toFileUrl(it && (it.foto || it.photo || it.imagen)) || ''
+
+      const [umsnhData, patrData, watermarkData, photoData] = await Promise.all([
+        fetchAsDataUrl(umsnhUrl).catch(() => ''),
+        fetchAsDataUrl(patrUrl).catch(() => ''),
+        fetchAsDataUrl(watermarkUrl).catch(() => ''),
+        fetchAsDataUrl(photoUrl).catch(() => '')
+      ])
+
+      const assets = {
+        umsnh: umsnhData || umsnhUrl,
+        patr: patrData || patrUrl,
+        watermark: watermarkData || watermarkUrl,
+        photo: photoData || photoUrl
+      }
+
+      const html = generatePrintHtml(it, assets)
+      try {
+        const iframe = document.createElement('iframe')
+        iframe.style.position = 'fixed'
+        iframe.style.right = '0'
+        iframe.style.bottom = '0'
+        iframe.style.width = '0'
+        iframe.style.height = '0'
+        iframe.style.border = '0'
+        iframe.style.visibility = 'hidden'
+        iframe.setAttribute('aria-hidden', 'true')
+        document.body.appendChild(iframe)
+        if ('srcdoc' in iframe) {
+          iframe.srcdoc = html
+        } else {
+          const doc = iframe.contentDocument || iframe.contentWindow.document
+          doc.open()
+          doc.write(html)
+          doc.close()
+        }
+
+        let printed = false
+        let cleanupTimeout = null
+
+        const cleanup = () => {
+          try {
+            if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe)
+          } catch (e) {}
+          try {
+            if (iframe && iframe.contentWindow) iframe.contentWindow.removeEventListener('afterprint', onAfterPrint)
+          } catch (e) {}
+          if (cleanupTimeout) { clearTimeout(cleanupTimeout); cleanupTimeout = null }
+        }
+
+        const onAfterPrint = () => {
+          printed = true
+          cleanup()
+        }
+
+        const doPrint = () => {
+          if (printed) return
+          printed = true
+          try {
+            const win = iframe.contentWindow
+            if (win) {
+              try { win.focus() } catch (e) {}
+              try { win.print() } catch (e) { console.error('Error al imprimir desde iframe', e); toast.error('Error al imprimir') }
+            }
+          } finally {
+            // Fallback cleanup if afterprint doesn't fire
+            cleanupTimeout = setTimeout(() => { try { cleanup() } catch (e) {} }, 2000)
+          }
+        }
+
+        // attach afterprint handler when available
+        try {
+          const win = iframe.contentWindow
+          if (win) {
+            win.addEventListener('afterprint', onAfterPrint)
+          } else {
+            iframe.addEventListener('load', () => {
+              try { const w2 = iframe.contentWindow; if (w2) w2.addEventListener('afterprint', onAfterPrint) } catch (e) {}
+            })
+          }
+        } catch (e) {}
+
+        // trigger print when iframe is ready
+        const schedulePrint = () => setTimeout(doPrint, 50)
+        try {
+          const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document)
+          if (doc && doc.readyState === 'complete') schedulePrint()
+          else iframe.addEventListener('load', schedulePrint, { once: true })
+        } catch (e) { iframe.addEventListener('load', schedulePrint, { once: true }) }
+
+      } catch (err) {
+        console.error('Error generando formato de impresión', err)
+        toast.error('Error generando formato de impresión')
+      }
+    } catch (err) {
+      console.error('Error generando formato de impresión', err)
+      toast.error('Error generando formato de impresión')
+    }
   }
   
   const normalizeInterno = (data) => ({
@@ -1206,6 +1459,7 @@ const InternoView = () => {
                     <div className="action-buttons">
                       <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleView(item) }} title="Ver detalle"><FaEye /></button>
                       <button className="btn-icon btn-edit" onClick={(e) => { e.stopPropagation(); handleEdit(item) }} title="Editar"><FaEdit /></button>
+                      <button className="btn-icon btn-print" onClick={(e) => { e.stopPropagation(); handlePrintFormat(item) }} title="Formato impresión"><FaPrint /></button>
                       <button className="btn-icon btn-xml" onClick={(e) => { e.stopPropagation(); handleOpenXml(item) }} title="Ver XML"><FaFileCode /></button>
                     </div>
                   </div>
@@ -1242,6 +1496,7 @@ const InternoView = () => {
                   <div className="action-buttons">
                     <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleView(item) }} title="Ver detalle"><FaEye /></button>
                     <button className="btn-icon btn-edit" onClick={(e) => { e.stopPropagation(); handleEdit(item) }} title="Editar"><FaEdit /></button>
+                    <button className="btn-icon btn-print" onClick={(e) => { e.stopPropagation(); handlePrintFormat(item) }} title="Formato impresión"><FaPrint /></button>
                     <button className="btn-icon btn-xml" onClick={(e) => { e.stopPropagation(); handleOpenXml(item) }} title="Ver XML"><FaFileCode /></button>
                   </div>
                 </div>

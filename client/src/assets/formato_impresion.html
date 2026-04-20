@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tarjeta Informativa de Activos – BM-A-0183-20</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#f0f0f0; font-family:Arial,Helvetica,sans-serif; color:#000; -webkit-font-smoothing:antialiased; }
+    .page { width:215mm; min-height:278mm; margin:18px auto; background:#fff; padding:16mm; position:relative; overflow:hidden; box-shadow:0 3px 18px rgba(0,0,0,0.15); }
+    .watermark { position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); pointer-events:none; z-index:0; width:50%; opacity:0.13; }
+    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; position:relative; z-index:1 }
+    .header img.logo-umsnh { width:120px; height:auto; object-fit:contain; }
+    .header img.logo-pat { width:72px; height:auto; object-fit:contain; }
+    .header-center { flex:1; text-align:center; padding:0 8px; }
+    .header-center p.univ { font-size:12.5px; font-weight:bold; text-transform:uppercase; margin:0 0 2px 0; letter-spacing:0.6px; }
+    .header-center p.dir { font-size:12px; font-weight:bold; text-transform:uppercase; margin:0; }
+    .header-center p.title { font-size:11.5px; font-weight:bold; text-transform:uppercase; margin-top:6px; }
+    .header-center p.sub { font-size:11px; font-weight:bold; text-transform:uppercase; margin-top:2px; }
+    .pat-wrap { position:relative; display:inline-block; }
+    .folio-bm {
+      position:absolute;
+      top:calc(100% + 3mm);
+      right:6mm;
+      transform:translateX(-12%);
+      font-size:12px;
+      font-weight:bold;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:70mm;
+      display:inline-block;
+      line-height:1;
+    }
+    .fields { width:100%; z-index:1 }
+    table.fields-table { width:100%; border-collapse:collapse; font-size:12px; }
+    table.fields-table td { padding:6px 4px; vertical-align:top; line-height:1.04; }
+    table.fields-table tr.spacer td { padding-top:10px }
+    td.lbl { text-align:right; font-weight:bold; white-space:nowrap; padding-right:6px; width:30%; }
+    td.colon { text-align:center; width:2px; }
+    td.val { text-align:left; padding-left:12px; }
+    .photo-wrap { display:flex; justify-content:center; margin:18px 0 12px 0; z-index:1 }
+    .photo-box { width:190px; height:143px; border:0.9px solid #555; overflow:hidden; }
+    .photo-box img { width:100%; height:100%; object-fit:cover; }
+    .sigs { display:flex; justify-content:space-between; gap:16px; margin-top:28px; z-index:1 }
+    .sig { flex:1; text-align:center; }
+    .sig-line { border-top:0.8px solid #000; margin-bottom:6px; }
+    .sig-name { font-size:10px; font-weight:bold; text-transform:uppercase; line-height:1.04; }
+    .sig-role { font-size:9px; line-height:1.04; }
+    .print-btn { position:fixed; right:18px; top:18px; z-index:1000; }
+    .no-print { display:block; }
+    @media print { body { background:none; } .page { margin:0; box-shadow:none; } .print-btn { display:none; } .no-print { display:none !important; } }
+  </style>
+</head>
+<body>
+  <div class="page" role="main">
+    <img id="watermark" class="watermark" src="./Marca de Agua.png" alt="Marca de Agua" />
+    <div class="header">
+      <img id="umsnh" class="logo-umsnh" src="./umsnh-.png" alt="Escudo UMSNH">
+      <div class="header-center">
+        <p class="univ">UNIVERSIDAD MICHOACANA SAN NICOLÁS HIDALGO</p>
+        <p class="dir">DIRECCIÓN DE PATRIMONIO UNIVERSITARIO</p>
+        <p class="title">TARJETA INFORMATIVA DE ACTIVOS</p>
+        <p class="sub">RESGUARDO INDIVIDUAL</p>
+      </div>
+      <div class="pat-wrap">
+        <img id="patr" class="logo-pat" src="./patrimonio logo.png" alt="Logo Patrimonio">
+        <div class="folio-bm">Folio: <span id="folio"></span></div>
+      </div>
+    </div>
+
+    <div class="fields">
+      <table class="fields-table">
+        <tr><td class="lbl">Clave patrimonial</td><td class="colon">:</td><td id="clave_patrimonial" class="val"></td></tr>
+        <tr><td class="lbl">Descripción</td><td class="colon">:</td><td id="descripcion" class="val"></td></tr>
+        <tr><td class="lbl">Marca</td><td class="colon">:</td><td id="marca" class="val"></td></tr>
+        <tr><td class="lbl">Modelo</td><td class="colon">:</td><td id="modelo" class="val"></td></tr>
+        <tr><td class="lbl">No. Serie</td><td class="colon">:</td><td id="no_serie" class="val"></td></tr>
+        <tr><td class="lbl">Proveedor</td><td class="colon">:</td><td id="proveedor" class="val"></td></tr>
+        <tr><td class="lbl">Costo</td><td class="colon">:</td><td id="costo" class="val"></td></tr>
+        <tr><td class="lbl">Responsable</td><td class="colon">:</td><td id="responsable" class="val"></td></tr>
+        <tr><td class="lbl">Ubicación</td><td class="colon">:</td><td id="ubicacion" class="val"></td></tr>
+        <tr><td class="lbl">Estado</td><td class="colon">:</td><td id="estado" class="val"></td></tr>
+        <tr><td class="lbl">Fecha registro</td><td class="colon">:</td><td id="fecha_registro" class="val"></td></tr>
+        <tr><td class="lbl">Usuario registro</td><td class="colon">:</td><td id="usuario_registro" class="val"></td></tr>
+        <tr class="spacer"><td colspan="3"></td></tr>
+        <tr><td class="lbl">Comentarios</td><td class="colon">:</td><td id="comentarios" class="val"></td></tr>
+      </table>
+    </div>
+
+    <div class="photo-wrap">
+      <div class="photo-box"><img id="photo" src="" alt="Foto del bien" /></div>
+    </div>
+
+    <div class="sigs">
+      <div class="sig"><div class="sig-line"></div><div class="sig-name" id="sig1_name">Responsable</div><div class="sig-role" id="sig1_role">Firma</div></div>
+      <div class="sig"><div class="sig-line"></div><div class="sig-name">J. Trinidad Ferreira Almanza</div><div class="sig-role">Dirección de Patrimonio Universitario</div></div>
+    </div>
+
+    <div class="no-print" style="margin-top:12px;text-align:right;"><button onclick="window.print()">Imprimir</button></div>
+
+  </div>
+
+  <script>
+    (function(){
+      function setText(id,val){ var el=document.getElementById(id); if(!el) return; if(val==null){ el.textContent=''; return } var out = String(val).replace(/-/g,'\u2011'); el.textContent = out }
+      function setImg(id,src){ var el=document.getElementById(id); if(!el) return; if(!src){ el.style.display='none'; el.src=''; } else { el.style.display='block'; el.src = src } }
+      window.addEventListener('message', function(e){
+        var data = e.data || {}
+        setText('clave_patrimonial', data.clave_patrimonial)
+        setText('descripcion', data.descripcion)
+        setText('marca', data.marca)
+        setText('modelo', data.modelo)
+        setText('no_serie', data.no_serie)
+        setText('proveedor', data.proveedor)
+        setText('costo', data.costo)
+        setText('responsable', data.responsable)
+        setText('ubicacion', data.ubicacion)
+        setText('estado', data.estado)
+        setText('fecha_registro', data.fecha_registro)
+        setText('usuario_registro', data.usuario_registro)
+        setText('comentarios', data.comentarios)
+        setText('folio', data.folio)
+        setImg('photo', data.photo)
+        setImg('umsnh', data.umsnh)
+        setImg('patr', data.patr)
+        setImg('watermark', data.watermark)
+      }, false)
+    })()
+  </script>
+</body>
+</html>
