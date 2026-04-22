@@ -1,3 +1,10 @@
+:root {
+  --siaf-primary: #114C92;
+  --siaf-primary-dark: #0d3a70;
+  --siaf-dark: #1e293b;
+  --siaf-gray: #757575;
+}
+
 .siaf-app {
   display: flex;
   height: 100vh;
@@ -6,21 +13,182 @@
   overflow: hidden;
 }
 
+/* ── SIDEBAR ─────────────────────────────────────── */
+
 .siaf-sidebar-backdrop {
   display: none;
 }
 
 .siaf-sidebar {
   width: 260px;
-  background: linear-gradient(135deg, #a32136 0%, #8b1b2f 100%); /* Gradiente sutil */
-  color: #fff;
-  padding: 20px 0;
-  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  color: #424242;
+  border-right: 1px solid #E0E0E0;
   position: relative;
   height: 100vh;
   overflow: hidden;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
 }
+
+/* Remove the decorative overlay from old design */
+.siaf-sidebar::before {
+  display: none;
+}
+
+/* Brand / Logo area */
+.siaf-brand {
+  background: #ffffff;
+  border-bottom: 1px solid #E0E0E0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 16px;
+  flex-shrink: 0;
+}
+
+.siaf-logo {
+  display: block;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: none;
+  transform: none;
+  position: static;
+  transition: none;
+}
+
+.siaf-logo:hover {
+  transform: none;
+}
+
+.siaf-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.siaf-brand-name {
+  font-size: 33px;
+  font-weight: bold;
+  color: #273445;
+  line-height: 0.8em;
+  margin: 0;
+}
+
+.siaf-brand-subtitle {
+  font-size: 10px;
+  color: #273445;
+  line-height: 1.35;
+  margin: 4px 0 0 0;
+}
+
+/* Menu */
+.siaf-menu {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.siaf-menu-list {
+  list-style: none;
+  padding: 0 8px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 500;
+}
+
+.siaf-menu li {
+  padding: 0;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.siaf-menu li::before {
+  display: none;
+}
+
+.siaf-menu li.active::before {
+  display: none;
+}
+
+.siaf-menu .menu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  color: #424242;
+  text-decoration: none;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.siaf-menu .menu-link:hover {
+  color: #424242;
+  background: rgba(0, 0, 0, 0.05);
+  transform: none;
+}
+
+.siaf-menu li svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  opacity: 1;
+  transition: none;
+}
+
+.siaf-menu li:hover svg {
+  opacity: 1;
+  transform: none;
+}
+
+.siaf-menu li.active {
+  background: #273445;
+  box-shadow: none;
+}
+
+.siaf-menu li.active .menu-link {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.siaf-menu li.active:hover {
+  background: #273445;
+}
+
+.siaf-menu li.active .menu-link:hover {
+  background: transparent;
+  color: #ffffff;
+}
+
+.siaf-menu li.active svg {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── MAIN AREA ───────────────────────────────────── */
+
+.siaf-main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #F5F5F7;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── TOPBAR ──────────────────────────────────────── */
 
 .siaf-topbar-left {
   display: flex;
@@ -32,282 +200,154 @@
 .siaf-sidebar-toggle {
   display: none;
   border: none;
-  background: #eef2f7;
-  color: #334155;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: 8px;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
 }
 
 .siaf-sidebar-toggle:hover {
-  background: #e2e8f0;
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.siaf-sidebar::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.02) 100%);
-  pointer-events: none;
-}
-
-.siaf-menu-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px; /* Espacio más sutil entre elementos */
-  font-weight: 500; /* Peso de fuente más moderno */
-  width: 100%;
-  padding: 0 16px; /* Padding interno para mejor espaciado */
-}
-.siaf-logo {
-  display: block;
-  filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-  object-fit: cover;
-  object-position: center;
-  width: 70%;
-  transform: scale(0.7);
-  position: relative;
-  z-index: 10;
-  transition: transform 0.3s ease;
-}
-
-.siaf-logo:hover {
-  transform: scale(0.75);
-} 
-.siaf-brand {
-  background: linear-gradient(135deg, #8b1b2f 0%, #721425 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 150px;
-  position: relative;
-  z-index: 1;
-  margin: -20px 0 20px 0; 
-  box-sizing: border-box;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-}
-.siaf-menu-list { 
-  list-style: none; 
-  padding: 0; 
-  margin: 0; 
-  scroll-behavior: smooth; 
-}
-
-.siaf-menu li { 
-  padding: 0;  
-  cursor: pointer;
-  border-radius: 12px;
-  margin-bottom: 2px;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.siaf-menu li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background: rgba(255, 255, 255, 0.8);
-  transform: translateX(-100%);
-  transition: transform 0.3s ease;
-}
-
-.siaf-menu li.active::before {
-  transform: translateX(0);
-}
-.siaf-menu .menu-link {
-  display: flex; 
-  align-items: center; 
-  gap: 12px;
-  padding: 14px 16px;
-  color: rgba(255, 255, 255, 0.9);
-  text-decoration: none;
-  width: 100%;
-  box-sizing: border-box;
+.siaf-topbar {
   height: 56px;
-  border-radius: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-weight: 500;
-  font-size: 14px;
-  letter-spacing: 0.5px;
-}
-
-.siaf-menu .menu-link:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  transform: translateX(4px);
-}
-
-.siaf-menu li svg { 
-  width: 20px; 
-  height: 20px; 
-  flex-shrink: 0;
-  opacity: 0.8;
-  transition: all 0.3s ease;
-}
-
-.siaf-menu li:hover svg {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-.siaf-menu li.active { 
-  background: rgba(255,255,255,0.12);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.siaf-menu li.active .menu-link {
-  color: #fff;
-  font-weight: 600;
-}
-
-.siaf-menu li.active svg {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-.siaf-main-area { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  height: 100vh;
-  overflow: hidden;
-}
-
-.siaf-topbar { 
-  height: 70px; 
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  color: #1e293b; 
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between; 
-  padding: 0 32px; 
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.1);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  background: #273445;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
   position: sticky;
   top: 0;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
   z-index: 10;
   flex-shrink: 0;
 }
 
 .siaf-topbar::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 32px;
-  right: 32px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, #e2e8f0 50%, transparent 100%);
+  display: none;
 }
 
-.siaf-topbar h3 { 
-  margin: 0; 
-  font-weight: 700;
-  font-size: 24px;
-  background: linear-gradient(135deg, #656b79 0%, #656b79 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.5px;
+.siaf-topbar h3 {
+  margin: 0;
+  font-weight: 500;
+  font-size: 14px;
+  color: #ffffff;
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: #ffffff;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.siaf-topbar-right { 
-  display: flex; 
-  align-items: center; 
-  gap: 20px;
-  position: relative;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-.siaf-profile { 
-  display: flex; 
-  align-items: center; 
+.siaf-topbar-right {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  padding: 8px 16px;
-  border-radius: 16px;
-  transition: all 0.3s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Bell button */
+.siaf-bell-btn {
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  background: rgba(248, 250, 252, 0.8);
-  border: 1px solid rgba(226, 232, 240, 0.6);
+  transition: background 0.2s ease;
+  font-size: 18px;
+}
+
+.siaf-bell-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Profile */
+.siaf-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   position: relative;
 }
 
 .siaf-profile:hover {
-  background: rgba(241, 245, 249, 1);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  background: rgba(255, 255, 255, 0.1);
+  transform: none;
+  box-shadow: none;
 }
 
-.siaf-avatar { 
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  padding: 9px 10px; 
+.siaf-avatar {
+  background: #9e9e9e;
+  padding: 0;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   color: white;
   font-weight: 600;
-  font-size: 14px;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
-  transition: all 0.3s ease;
-  min-width: 32px;
-  min-height: 32px;
+  font-size: 13px;
+  box-shadow: none;
+  transition: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .siaf-profile:hover .siaf-avatar {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  transform: none;
+  box-shadow: none;
 }
 
 .siaf-username {
-  font-weight: 600;
-  color: var(--siaf-dark);
+  font-weight: 500;
+  color: #ffffff;
   font-size: 14px;
 }
 
 /* Profile Dropdown */
 .profile-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   right: 0;
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(226, 232, 240, 0.6);
-  min-width: 250px;
+  min-width: 240px;
   z-index: 1000;
-  padding: 16px 0;
-  margin-top: 8px;
-  animation: dropdownSlide 0.2s ease-out;
+  padding: 12px 0;
+  animation: dropdownSlide 0.15s ease-out;
 }
 
 @keyframes dropdownSlide {
-  0% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .profile-info {
@@ -372,20 +412,24 @@
   background: rgba(254, 242, 242, 1) !important;
 }
 
-.siaf-content { 
-  padding: 24px; 
+/* ── CONTENT ─────────────────────────────────────── */
+
+.siaf-content {
+  padding: 24px;
   flex: 1;
   overflow-y: auto;
   height: 0;
 }
 
-/* Table mockup */
+/* ── TABLE UTILITIES ─────────────────────────────── */
+
 .siaf-table { background: #fff; border-radius: 6px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
 .siaf-table table { width: 100%; border-collapse: collapse; }
 .siaf-table th, .siaf-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: left }
 .siaf-table th { background: #f7f9fb; font-weight: 600 }
 
-/* Modal */
+/* ── MODAL ───────────────────────────────────────── */
+
 .siaf-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index: 1200; }
 .siaf-modal { width: 720px; background: #fff; border-radius: 6px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
 .siaf-modal header { font-weight: 700; margin-bottom: 12px }
@@ -394,49 +438,38 @@
 .siaf-btn.primary { background: #d33; color: #fff }
 .siaf-btn.secondary { background: #e6e6e6 }
 
-/* Footer */
+/* ── FOOTER ──────────────────────────────────────── */
+
 .siaf-footer {
-  /* 1. Posicionamiento fijo al fondo */
   position: fixed;
   bottom: 0;
   left: 0;
-  
-  /* 2. Dimensiones y forma */
   width: 100%;
-  height: 60px; /* Ajusta a tu gusto, 10vh a veces es mucho */
-  
-  /* 3. Estética original */
+  height: 60px;
   background: #761526;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0; /* Limpiamos el padding excesivo para centrar bien */
-  
-  /* 4. Tipografía y sombras */
+  padding: 0;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
   box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.2);
   border-top: 2px solid rgba(255, 255, 255, 0.1);
-  
-  /* 5. Asegurar que esté por encima de otros elementos */
   z-index: 9999;
 }
 
+/* ── RESPONSIVE ──────────────────────────────────── */
+
 @media (max-width: 1200px) {
   .siaf-topbar {
-    padding: 0 20px;
-  }
-
-  .siaf-topbar::after {
-    left: 20px;
-    right: 20px;
+    padding: 0 16px;
   }
 
   .siaf-topbar h3 {
-    font-size: 20px;
+    font-size: 13px;
   }
 
   .siaf-content {
@@ -481,26 +514,21 @@
   }
 
   .siaf-topbar {
-    height: 64px;
+    height: 56px;
     padding: 0 14px;
     z-index: 900;
   }
 
-  .siaf-topbar::after {
-    left: 14px;
-    right: 14px;
-  }
-
   .siaf-topbar h3 {
-    font-size: 18px;
-    max-width: 60vw;
+    font-size: 13px;
+    max-width: 55vw;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .siaf-topbar-right {
-    gap: 10px;
+    gap: 8px;
   }
 
   .siaf-profile {
@@ -510,8 +538,8 @@
 
 @media (max-width: 640px) {
   .siaf-topbar h3 {
-    font-size: 16px;
-    max-width: 48vw;
+    font-size: 12px;
+    max-width: 44vw;
   }
 
   .siaf-username {
@@ -527,4 +555,3 @@
     padding: 12px;
   }
 }
-

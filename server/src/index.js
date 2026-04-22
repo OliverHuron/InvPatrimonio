@@ -107,11 +107,15 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 const patrimonioApiRoutes = require('./routes/patrimonioApi.routes'); // API Inventario/Auth
+const auditoriaRoutes     = require('./routes/auditoria.routes');     // Auditoría de Campo
 
 // Ruta principal limpia
 app.use('/api', patrimonioApiRoutes);
 // Compatibilidad temporal con clientes antiguos
 app.use('/api/patrimonio-api', patrimonioApiRoutes);
+
+// Auditoría de Campo (rutas públicas + admin)
+app.use('/api/auditoria', auditoriaRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

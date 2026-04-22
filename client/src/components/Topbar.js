@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { FaBars } from 'react-icons/fa'
+import { FaBars, FaBell } from 'react-icons/fa'
 import '../styles/layout.css'
 
 const Topbar = ({ title = 'Sistema Integral de Administración Facultaria', onToggleSidebar }) => {
@@ -54,6 +54,9 @@ const Topbar = ({ title = 'Sistema Integral de Administración Facultaria', onTo
         <h3>{title}</h3>
       </div>
       <div className="siaf-topbar-right">
+        <button className="siaf-bell-btn" aria-label="Notificaciones">
+          <FaBell />
+        </button>
         <div className="siaf-profile" ref={dropdownRef} onClick={() => setShowProfileMenu(!showProfileMenu)}>
           <div className="siaf-avatar">
             {user ? getUserInitials(user.fullName) : 'U'}

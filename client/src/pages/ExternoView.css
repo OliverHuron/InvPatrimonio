@@ -11,16 +11,16 @@
 .view-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e0e0e0;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0;
 }
 
 .view-header h1 {
-  font-size: 1.8rem;
-  margin: 0 0 0.5rem 0;
-  color: #2c3e50;
+  font-size: 1.5rem;
+  margin: 0;
+  color: #212121;
+  font-weight: 600;
 }
 
 .header-actions {
@@ -38,40 +38,41 @@
 .search-input {
   min-width: 220px;
   padding: 0.55rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #E0E0E0;
+  border-radius: 8px;
 }
 
 .btn-search,
 .btn-refresh {
   padding: 0.6rem 1rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.9rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.2s;
+  transition: background 0.2s;
   font-weight: 500;
 }
 
 .btn-search {
-  background: #781628;
+  background: #1976D2;
   color: #fff;
 }
 
 .btn-search:hover {
-  background: #9e2c3f;
+  background: #1565C0;
 }
 
 .btn-refresh {
-  background: #9e2c3f;
-  color: #fff;
+  background: #ffffff;
+  color: #424242;
+  border: 1px solid #E0E0E0;
 }
 
 .btn-refresh:hover {
-  background: #781628;
+  background: #f9fafb;
 }
 
 .btn-refresh:disabled,
@@ -102,8 +103,9 @@
 
 .table-container {
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  border: 1px solid #E0E0E0;
   overflow: hidden;
 }
 
@@ -113,8 +115,8 @@
 }
 
 .data-table thead {
-  background: #34495e;
-  color: white;
+  background: #F5F5F7;
+  color: #757575;
 }
 
 .data-table th {
@@ -146,14 +148,14 @@
 .btn-icon {
   padding: 0.5rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  background: #f4ccd5;
-  color: #781628;
+  background: rgba(25, 118, 210, 0.08);
+  color: #1976D2;
 }
 
 .btn-icon:hover {
-  background: #e9b4c0;
+  background: rgba(25, 118, 210, 0.15);
 }
 
 /* Drawer detalle */
@@ -208,7 +210,7 @@
 
 .drawer-header h2 {
   margin: 0;
-  color: #781628;
+  color: #273445;
   font-size: 1.35rem;
 }
 
@@ -225,7 +227,7 @@
   font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
-  color: #9e2c3f;
+  color: #424242;
   width: 32px;
   height: 32px;
   display: inline-flex;
@@ -236,8 +238,8 @@
 }
 
 .btn-close:hover {
-  background: #f9e6ea;
-  color: #781628;
+  background: #f0f4f8;
+  color: #273445;
 }
 
 .drawer-content {
@@ -268,7 +270,7 @@
 .summary-card {
   border: 1px solid #f0d8de;
   border-radius: 10px;
-  background: #fff7f9;
+  background: #F5F5F7;
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
@@ -279,7 +281,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.35px;
-  color: #9e2c3f;
+  color: #114C92;
   font-weight: 700;
 }
 
@@ -299,7 +301,7 @@
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.45px;
-  color: #9e2c3f;
+  color: #273445;
 }
 
 .detail-grid {

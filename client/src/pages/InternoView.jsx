@@ -59,6 +59,8 @@ const InternoView = () => {
   const [collapsedSections, setCollapsedSections] = useState({})
   const [filterOptions, setFilterOptions] = useState({ responsables: [], resguardantes: [], ubicaciones: [], aniosElaboracion: [] })
   const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false)
+  const [openEstadoId, setOpenEstadoId] = useState(null)
+  const [estadoDropdownPos, setEstadoDropdownPos] = useState({ top: 0, left: 0 })
 
   const toggleSection = (sectionKey) => {
     setCollapsedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }))
@@ -753,7 +755,13 @@ const InternoView = () => {
   }
   
   useEffect(() => {
-    // prevent page-level vertical scrolling while this view is active
+    if (openEstadoId === null) return
+    const handleClickOutside = () => setOpenEstadoId(null)
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [openEstadoId])
+
+  useEffect(() => {
     document.body.classList.add('interno-active')
     loadFilterOptions()
     loadAllItems(filters, 1)
@@ -1339,6 +1347,28 @@ const InternoView = () => {
     return item?.estado || 'Sin asignar'
   }
 
+  const handleQuickEstadoChange = async (item, nuevoEstado) => {
+    const sessionId = getSessionId()
+    try {
+      const response = await fetch(`${API_BASE}/patrimonioci/actualizar/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-UMICH-Session': sessionId || '' },
+        credentials: 'include',
+        body: JSON.stringify({ estado: nuevoEstado })
+      })
+      const data = await response.json()
+      if (data.success) {
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, estado: nuevoEstado } : i))
+        toast.success('Estado actualizado')
+      } else {
+        toast.error('Error al actualizar estado')
+      }
+    } catch (error) {
+      console.error('Error actualizando estado:', error)
+      toast.error('Error al actualizar estado')
+    }
+  }
+
   // Resumen de resultados para mostrar en la UI
   const totalResults = pagination.total || 0
   const pageSize = PAGE_SIZE
@@ -1350,7 +1380,7 @@ const InternoView = () => {
       {/* Header */}
       <div className="view-header">
         <div>
-          <h1>Patrimonio Interno</h1>
+          <h1>Inventario</h1>
         </div>
         <div className="header-actions">
           <button className="btn-refresh" onClick={() => loadAllItems(filters, pagination.page)} disabled={loading}>
@@ -1451,9 +1481,22 @@ const InternoView = () => {
                   <div className="td col-responsable" title={item.responsable || ''}>{item.responsable}</div>
                   <div className="td col-resguardante" title={item.usu_asig || 'Sin dato'}>{item.usu_asig || 'Sin dato'}</div>
                   <div className="td td-estado col-estado">
-                    <span className={`badge ${getEstadoBadgeClass(getEstadoLocalizacion(item))}`}>
-                      {getEstadoLocalizacion(item)}
-                    </span>
+                    <div
+                      className={`estado-badge-select ${getEstadoBadgeClass(getEstadoLocalizacion(item))}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (openEstadoId === item.id) {
+                          setOpenEstadoId(null)
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setEstadoDropdownPos({ top: rect.bottom + 4, left: rect.left })
+                          setOpenEstadoId(item.id)
+                        }
+                      }}
+                    >
+                      <span>{getEstadoLocalizacion(item)}</span>
+                      <span className="estado-arrow">▾</span>
+                    </div>
                   </div>
                   <div className="td col-acciones">
                     <div className="action-buttons">
@@ -1573,15 +1616,10 @@ const InternoView = () => {
                     {!collapsedSections.xml && (
                       <div className="xml-block">
                         {xmlInfo.exists ? (
-                          <>
-                            <div className="xml-meta">{xmlInfo.filename || `${selectedItem?.id}.xml`}</div>
-                            <pre className="xml-preview">{xmlInfo.content || '—'}</pre>
-                            <div className="xml-actions">
-                              <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(xmlInfo.url || `${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${selectedItem?.id}.xml`, '_blank') }}>Abrir</button>
-                              <button className="btn-edit" onClick={(e) => { e.stopPropagation(); setDrawerMode('edit') }}>Editar</button>
-                              <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleDeleteXml() }}>Eliminar</button>
-                            </div>
-                          </>
+                          <div className="xml-actions">
+                            <span className="xml-meta">{xmlInfo.filename || `${selectedItem?.id}.xml`}</span>
+                            <button className="btn-icon btn-xml" onClick={(e) => { e.stopPropagation(); handleOpenXml(selectedItem) }} title="Ver XML"><FaFileCode /></button>
+                          </div>
                         ) : (
                           <div className="xml-empty">Vacio</div>
                         )}
@@ -1653,7 +1691,6 @@ const InternoView = () => {
                         {xmlInfo.exists && (
                           <div className="xml-actions">
                             <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(xmlModal.url || `${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${selectedItem?.id}.xml`, '_blank') }}>Abrir</button>
-                            <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleDeleteXml() }}>Eliminar</button>
                           </div>
                         )}
                       </>
@@ -1753,6 +1790,26 @@ const InternoView = () => {
             </div>
           </div>
         </>
+      )}
+      {openEstadoId !== null && (
+        <div
+          className="estado-dropdown"
+          style={{ position: 'fixed', top: estadoDropdownPos.top, left: estadoDropdownPos.left, zIndex: 9999 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {['Sin asignar', 'Localizado', 'Baja', 'No Localizado'].map(opt => {
+            const activeItem = items.find(i => i.id === openEstadoId)
+            return (
+              <div
+                key={opt}
+                className={`estado-option ${getEstadoBadgeClass(opt)}`}
+                onClick={(e) => { e.stopPropagation(); if (activeItem) handleQuickEstadoChange(activeItem, opt); setOpenEstadoId(null) }}
+              >
+                {opt}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )

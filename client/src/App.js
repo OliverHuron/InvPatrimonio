@@ -21,7 +21,8 @@ import ProtectedRoute, { UserRoute } from './components/ProtectedRoute'
 // Importamos las páginas que mostraremos según la URL.
 import Login from './pages/Login'
 import InternoView from './pages/InternoView'
-import ExternoView from './pages/ExternoView'
+import AuditoriaAdmin from './pages/AuditoriaAdmin'
+import AuditoriaPublica from './pages/AuditoriaPublica'
 import Layout from './components/Layout'
 
 function App() {
@@ -51,23 +52,26 @@ function App() {
                 <Layout />
               </ProtectedRoute>
             }>
-              {/* Ruta principal redirige a interno */}
-              <Route index element={<Navigate to="/interno" replace />} />
-              
-              {/* Ruta de patrimonio interno (PatrimonioCI) */}
-              <Route path="interno" element={
+              {/* Ruta principal redirige a inventario */}
+              <Route index element={<Navigate to="/inventario" replace />} />
+
+              {/* Ruta de inventario */}
+              <Route path="inventario" element={
                 <UserRoute>
                   <InternoView />
                 </UserRoute>
               } />
-              
-              {/* Ruta de patrimonio externo (Patrimonio - solo lectura) */}
-              <Route path="externo" element={
+
+              {/* Ruta de auditoría (admin) */}
+              <Route path="auditoria" element={
                 <UserRoute>
-                  <ExternoView />
+                  <AuditoriaAdmin />
                 </UserRoute>
               } />
             </Route>
+
+            {/* Ruta PÚBLICA del practicante — fuera del Layout protegido */}
+            <Route path="/auditoria/:token" element={<AuditoriaPublica />} />
 
             {/* Redirigir rutas no encontradas */}
             <Route path="*" element={<Navigate to="/" replace />} />

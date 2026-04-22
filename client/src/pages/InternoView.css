@@ -40,24 +40,24 @@ body.interno-active {
     display: block !important;
   }
   /* keep the semantic color backgrounds but slightly reduce opacity so the icon stands out */
-  .btn-view { background: rgba(249,230,234,0.98); }
-  .btn-edit { background: rgba(244,204,213,0.98); }
+  .btn-view { background: rgba(25, 118, 210, 0.08); }
+  .btn-edit { background: rgba(25, 118, 210, 0.12); }
 }
 
 
 .view-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 0;
 }
 
 .view-header h1 {
-  font-size: 1.8rem;
-  margin: 0 0 0.5rem 0;
-  color: #2c3e50;
+  font-size: 1.5rem;
+  margin: 0;
+  color: #212121;
+  font-weight: 600;
 }
 
 .view-header p {
@@ -75,60 +75,64 @@ body.interno-active {
 .btn-primary, .btn-secondary, .btn-refresh {
   padding: 0.6rem 1.2rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.9rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   font-weight: 500;
 }
 
 .btn-primary {
-  background: #781628;
+  background: #1976D2;
   color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .btn-primary:hover {
-  background: #9e2c3f;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(120, 22, 40, 0.35);
+  background: #1565C0;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .btn-secondary {
-  background: #95a5a6;
+  background: #114C92;
   color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .btn-secondary:hover {
-  background: #7f8c8d;
+  background: #0d3a70;
 }
 
 .btn-refresh {
-  background: #9e2c3f;
-  color: #fff;
+  background: #ffffff;
+  color: #424242;
+  border: 1px solid #E0E0E0;
 }
 
 .btn-refresh:hover {
-  background: #781628;
+  background: #f9fafb;
 }
 
 .search-bar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 10px;
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 8px;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
   flex-shrink: 0;
 }
 
 .results-summary {
-  font-size: 0.95rem;
-  color: #34495e;
-  font-weight: 600;
+  font-size: 0.875rem;
+  color: #757575;
+  font-weight: normal;
 }
 
 .search-row {
@@ -158,23 +162,23 @@ body.interno-active {
 .search-input {
   flex: 1;
   padding: 10px 15px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  border: 1px solid #E0E0E0;
+  border-radius: 8px;
   font-size: 14px;
 }
 
 .btn-search {
   padding: 10px 20px;
-  background: #781628;
+  background: #1976D2;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .btn-search:hover {
-  background: #9e2c3f;
+  background: #1565C0;
 }
 
 .btn-search:disabled {
@@ -216,29 +220,29 @@ body.interno-active {
 }
 
 .pagination-page.active {
-  background: #781628;
-  border-color: #781628;
+  background: #1976D2;
+  border-color: #1976D2;
   color: #fff;
 }
 
 /* Tabla */
 .table-container {
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  border: 1px solid #E0E0E0;
   display: flex;
   flex-direction: column;
   width: 100%;
-  overflow: hidden; /* keep scroll inside the table container */
+  overflow: hidden;
   flex: 1 1 auto;
   min-height: 0;
 }
 
 .table-header {
-  background: #34495e;
-  color: white;
-  border-bottom: 2px solid rgba(255,255,255,0.15);
+  background: #F5F5F7;
+  color: #757575;
+  border-bottom: 1px solid #E0E0E0;
 }
 
 
@@ -280,11 +284,11 @@ body.interno-active {
 }
 
 .table-header {
-  background: #34495e;
-  color: white;
-  border-bottom: 2px solid rgba(255,255,255,0.15);
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
+  background: #F5F5F7;
+  color: #757575;
+  border-bottom: 1px solid #E0E0E0;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 
 .table-body {
@@ -445,6 +449,66 @@ body.interno-active {
   white-space: nowrap;
 }
 
+/* Custom estado badge-select (replaces native <select>) */
+.estado-badge-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 0.12rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  white-space: nowrap;
+  width: 108px;
+  box-sizing: border-box;
+  transition: opacity 0.15s;
+}
+
+.estado-badge-select:hover {
+  opacity: 0.85;
+}
+
+.estado-arrow {
+  font-size: 0.55rem;
+  opacity: 0.7;
+  position: absolute;
+  right: 4px;
+}
+
+.estado-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #E0E0E0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 200;
+  min-width: 130px;
+  overflow: hidden;
+}
+
+.estado-option {
+  padding: 0.32rem 0.6rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.estado-option:hover {
+  opacity: 0.75;
+}
+
 .badge-success {
   background: #d4edda;
   color: #155724;
@@ -494,23 +558,41 @@ body.interno-active {
 }
 
 .btn-view {
-  background: #f9e6ea;
-  color: #781628;
+  background: rgba(25, 118, 210, 0.08);
+  color: #1976D2;
 }
 
 .btn-view:hover {
-  background: #f4ccd5;
-  transform: scale(1.1);
+  background: rgba(25, 118, 210, 0.15);
+  transform: none;
 }
 
 .btn-edit {
-  background: #f4ccd5;
-  color: #781628;
+  background: rgba(25, 118, 210, 0.08);
+  color: #1976D2;
 }
 
 .btn-edit:hover {
-  background: #e9b4c0;
-  transform: scale(1.1);
+  background: rgba(25, 118, 210, 0.15);
+  transform: none;
+}
+
+.btn-print {
+  background: rgba(25, 118, 210, 0.08);
+  color: #1976D2;
+}
+
+.btn-print:hover {
+  background: rgba(25, 118, 210, 0.15);
+}
+
+.btn-xml {
+  background: rgba(25, 118, 210, 0.08);
+  color: #1976D2;
+}
+
+.btn-xml:hover {
+  background: rgba(25, 118, 210, 0.15);
 }
 
 /* Compact in-row action icons so the actions column stays narrow */
@@ -605,7 +687,7 @@ body.interno-active {
 
 .drawer-header h2 {
   margin: 0;
-  color: #781628;
+  color: #273445;
   font-size: 1.3rem;
 }
 
@@ -634,8 +716,8 @@ body.interno-active {
 }
 
 .btn-close:hover {
-  background: #f9e6ea;
-  color: #781628;
+  background: #f0f4f8;
+  color: #273445;
 }
 
 .drawer-content {
@@ -928,9 +1010,9 @@ body.interno-active {
   justify-content: space-between;
 }
 
-/* XML block styling (preview + empty states) */
+/* XML block styling */
 .xml-block {
-  border: 1px solid #ecf0f1;
+  border: 1px solid #E0E0E0;
   border-radius: 8px;
   padding: 0.6rem;
   background: #fff;
@@ -939,20 +1021,13 @@ body.interno-active {
 .xml-meta {
   font-size: 0.86rem;
   color: #7f8c8d;
-  margin-bottom: 0.45rem;
+  flex: 1;
 }
 
-.xml-preview {
-  max-height: 260px;
-  overflow: auto;
-  background: #f6f7f8;
-  padding: 0.6rem;
-  border-radius: 6px;
-  border: 1px solid #eceff1;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  white-space: pre-wrap;
-  word-break: break-word;
+.xml-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .xml-empty {
@@ -965,12 +1040,6 @@ body.interno-active {
   color: #95a5a6;
   font-size: 0.9rem;
   background: #fafafa;
-}
-
-.xml-actions {
-  margin-top: 0.6rem;
-  display: flex;
-  gap: 0.5rem;
 }
 
 .btn-upload {
@@ -1112,7 +1181,7 @@ body.interno-active {
 
 /* Fine-grained scaling for small and medium screens */
 @media (max-width: 1024px) {
-  .view-header h1 { font-size: 1.4rem; }
+  .view-header h1 { font-size: 1.2rem; }
   .view-header p { font-size: 0.85rem; }
   .btn-primary, .btn-secondary, .btn-refresh {
     padding: 0.45rem 0.9rem;
@@ -1126,7 +1195,7 @@ body.interno-active {
 }
 
 @media (max-width: 768px) {
-  .view-header h1 { font-size: 1.15rem; }
+  .view-header h1 { font-size: 1.1rem; }
   .view-header p { font-size: 0.8rem; }
   .btn-primary, .btn-secondary, .btn-refresh {
     padding: 0.4rem 0.75rem;
