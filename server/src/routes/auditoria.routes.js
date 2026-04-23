@@ -36,7 +36,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Rate limit específico para el endpoint de escritura (practicantes)
+// Rate limit para escrituras (PATCH estado)
 const writeLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -45,14 +45,29 @@ const writeLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limit estricto para login público (anti fuerza bruta)
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Demasiados intentos de login, espera un minuto' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ── Rutas ADMIN ────────────────────────────────────────────
 
-router.post('/sesiones',              requireAdmin, auditController.createSesion);
-router.get('/sesiones',               requireAdmin, auditController.getSesiones);
-router.get('/sesiones/:id/eventos',   requireAdmin, auditController.getSesionEventos);
-router.delete('/sesiones/:id',        requireAdmin, auditController.revokeSesion);
+router.post('/sesiones',                requireAdmin, auditController.createSesion);
+router.get('/sesiones',                 requireAdmin, auditController.getSesiones);
+router.get('/sesiones/:id/access',      requireAdmin, auditController.getSesionAccess);
+router.post('/sesiones/:id/regenerate', requireAdmin, auditController.regenerateCredentials);
+router.get('/sesiones/:id/eventos',     requireAdmin, auditController.getSesionEventos);
+router.delete('/sesiones/:id',          requireAdmin, auditController.revokeSesion);
 
-// ── Rutas PÚBLICAS del practicante (solo token en URL) ─────
+// ── Rutas PÚBLICAS del practicante (token + cookie audit_access) ─────
+
+// Login y logout solo requieren token (no cookie)
+router.post('/:token/login',  loginLimiter, auditController.requireAuditTokenOnly, auditController.loginPublic);
+router.post('/:token/logout',               auditController.requireAuditTokenOnly, auditController.logoutPublic);
 
 router.get('/:token',                  auditController.requireAuditToken, auditController.getSession);
 router.get('/:token/items',            auditController.requireAuditToken, auditController.getItems);

@@ -7,7 +7,6 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const { pool } = require('../config/database');
-const sseService = require('../services/sseService');
 
 // ── Configuración ────────────────────────────────────────────
 const SAFE_COLUMNS = `
@@ -27,15 +26,19 @@ const SAFE_COLUMNS = `
 
 const ESTADOS_VALIDOS = ['Sin asignar', 'Localizado', 'Baja', 'No Localizado'];
 
+// HMAC secret para cookies audit_access (independiente del JWT principal)
 const AUDIT_ACCESS_SECRET =
   process.env.AUDIT_ACCESS_SECRET ||
   process.env.JWT_SECRET ||
   'cambia_este_secreto_audit';
 
+// Duración cookie de acceso público tras login con user/pass (sliding inactivity)
 const ACCESS_COOKIE_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad
 
+// Caracteres "seguros" para password (excluye 0, O, o, 1, l, I)
 const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
 
+// UUID v4 regex
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -52,6 +55,7 @@ function randomString(len, alphabet) {
 }
 
 function generateUsername() {
+  // Ej: aud-x7k2 (4 chars del alfabeto seguro en minúsculas/dígitos)
   const tail = randomString(4, '23456789abcdefghjkmnpqrstuvwxyz');
   return `aud-${tail}`;
 }
@@ -60,6 +64,7 @@ function generatePassword() {
   return randomString(8, PASSWORD_ALPHABET);
 }
 
+// Genera username único intentando hasta 5 veces
 async function generateUniqueUsername() {
   for (let i = 0; i < 5; i++) {
     const u = generateUsername();
@@ -69,9 +74,11 @@ async function generateUniqueUsername() {
     );
     if (!rows.length) return u;
   }
+  // Fallback con sufijo aleatorio largo
   return `aud-${randomString(8, '23456789abcdefghjkmnpqrstuvwxyz')}`;
 }
 
+// Cookie audit_access: HMAC firma "<sessionId>.<expMs>"
 function signAccessCookie(sessionId) {
   const exp = Date.now() + ACCESS_COOKIE_TTL_MS;
   const payload = `${sessionId}.${exp}`;
@@ -91,6 +98,7 @@ function verifyAccessCookie(value) {
     .createHmac('sha256', AUDIT_ACCESS_SECRET)
     .update(`${sessionId}.${expMs}`)
     .digest('hex');
+  // timing-safe
   let ok = false;
   try {
     ok =
@@ -119,38 +127,6 @@ function clearAccessCookie(res) {
   res.clearCookie('audit_access', { path: '/api/auditoria' });
 }
 
-// Construye el base URL público para el link de auditoría.
-// Prioriza:
-//   1) PUBLIC_BASE_URL (override explícito p.ej. https://miapp.com)
-//   2) CLIENT_URL (CSV — toma el primero)
-//   3) Header Origin del request (cuando admin es la misma SPA)
-//   4) Header Referer
-//   5) Forwarded host del proxy (X-Forwarded-Proto + X-Forwarded-Host) — Railway/Render/Nginx
-//   6) Host del request (último recurso)
-function resolveBaseUrl(req) {
-  const fromEnv =
-    process.env.PUBLIC_BASE_URL?.trim() ||
-    process.env.CLIENT_URL?.split(',')[0]?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, '');
-
-  const origin = req.get('origin');
-  if (origin) return origin.replace(/\/$/, '');
-
-  const referer = req.get('referer');
-  if (referer) {
-    try {
-      const u = new URL(referer);
-      return `${u.protocol}//${u.host}`;
-    } catch { /* ignore */ }
-  }
-
-  const fwdProto = (req.get('x-forwarded-proto') || '').split(',')[0].trim();
-  const fwdHost  = (req.get('x-forwarded-host')  || '').split(',')[0].trim();
-  if (fwdHost) return `${fwdProto || req.protocol}://${fwdHost}`;
-
-  return `${req.protocol}://${req.get('host')}`;
-}
-
 async function loadSession(tokenPlain) {
   const hash = hashToken(tokenPlain);
   const { rows } = await pool.query(
@@ -163,8 +139,9 @@ async function loadSession(tokenPlain) {
   return rows[0] || null;
 }
 
-// ── Middlewares ──────────────────────────────────────────────
+// ── Middleware: token + cookie ───────────────────────────────
 
+// Solo valida el token (para /login). Adjunta sesión.
 async function requireAuditTokenOnly(req, res, next) {
   const { token } = req.params;
   if (!token) return res.status(401).json({ success: false, message: 'Token requerido' });
@@ -183,6 +160,7 @@ async function requireAuditTokenOnly(req, res, next) {
   }
 }
 
+// Valida token + cookie audit_access. Renueva cookie (sliding).
 async function requireAuditToken(req, res, next) {
   const { token } = req.params;
   if (!token) return res.status(401).json({ success: false, message: 'Token requerido' });
@@ -194,6 +172,7 @@ async function requireAuditToken(req, res, next) {
         .json({ success: false, message: 'Enlace inválido, expirado o revocado' });
     }
 
+    // Si la sesión tiene credenciales, exigir cookie audit_access
     const requiresLogin = !!session.password_hash;
     if (requiresLogin) {
       const cookieSessionId = verifyAccessCookie(req.cookies?.audit_access);
@@ -202,11 +181,13 @@ async function requireAuditToken(req, res, next) {
           .status(401)
           .json({ success: false, message: 'Acceso requerido', requires_login: true });
       }
+      // sliding session
       setAccessCookie(res, session.id);
     }
 
     req.auditSession = session;
 
+    // last_seen + last_activity (no bloqueante)
     pool
       .query(
         'UPDATE audit_sessions SET last_seen_at = NOW(), last_activity_at = NOW() WHERE id = $1',
@@ -223,11 +204,13 @@ async function requireAuditToken(req, res, next) {
 
 // ── Endpoints públicos (practicante) ─────────────────────────
 
+// POST /auditoria/:token/login  { username, password }
 async function loginPublic(req, res) {
   const session = req.auditSession;
   const { username, password } = req.body || {};
 
   if (!session.password_hash || !session.username) {
+    // Sesión legacy sin credenciales: marcar acceso directamente
     setAccessCookie(res, session.id);
     return res.json({
       success: true,
@@ -242,6 +225,7 @@ async function loginPublic(req, res) {
   }
 
   if (String(username).toLowerCase() !== String(session.username).toLowerCase()) {
+    // Mensaje genérico para no filtrar cuál de los dos falló
     return res.status(401).json({ success: false, message: 'Credenciales incorrectas' });
   }
 
@@ -257,11 +241,13 @@ async function loginPublic(req, res) {
   });
 }
 
+// POST /auditoria/:token/logout
 async function logoutPublic(req, res) {
   clearAccessCookie(res);
   return res.json({ success: true });
 }
 
+// GET /auditoria/:token  (info mínima de la sesión)
 async function getSession(req, res) {
   const s = req.auditSession;
   return res.json({
@@ -270,6 +256,7 @@ async function getSession(req, res) {
   });
 }
 
+// GET /auditoria/:token/items
 async function getItems(req, res) {
   try {
     const page     = Math.max(1, parseInt(req.query.page     || '1',  10));
@@ -351,6 +338,8 @@ async function getItems(req, res) {
   }
 }
 
+// PATCH /auditoria/:token/items/:id/estado
+// Body: { estado, observaciones?, client_change_id?, metadata? }
 async function updateEstado(req, res) {
   const { id } = req.params;
   const { estado, observaciones, client_change_id, metadata } = req.body || {};
@@ -363,6 +352,7 @@ async function updateEstado(req, res) {
     });
   }
 
+  // Validar client_change_id si viene
   let ccid = null;
   if (client_change_id !== undefined && client_change_id !== null && client_change_id !== '') {
     if (!UUID_RE.test(String(client_change_id))) {
@@ -373,6 +363,7 @@ async function updateEstado(req, res) {
     ccid = String(client_change_id).toLowerCase();
   }
 
+  // Validar metadata (solo aceptamos lat/lng/accuracy numéricos)
   let meta = null;
   if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
     const m = {};
@@ -389,6 +380,7 @@ async function updateEstado(req, res) {
   try {
     await client.query('BEGIN');
 
+    // Idempotencia: si ya existe el client_change_id en esta sesión → devolver OK
     if (ccid) {
       const dup = await client.query(
         `SELECT valor_nuevo FROM audit_events
@@ -406,6 +398,7 @@ async function updateEstado(req, res) {
       }
     }
 
+    // Leer valor anterior
     const prev = await client.query(
       'SELECT estado FROM inventario_interno WHERE id = $1 FOR UPDATE',
       [id]
@@ -416,6 +409,7 @@ async function updateEstado(req, res) {
     }
     const valor_anterior = prev.rows[0].estado;
 
+    // Si el estado ya es el mismo, no actualizamos pero registramos evento (queda traza)
     if (valor_anterior !== estado) {
       await client.query(
         'UPDATE inventario_interno SET estado = $1, fecha_actualizacion = NOW() WHERE id = $2',
@@ -440,23 +434,10 @@ async function updateEstado(req, res) {
     );
 
     await client.query('COMMIT');
-
-    // SSE broadcast: notifica a admin (InternoView) y a otros auditores
-    if (valor_anterior !== estado) {
-      try {
-        const clientCount = sseService.broadcast('inventory_updated', {
-          action: 'audit_estado',
-          id: parseInt(id, 10),
-          estado,
-          session_id: session.id,
-        });
-        console.log(`[SSE] inventory_updated broadcast id=${id} estado=${estado} → ${clientCount ?? '?'} clientes`);
-      } catch (e) { console.error('[SSE] broadcast falló:', e.message); }
-    }
-
     return res.json({ success: true, estado, no_change: valor_anterior === estado });
   } catch (err) {
     await client.query('ROLLBACK');
+    // Conflicto de unicidad por idempotencia (race)
     if (err.code === '23505' && err.constraint?.includes('idempotency')) {
       return res.json({ success: true, estado, deduped: true });
     }
@@ -469,12 +450,15 @@ async function updateEstado(req, res) {
 
 // ── Endpoints admin ──────────────────────────────────────────
 
+// POST /auditoria/sesiones
+// Body: { intern_name, expires_in_hours? (1-24, default 8) | expires_in_days? (legacy) }
 async function createSesion(req, res) {
   const { intern_name } = req.body || {};
   if (!intern_name || !String(intern_name).trim()) {
     return res.status(400).json({ success: false, message: 'intern_name es requerido' });
   }
 
+  // Caducidad: preferimos horas; si llega días (legacy), convertimos
   let hours;
   if (req.body?.expires_in_hours !== undefined) {
     hours = parseInt(req.body.expires_in_hours, 10);
@@ -511,7 +495,8 @@ async function createSesion(req, res) {
       .json({ success: false, message: 'Error al crear sesión: ' + err.message });
   }
 
-  const baseUrl = resolveBaseUrl(req);
+  const baseUrl =
+    process.env.CLIENT_URL?.split(',')[0]?.trim() || 'http://localhost:3000';
   const link = `${baseUrl}/auditoria/${plain}`;
 
   return res.status(201).json({
@@ -520,12 +505,13 @@ async function createSesion(req, res) {
     link,
     intern_name: String(intern_name).trim(),
     username,
-    password, // se devuelve UNA sola vez (no se guarda en plano)
+    password, // ⚠ Solo se devuelve una vez (no se guarda en plano)
     expires_in_hours: hours,
     expires_at: inserted.rows[0].expires_at,
   });
 }
 
+// GET /auditoria/sesiones
 async function getSesiones(req, res) {
   try {
     const { rows } = await pool.query(`
@@ -570,8 +556,9 @@ async function getSesiones(req, res) {
 }
 
 // GET /auditoria/sesiones/:id/access
-// El token plain NO se persiste; solo username y metadatos.
-// El link completo solo se reexpone tras "regenerate".
+// Devuelve link reconstruido (NO se guarda el token plano: si se perdió hay que regenerar)
+// Por seguridad: el token plain NO se persiste; solo se reexpone si el admin regenera credenciales o crea una sesión nueva.
+// Aquí devolvemos username + indicación si tiene password.
 async function getSesionAccess(req, res) {
   const { id } = req.params;
   const { rows } = await pool.query(
@@ -588,7 +575,7 @@ async function getSesionAccess(req, res) {
 }
 
 // POST /auditoria/sesiones/:id/regenerate
-// Genera nuevo token + nuevo password (mantiene username e intern_name)
+// Genera nuevo token + nuevo password (mantiene username y intern_name)
 async function regenerateCredentials(req, res) {
   const { id } = req.params;
 
@@ -611,6 +598,7 @@ async function regenerateCredentials(req, res) {
   const password = generatePassword();
   const password_hash = await bcrypt.hash(password, 10);
 
+  // Si no tenía username (sesión legacy), generamos uno
   let username = baseRow.rows[0].username;
   if (!username) username = await generateUniqueUsername();
 
@@ -627,7 +615,8 @@ async function regenerateCredentials(req, res) {
     [hash, password_hash, username, hours, id]
   );
 
-  const baseUrl = resolveBaseUrl(req);
+  const baseUrl =
+    process.env.CLIENT_URL?.split(',')[0]?.trim() || 'http://localhost:3000';
   const link = `${baseUrl}/auditoria/${plain}`;
 
   return res.json({
@@ -639,6 +628,7 @@ async function regenerateCredentials(req, res) {
   });
 }
 
+// DELETE /auditoria/sesiones/:id
 async function revokeSesion(req, res) {
   const { id } = req.params;
   const { rowCount } = await pool.query(
@@ -654,6 +644,7 @@ async function revokeSesion(req, res) {
   return res.json({ success: true, message: 'Sesión revocada' });
 }
 
+// GET /auditoria/sesiones/:id/eventos
 async function getSesionEventos(req, res) {
   const { id } = req.params;
   try {
@@ -683,13 +674,16 @@ async function getSesionEventos(req, res) {
 }
 
 module.exports = {
+  // middlewares
   requireAuditToken,
   requireAuditTokenOnly,
+  // públicos
   loginPublic,
   logoutPublic,
   getSession,
   getItems,
   updateEstado,
+  // admin
   createSesion,
   getSesiones,
   getSesionAccess,

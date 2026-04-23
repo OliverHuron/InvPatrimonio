@@ -66,7 +66,14 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(cookieParser());
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    // No comprimir SSE — bufferea los eventos y rompe el realtime
+    if (req.path && req.path.includes('/stream')) return false;
+    if (res.getHeader('Content-Type')?.toString().includes('text/event-stream')) return false;
+    return compression.filter(req, res);
+  }
+}));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 app.use(express.json({ charset: 'utf-8', limit: '500mb' }));
@@ -94,6 +101,7 @@ app.use('/api', (req, res, next) => {
 // Initialize services
 const { initializeDatabase } = require('./config/database');
 const { initializeRedis } = require('./services/redis.service');
+const { checkStartup, startUmaCron } = require('./services/umaService');
 
 // Health check (register before mounting other /api routes to avoid conflicts)
 app.get('/api/health', (req, res) => {
@@ -140,6 +148,10 @@ async function startServer() {
   try {
     await initializeDatabase();
     console.log('Base de datos conectada');
+
+    // UMA: verificar tabla local y arrancar cron de actualización automática
+    await checkStartup();
+    startUmaCron();
 
     try {
       await initializeRedis();

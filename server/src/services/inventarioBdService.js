@@ -4,6 +4,9 @@
 // =====================================================
 
 const { pool } = require('../config/database');
+const cache = require('./cacheService');
+
+const CACHE_PREFIX = 'patrimonioci_list';
 
 const parseActivo = (value, defaultValue = true) => {
   if (value === undefined || value === null || value === '') return defaultValue;
@@ -51,6 +54,14 @@ const getInventarioInternoById = async (id) => {
  * Listar inventarios internos (con paginación)
  */
 const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) => {
+  // --- Cache lookup ---
+  const cacheKey = cache.buildKey(CACHE_PREFIX, { page, limit, ...filters });
+  const cached = await cache.get(cacheKey);
+  if (cached) {
+    console.log('[BD] Cache HIT:', cacheKey);
+    return cached;
+  }
+
   try {
     const offset = (page - 1) * limit;
     console.log('[BD] getAllInventariosInternos filters:', filters);
@@ -109,6 +120,29 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
       paramIndex++;
     }
 
+    // Filtro UMA: costo vs (valor_uma_del_año_ejercicio × 70)
+    // Usa EXISTS para evitar casteos peligrosos y manejar años sin UMA correctamente.
+    // Si el bien no tiene ejercicio, o no hay UMA para ese año, se excluye del filtro.
+    if (filters.uma === 'mayor') {
+      query += `
+        AND costo IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM umas u
+          WHERE u.anio::text = TRIM(COALESCE(ejercicio::text, ''))
+            AND u.activo = true
+            AND costo > u.valor * 70
+        )`;
+    } else if (filters.uma === 'menor') {
+      query += `
+        AND costo IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM umas u
+          WHERE u.anio::text = TRIM(COALESCE(ejercicio::text, ''))
+            AND u.activo = true
+            AND costo <= u.valor * 70
+        )`;
+    }
+
     if (filters.q) {
       // Búsqueda inteligente: revisar los campos solicitados por el usuario
       query += ` AND (
@@ -162,14 +196,19 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
     console.log('[BD] finalQuery:', query);
     console.log('[BD] finalParams:', params);
     const result = await pool.query(query, params);
-    
-    return {
+
+    const payload = {
       items: result.rows,
       total,
       page,
       pages: Math.ceil(total / limit),
       limit
     };
+
+    // --- Cache store ---
+    await cache.set(cacheKey, payload);
+
+    return payload;
   } catch (error) {
     console.error('[BD Local] Error listando inventarios internos:', error);
     throw error;
@@ -239,6 +278,7 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
     ];
 
     const result = await pool.query(query, values);
+    cache.invalidatePrefix(CACHE_PREFIX);
     return result.rows[0];
   } catch (error) {
     console.error('[BD Local] Error creando inventario interno:', error);
@@ -332,6 +372,7 @@ const updateInventarioInterno = async (id, data) => {
       return null;
     }
 
+    cache.invalidatePrefix(CACHE_PREFIX);
     return result.rows[0];
   } catch (error) {
     console.error('[BD Local] Error actualizando inventario interno:', error);

@@ -646,3 +646,265 @@
 }
 .pub-obs-confirm:hover:not(:disabled) { background: #1e40af; border-color: #1e40af; }
 .pub-obs-confirm:disabled { opacity: .55; cursor: default; }
+
+/* =====================================================
+   LOGIN PÚBLICO (credenciales temporales)
+   ===================================================== */
+.pub-login-page {
+  min-height: 100dvh;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.pub-login-card {
+  width: 100%;
+  max-width: 380px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+}
+.pub-login-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  color: #1e3a5f;
+}
+.pub-login-head h2 { margin: 0; font-size: 1.25rem; }
+.pub-login-head p  { margin: 0; font-size: 0.85rem; color: #475569; }
+.pub-login-sub     { font-size: 0.8rem !important; color: #64748b !important; }
+.pub-login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+}
+.pub-login-card input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.pub-login-card input:focus {
+  border-color: #1e3a5f;
+  background: #fff;
+}
+.pub-login-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+  text-align: center;
+}
+.pub-login-btn {
+  background: #1e3a5f;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  margin-top: 0.25rem;
+}
+.pub-login-btn:hover:not(:disabled) { background: #2c5282; }
+.pub-login-btn:disabled { opacity: .6; cursor: default; }
+.pub-login-foot {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-align: center;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* =====================================================
+   ESTADO DE RED (online/offline) Y COLA OFFLINE
+   ===================================================== */
+.pub-stat-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+.pub-net-on {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #6ee7b7;
+}
+.pub-net-off {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fca5a5;
+  animation: pub-pulse-off 1.6s ease-in-out infinite;
+}
+@keyframes pub-pulse-off {
+  0%,100% { opacity: 1; }
+  50%     { opacity: .65; }
+}
+.pub-stat-pending {
+  background: #fffbeb !important;
+  color: #b45309 !important;
+  border: 1px solid #fcd34d;
+  cursor: help;
+}
+
+.pub-btn-icon-mini {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s;
+  margin-left: 0.5rem;
+}
+.pub-btn-icon-mini:hover { background: rgba(255,255,255,0.25); }
+
+.pub-obs-offline-tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* =====================================================
+   FILTROS EXPANDIBLES (toggles + scanner toolbar)
+   ===================================================== */
+.pub-filter-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #e2e8f0;
+}
+.pub-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+.pub-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #1e3a5f;
+  cursor: pointer;
+}
+
+.pub-scan-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0,0,0,0.4);
+  color: #fff;
+  border-radius: 8px;
+  margin: 0.5rem;
+  font-size: 0.78rem;
+}
+.pub-scan-toolbar .pub-toggle { color: #fff; }
+
+/* =====================================================
+   BIG TOAST (escaneo: éxito / advertencia / error)
+   ===================================================== */
+.pub-bigtoast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  min-width: 220px;
+  max-width: 80vw;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  text-align: center;
+  cursor: pointer;
+  animation: pub-bigtoast-in .25s ease-out;
+}
+.pub-bigtoast-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem; }
+.pub-bigtoast-msg   { font-size: 0.85rem; opacity: 0.9; }
+
+.pub-bigtoast-success { background: #16a34a; color: #fff; }
+.pub-bigtoast-warn    { background: #ca8a04; color: #fff; }
+.pub-bigtoast-error   { background: #dc2626; color: #fff; }
+.pub-bigtoast-info    { background: #1e3a5f; color: #fff; }
+
+@keyframes pub-bigtoast-in {
+  from { opacity: 0; transform: translate(-50%, -45%) scale(0.92); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* =====================================================
+   UNDO (deshacer último cambio)
+   ===================================================== */
+.pub-undo {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: #1e293b;
+  color: #fff;
+  padding: 0.65rem 0.85rem 0.65rem 1rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  animation: pub-undo-in .25s ease-out;
+}
+.pub-undo button {
+  background: #f59e0b;
+  color: #1e293b;
+  border: none;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+.pub-undo button:hover { background: #fbbf24; }
+@keyframes pub-undo-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* =====================================================
+   Responsive: header layout en móvil
+   ===================================================== */
+@media (max-width: 480px) {
+  .pub-login-card { padding: 1.4rem 1.15rem; }
+  .pub-bigtoast   { min-width: 180px; padding: 0.85rem 1rem; }
+}

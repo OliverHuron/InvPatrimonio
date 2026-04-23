@@ -3,6 +3,7 @@
 // =====================================================
 const inventarioService = require('../services/inventarioService');
 const patrimonioApiService = require('../services/patrimonioApiService');
+const sseService = require('../services/sseService');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -217,7 +218,8 @@ const getAllPatrimonioci = async (req, res) => {
       resguardante: req.query.resguardante || '',
       ubicacion: req.query.ubicacion || '',
       ejercicio: req.query.ejercicio || req.query.anio_elaboracion || '',
-      estado: req.query.estado || ''
+      estado: req.query.estado || '',
+      uma: req.query.uma || ''
     };
 
     // Debugging: log received filters and current data source
@@ -257,6 +259,7 @@ const createPatrimonioci = async (req, res) => {
       data: result,
       source: inventarioService.getDataSource()
     });
+    sseService.broadcast('inventory_updated', { action: 'create', id: result?.id });
   } catch (error) {
     console.error(`[Controller] Error al crear:`, error.message);
     res.status(error.status || 500).json({
@@ -286,6 +289,7 @@ const updatePatrimonioci = async (req, res) => {
       data: result,
       source: inventarioService.getDataSource()
     });
+    sseService.broadcast('inventory_updated', { action: 'update', id: parseInt(id, 10) });
   } catch (error) {
     console.error(`[Controller] Error al actualizar:`, error.message);
     res.status(error.status || 500).json({

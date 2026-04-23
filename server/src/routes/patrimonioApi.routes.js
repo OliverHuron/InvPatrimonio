@@ -6,6 +6,7 @@ const router = express.Router();
 const patrimonioApiController = require('../controllers/patrimonioApiController');
 const authController = require('../controllers/authController');
 const authBdService = require('../services/authBdService');
+const sseService = require('../services/sseService');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -249,6 +250,33 @@ router.get('/info', patrimonioApiController.getDataSourceInfo);
 router.get('/categorias/entrega', patrimonioApiController.getCategoriasEntrega);
 
 // === PATRIMONIO CI (Interno) ===
+// SSE: stream de actualizaciones en tiempo real (debe ir ANTES de /:id)
+router.get('/patrimonioci/stream', (req, res) => {
+  // Evitar que el middleware `compression()` bufferee los eventos.
+  // El filtro por defecto de `compression` respeta `Cache-Control: no-transform`.
+  // Además X-Accel-Buffering=no desactiva el buffering en proxies tipo Nginx.
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  sseService.addClient(res);
+  res.write('event: connected\ndata: {}\n\n');
+  console.log(`[SSE] Cliente conectado (total: ${sseService.clientCount()})`);
+
+  // Keepalive cada 25 s para evitar timeouts de proxy/nginx
+  const keepalive = setInterval(() => {
+    try { res.write(':ping\n\n'); } catch (_) { clearInterval(keepalive); }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(keepalive);
+    sseService.removeClient(res);
+    console.log(`[SSE] Cliente desconectado (total: ${sseService.clientCount()})`);
+  });
+});
+
 router.get('/patrimonioci', patrimonioApiController.getAllPatrimonioci);
 router.get('/patrimonioci/:id', patrimonioApiController.getPatrimoniociById);
 router.post('/patrimonioci/insertar', patrimonioApiController.createPatrimonioci);

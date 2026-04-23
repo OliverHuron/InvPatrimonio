@@ -515,7 +515,9 @@ CREATE TABLE public.audit_events (
     valor_anterior character varying(100),
     valor_nuevo character varying(100) NOT NULL,
     observaciones text,
-    ts timestamp with time zone DEFAULT now()
+    ts timestamp with time zone DEFAULT now(),
+    metadata jsonb,
+    client_change_id uuid
 );
 
 
@@ -555,7 +557,11 @@ CREATE TABLE public.audit_sessions (
     created_at timestamp with time zone DEFAULT now(),
     expires_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
-    last_seen_at timestamp with time zone
+    last_seen_at timestamp with time zone,
+    username character varying(20),
+    password_hash character varying(120),
+    expires_in_hours integer,
+    last_activity_at timestamp with time zone
 );
 
 
@@ -3566,6 +3572,27 @@ CREATE INDEX idx_audit_sessions_expires ON public.audit_sessions USING btree (ex
 --
 
 CREATE INDEX idx_audit_sessions_token_hash ON public.audit_sessions USING btree (token_hash);
+
+
+--
+-- Name: idx_audit_sessions_username_uniq; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX idx_audit_sessions_username_uniq ON public.audit_sessions USING btree (username) WHERE (username IS NOT NULL);
+
+
+--
+-- Name: idx_audit_events_idempotency; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX idx_audit_events_idempotency ON public.audit_events USING btree (audit_session_id, client_change_id) WHERE (client_change_id IS NOT NULL);
+
+
+--
+-- Name: idx_audit_events_inv_ts; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_audit_events_inv_ts ON public.audit_events USING btree (inventario_id, ts DESC);
 
 
 --

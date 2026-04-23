@@ -47,7 +47,8 @@ const InternoView = () => {
     resguardante: '',
     ubicacion: '',
     ejercicio: '',
-    estado: ''
+    estado: '',
+    uma: ''
   })
   const [pagination, setPagination] = useState({
     page: 1,
@@ -721,6 +722,7 @@ const InternoView = () => {
       if (appliedFilters.ubicacion) params.set('ubicacion', appliedFilters.ubicacion)
       if (appliedFilters.ejercicio) params.set('ejercicio', appliedFilters.ejercicio)
       if (appliedFilters.estado) params.set('estado', appliedFilters.estado)
+      if (appliedFilters.uma) params.set('uma', appliedFilters.uma)
 
       const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
         credentials: 'include',
@@ -760,6 +762,32 @@ const InternoView = () => {
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [openEstadoId])
+
+  // SSE: recargar lista cuando el servidor emita un evento de actualización
+  useEffect(() => {
+    const url = `${API_BASE}/patrimonioci/stream`
+    const es = new EventSource(url, { withCredentials: true })
+    es.addEventListener('inventory_updated', (ev) => {
+      // Patch in-place: solo actualiza el item afectado, sin recargar toda la tabla
+      try {
+        const data = JSON.parse(ev.data || '{}')
+        if (!data?.id || !data?.estado) return
+        setItems(prev => {
+          let changed = false
+          const next = prev.map(it => {
+            if (it.id === data.id && it.estado !== data.estado) {
+              changed = true
+              return { ...it, estado: data.estado }
+            }
+            return it
+          })
+          return changed ? next : prev
+        })
+      } catch { /* ignorar */ }
+    })
+    return () => es.close()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     document.body.classList.add('interno-active')
@@ -1071,7 +1099,8 @@ const InternoView = () => {
       resguardante: '',
       ubicacion: '',
       ejercicio: '',
-      estado: ''
+      estado: '',
+      uma: ''
     }
     setFilters(emptyFilters)
     loadAllItems(emptyFilters, 1)
@@ -1104,6 +1133,7 @@ const InternoView = () => {
         if (filters.ubicacion) params.set('ubicacion', filters.ubicacion)
         if (filters.ejercicio) params.set('ejercicio', filters.ejercicio)
         if (filters.estado) params.set('estado', filters.estado)
+        if (filters.uma) params.set('uma', filters.uma)
 
         const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
           credentials: 'include',
@@ -1439,6 +1469,11 @@ const InternoView = () => {
             <option value="Baja">Baja</option>
             <option value="No Localizado">No Localizado</option>
           </select>
+          <select className="search-input" name="uma" value={filters.uma} onChange={handleFilterChange}>
+            <option value="">UMA (todos)</option>
+            <option value="mayor">Mayor a 70 UMAs</option>
+            <option value="menor">Menor o igual a 70 UMAs</option>
+          </select>
           <button className="btn-secondary search-clear-btn" onClick={handleClearFilters} disabled={loading}>Limpiar</button>
         </div>
         <div className="search-row">
@@ -1451,7 +1486,36 @@ const InternoView = () => {
       {/* Tabla */}
       <div className="table-container">
         {loading ? (
-          <div className="loading-state">Cargando...</div>
+          <div className="table-scroll">
+            <div className="table-inner">
+              <div className="table-header">
+                <div className="table-header-row">
+                  <div className="th col-id">ID</div>
+                  <div className="th col-num">No. Patrimonio</div>
+                  <div className="th col-desc">Descripción</div>
+                  <div className="th col-serie">No. Serie</div>
+                  <div className="th col-responsable">Responsable</div>
+                  <div className="th col-resguardante">Resguardante</div>
+                  <div className="th col-estado">Estado</div>
+                  <div className="th col-acciones">Acciones</div>
+                </div>
+              </div>
+              <div className="table-body">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="table-row skeleton-row">
+                    <div className="td col-id"><div className="skeleton-cell" /></div>
+                    <div className="td col-num"><div className="skeleton-cell" /></div>
+                    <div className="td col-desc"><div className="skeleton-cell" /></div>
+                    <div className="td col-serie"><div className="skeleton-cell" /></div>
+                    <div className="td col-responsable"><div className="skeleton-cell" /></div>
+                    <div className="td col-resguardante"><div className="skeleton-cell" /></div>
+                    <div className="td col-estado"><div className="skeleton-cell" /></div>
+                    <div className="td col-acciones"><div className="skeleton-cell" /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : items.length === 0 ? (
           <div className="empty-state">No hay datos disponibles</div>
           ) : (

@@ -4,7 +4,7 @@
 // =====================================================
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { FaPlus, FaTrash, FaCopy, FaListAlt, FaCheck, FaTimes } from 'react-icons/fa'
+import { FaPlus, FaTrash, FaCopy, FaListAlt, FaCheck, FaTimes, FaKey, FaSync, FaEye } from 'react-icons/fa'
 import { MdAssignmentTurnedIn } from 'react-icons/md'
 import { toast } from 'react-toastify'
 import './AuditoriaAdmin.css'
@@ -35,15 +35,22 @@ export default function AuditoriaAdmin() {
 
   // Modal crear sesión
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ intern_name: '', expires_in_days: 7 })
+  const [form, setForm] = useState({ intern_name: '', expires_in_hours: 8 })
   const [creating, setCreating] = useState(false)
-  const [newLink, setNewLink] = useState(null)
+  const [newCreds, setNewCreds] = useState(null) // { link, username, password, expires_in_hours }
 
   // Modal eventos
   const [showEvents, setShowEvents] = useState(false)
   const [selectedSesion, setSelectedSesion] = useState(null)
   const [eventos, setEventos] = useState([])
   const [loadingEvents, setLoadingEvents] = useState(false)
+
+  // Modal "Ver acceso"
+  const [showAccess, setShowAccess] = useState(false)
+  const [accessData, setAccessData] = useState(null) // { intern_name, username, expires_at, ... }
+  const [accessSesion, setAccessSesion] = useState(null)
+  const [regenerated, setRegenerated] = useState(null) // { link, username, password }
+  const [regenerating, setRegenerating] = useState(false)
 
   const fetchSesiones = useCallback(async () => {
     setLoading(true)
@@ -79,7 +86,12 @@ export default function AuditoriaAdmin() {
       })
       const data = await res.json()
       if (data.success) {
-        setNewLink(data.link)
+        setNewCreds({
+          link: data.link,
+          username: data.username,
+          password: data.password,
+          expires_in_hours: data.expires_in_hours,
+        })
         fetchSesiones()
       } else {
         toast.error(`Error ${res.status}: ${data.message || 'Error creando sesión'}`)
@@ -127,16 +139,80 @@ export default function AuditoriaAdmin() {
     }
   }
 
-  const copyLink = (link) => {
-    navigator.clipboard.writeText(link)
-      .then(() => toast.success('Enlace copiado'))
+  const copyText = (text, label = 'Copiado') => {
+    navigator.clipboard.writeText(text)
+      .then(() => toast.success(label))
       .catch(() => toast.error('No se pudo copiar'))
+  }
+
+  const copyAll = (creds) => {
+    const text =
+      `Auditoría de Campo — Acceso\n` +
+      `Enlace: ${creds.link}\n` +
+      `Usuario: ${creds.username}\n` +
+      `Contraseña: ${creds.password}\n`
+    copyText(text, 'Acceso completo copiado')
+  }
+
+  const handleShowAccess = async (sesion) => {
+    setAccessSesion(sesion)
+    setShowAccess(true)
+    setAccessData(null)
+    setRegenerated(null)
+    try {
+      const res = await fetch(`${API_BASE}/auditoria/sesiones/${sesion.id}/access`, {
+        credentials: 'include'
+      })
+      const data = await res.json()
+      if (data.success) setAccessData(data.data)
+      else toast.error(data.message || 'No se pudo obtener acceso')
+    } catch {
+      toast.error('Error de red')
+    }
+  }
+
+  const handleRegenerate = async () => {
+    if (!accessSesion) return
+    if (!window.confirm(
+      'Esto invalidará el enlace y la contraseña actuales. ¿Continuar?'
+    )) return
+    setRegenerating(true)
+    try {
+      const res = await fetch(
+        `${API_BASE}/auditoria/sesiones/${accessSesion.id}/regenerate`,
+        { method: 'POST', credentials: 'include' }
+      )
+      const data = await res.json()
+      if (data.success) {
+        setRegenerated({
+          link: data.link,
+          username: data.username,
+          password: data.password,
+          expires_in_hours: data.expires_in_hours,
+        })
+        toast.success('Credenciales regeneradas')
+        fetchSesiones()
+      } else {
+        toast.error(data.message || 'Error regenerando')
+      }
+    } catch {
+      toast.error('Error de red')
+    } finally {
+      setRegenerating(false)
+    }
   }
 
   const resetCreate = () => {
     setShowCreate(false)
-    setNewLink(null)
-    setForm({ intern_name: '', expires_in_days: 7 })
+    setNewCreds(null)
+    setForm({ intern_name: '', expires_in_hours: 8 })
+  }
+
+  const closeAccess = () => {
+    setShowAccess(false)
+    setAccessSesion(null)
+    setAccessData(null)
+    setRegenerated(null)
   }
 
   const fmtDate = (iso) => iso
@@ -199,6 +275,13 @@ export default function AuditoriaAdmin() {
                     <td className="aud-actions-cell">
                       <button
                         className="aud-btn-icon"
+                        title="Ver acceso (link + usuario)"
+                        onClick={() => handleShowAccess(s)}
+                      >
+                        <FaEye size={14} />
+                      </button>
+                      <button
+                        className="aud-btn-icon"
                         title="Ver actividad"
                         onClick={() => handleShowEvents(s)}
                       >
@@ -231,7 +314,7 @@ export default function AuditoriaAdmin() {
               <button className="aud-modal-close" onClick={resetCreate}><FaTimes /></button>
             </div>
 
-            {!newLink ? (
+            {!newCreds ? (
               <form onSubmit={handleCreate} className="aud-create-form">
                 <label>
                   Nombre del practicante
@@ -244,13 +327,16 @@ export default function AuditoriaAdmin() {
                   />
                 </label>
                 <label>
-                  Vigencia (días)
+                  Vigencia (horas) — máx. 24
                   <input
                     type="number"
                     min={1}
-                    max={30}
-                    value={form.expires_in_days}
-                    onChange={e => setForm(f => ({ ...f, expires_in_days: parseInt(e.target.value) || 7 }))}
+                    max={24}
+                    value={form.expires_in_hours}
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      expires_in_hours: Math.min(24, Math.max(1, parseInt(e.target.value) || 8))
+                    }))}
                   />
                 </label>
                 <div className="aud-modal-footer">
@@ -258,26 +344,145 @@ export default function AuditoriaAdmin() {
                     Cancelar
                   </button>
                   <button type="submit" className="aud-btn-primary" disabled={creating}>
-                    {creating ? 'Creando…' : 'Crear enlace'}
+                    {creating ? 'Creando…' : 'Crear acceso'}
                   </button>
                 </div>
               </form>
             ) : (
               <div className="aud-link-result">
                 <FaCheck size={28} color="#2e7d32" />
-                <p>Enlace generado para <strong>{form.intern_name}</strong></p>
-                <div className="aud-link-box">
-                  <span>{newLink}</span>
-                  <button onClick={() => copyLink(newLink)} title="Copiar">
-                    <FaCopy size={14} />
+                <p>Acceso generado para <strong>{form.intern_name}</strong></p>
+
+                <div className="aud-cred-row">
+                  <label>Enlace</label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text">{newCreds.link}</span>
+                    <button onClick={() => copyText(newCreds.link, 'Enlace copiado')} title="Copiar enlace">
+                      <FaCopy size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="aud-cred-row">
+                  <label>Usuario</label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text aud-mono">{newCreds.username}</span>
+                    <button onClick={() => copyText(newCreds.username, 'Usuario copiado')} title="Copiar usuario">
+                      <FaCopy size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="aud-cred-row">
+                  <label>Contraseña <span className="aud-cred-warn">(no se mostrará de nuevo)</span></label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text aud-mono">{newCreds.password}</span>
+                    <button onClick={() => copyText(newCreds.password, 'Contraseña copiada')} title="Copiar contraseña">
+                      <FaCopy size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="aud-link-note">
+                  Vigencia: {newCreds.expires_in_hours}h. Comparte el enlace y entrégale el usuario y contraseña por un canal aparte.
+                </p>
+
+                <div className="aud-modal-footer">
+                  <button className="aud-btn-secondary" onClick={() => copyAll(newCreds)}>
+                    <FaCopy size={12} /> Copiar todo
+                  </button>
+                  <button className="aud-btn-primary" onClick={resetCreate}>
+                    Listo
                   </button>
                 </div>
-                <p className="aud-link-note">
-                  Válido por {form.expires_in_days} días. Envíaselo al practicante por WhatsApp o correo.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Ver acceso de una sesión existente */}
+      {showAccess && accessSesion && (
+        <div className="aud-modal-backdrop" onClick={closeAccess}>
+          <div className="aud-modal" onClick={e => e.stopPropagation()}>
+            <div className="aud-modal-header">
+              <h3><FaKey style={{ marginRight: 6 }} /> Acceso — {accessSesion.intern_name}</h3>
+              <button className="aud-modal-close" onClick={closeAccess}><FaTimes /></button>
+            </div>
+
+            {!accessData ? (
+              <div className="aud-loading">Cargando…</div>
+            ) : regenerated ? (
+              <div className="aud-link-result">
+                <FaCheck size={28} color="#2e7d32" />
+                <p><strong>Credenciales nuevas</strong> — entrégale ambos datos al practicante.</p>
+
+                <div className="aud-cred-row">
+                  <label>Enlace</label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text">{regenerated.link}</span>
+                    <button onClick={() => copyText(regenerated.link, 'Enlace copiado')}><FaCopy size={14} /></button>
+                  </div>
+                </div>
+                <div className="aud-cred-row">
+                  <label>Usuario</label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text aud-mono">{regenerated.username}</span>
+                    <button onClick={() => copyText(regenerated.username, 'Usuario copiado')}><FaCopy size={14} /></button>
+                  </div>
+                </div>
+                <div className="aud-cred-row">
+                  <label>Contraseña <span className="aud-cred-warn">(no se mostrará de nuevo)</span></label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text aud-mono">{regenerated.password}</span>
+                    <button onClick={() => copyText(regenerated.password, 'Contraseña copiada')}><FaCopy size={14} /></button>
+                  </div>
+                </div>
+
+                <div className="aud-modal-footer">
+                  <button className="aud-btn-secondary" onClick={() => copyAll(regenerated)}>
+                    <FaCopy size={12} /> Copiar todo
+                  </button>
+                  <button className="aud-btn-primary" onClick={closeAccess}>Listo</button>
+                </div>
+              </div>
+            ) : (
+              <div className="aud-link-result">
+                <p>
+                  <strong>Por seguridad</strong>, el enlace y la contraseña no se vuelven a mostrar.
+                  Si el practicante los perdió, regenera credenciales nuevas.
                 </p>
-                <button className="aud-btn-primary" onClick={resetCreate}>
-                  Listo
-                </button>
+
+                <div className="aud-cred-row">
+                  <label>Usuario</label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text aud-mono">{accessData.username || '— (sesión sin login)'}</span>
+                    {accessData.username && (
+                      <button onClick={() => copyText(accessData.username, 'Usuario copiado')}><FaCopy size={14} /></button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="aud-cred-row">
+                  <label>Vigencia</label>
+                  <div className="aud-link-box">
+                    <span className="aud-link-text">
+                      {accessData.expires_in_hours}h · expira {fmtDate(accessData.expires_at)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="aud-modal-footer">
+                  <button className="aud-btn-secondary" onClick={closeAccess}>Cerrar</button>
+                  <button
+                    className="aud-btn-primary"
+                    onClick={handleRegenerate}
+                    disabled={regenerating || !!accessData.revoked_at}
+                    title={accessData.revoked_at ? 'Sesión revocada, crea una nueva' : 'Generar nuevo enlace y contraseña'}
+                  >
+                    <FaSync size={12} /> {regenerating ? 'Regenerando…' : 'Regenerar credenciales'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

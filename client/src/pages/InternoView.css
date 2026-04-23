@@ -626,6 +626,39 @@ body.interno-active {
   font-size: 1.1rem;
 }
 
+/* ── Skeleton loader ─────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skeleton-cell {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #e8ecef 25%, #d0d6db 50%, #e8ecef 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.table-row.skeleton-row {
+  pointer-events: none;
+}
+
+.table-row.skeleton-row .td {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* Widths per column so shimmer fills realistically */
+.skeleton-row .col-id      .skeleton-cell { width: 30px; }
+.skeleton-row .col-num     .skeleton-cell { width: 80%; }
+.skeleton-row .col-desc    .skeleton-cell { width: 90%; }
+.skeleton-row .col-serie   .skeleton-cell { width: 70%; }
+.skeleton-row .col-responsable   .skeleton-cell { width: 75%; }
+.skeleton-row .col-resguardante  .skeleton-cell { width: 75%; }
+.skeleton-row .col-estado  .skeleton-cell { width: 60px; height: 22px; border-radius: 11px; }
+.skeleton-row .col-acciones .skeleton-cell { width: 80px; }
+
 .spinning {
   animation: spin 1s linear infinite;
 }
