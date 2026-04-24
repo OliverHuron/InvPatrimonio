@@ -386,9 +386,9 @@ export default function AuditoriaPublica() {
   useEffect(() => {
     if (authState !== 'ok') return
     fetch(`${API_BASE}/auditoria/${token}/filter-options`, { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { if (data.success) setFilterOpts({ ubicaciones: data.ubicaciones, responsables: data.responsables }) })
-      .catch(() => {})
+      .catch(err => console.warn('[AuditoriaPublica] filter-options falló:', err))
   }, [authState, token])
 
   // ── SSE: refrescar la lista cuando otro auditor o el admin cambien algo
