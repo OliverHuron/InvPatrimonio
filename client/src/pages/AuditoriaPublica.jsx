@@ -626,17 +626,29 @@ export default function AuditoriaPublica() {
     // Si no, buscar en backend
     if (!match) {
       try {
-        const params = new URLSearchParams({ search: trimmed, per_page: 5 })
+        const params = new URLSearchParams({ search: trimmed, per_page: 10 })
         const res = await fetch(`${API_BASE}/auditoria/${token}/items?${params}`, { credentials: 'include' })
         if (res.status === 401) { setAuthState('needsLogin'); return }
         const data = await res.json()
-        if (data.success && data.data.length === 1) match = data.data[0]
-        else if (data.success && data.data.length > 1) {
-          // ambiguo: filtra y muestra
-          setSearchInput(trimmed)
-          handleFilterField('search', trimmed)
-          setBigToast({ kind: 'info', title: 'Varios resultados', message: 'Selecciona el bien manualmente.', auto: 2500 })
-          return
+        if (data.success && data.data.length === 1) {
+          match = data.data[0]
+        } else if (data.success && data.data.length > 1) {
+          // Intentar match exacto entre los resultados antes de declarar ambigüedad
+          const t = trimmed.toLowerCase()
+          const exact = data.data.find(it =>
+            String(it.folio || '').toLowerCase() === t ||
+            String(it.clave_patrimonial || '').toLowerCase() === t ||
+            String(it.no_serie || '').toLowerCase() === t ||
+            String(it.id) === trimmed
+          )
+          if (exact) {
+            match = exact
+          } else {
+            setSearchInput(trimmed)
+            handleFilterField('search', trimmed)
+            setBigToast({ kind: 'info', title: 'Varios resultados', message: 'Selecciona el bien manualmente.', auto: 2500 })
+            return
+          }
         }
       } catch {}
     }

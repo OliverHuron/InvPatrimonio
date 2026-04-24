@@ -282,14 +282,17 @@ async function getItems(req, res) {
     const params     = [];
 
     if (search) {
-      params.push(`%${search}%`);
+      params.push(search);           // $N   — match exacto para identificadores
+      params.push(`%${search}%`);    // $N+1 — substring para campos descriptivos
+      const eN = params.length - 1;
+      const lN = params.length;
       conditions.push(
-        `(i.folio              ILIKE $${params.length}
-          OR i.clave_patrimonial ILIKE $${params.length}
-          OR i.descripcion       ILIKE $${params.length}
-          OR i.no_serie          ILIKE $${params.length}
-          OR i.marca             ILIKE $${params.length}
-          OR CAST(i.id AS TEXT)  ILIKE $${params.length})`
+        `(i.folio                ILIKE $${eN}
+          OR i.clave_patrimonial ILIKE $${eN}
+          OR i.no_serie          ILIKE $${eN}
+          OR CAST(i.id AS TEXT)  ILIKE $${eN}
+          OR i.descripcion       ILIKE $${lN}
+          OR i.marca             ILIKE $${lN})`
       );
     }
 
