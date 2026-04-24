@@ -618,6 +618,7 @@ export default function AuditoriaPublica() {
     // Buscar localmente primero (en página actual cargada)
     let match = itemsRef.current.find(it =>
       String(it.folio || '').toLowerCase() === trimmed.toLowerCase() ||
+      String(it.clave_patrimonial || '').toLowerCase() === trimmed.toLowerCase() ||
       String(it.no_serie || '').toLowerCase() === trimmed.toLowerCase() ||
       String(it.id) === trimmed
     )

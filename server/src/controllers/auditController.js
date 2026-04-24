@@ -13,6 +13,7 @@ const sseService = require('../services/sseService');
 const SAFE_COLUMNS = `
   i.id,
   i.folio,
+  i.clave_patrimonial,
   i.descripcion,
   i.marca,
   i.modelo,
@@ -283,11 +284,12 @@ async function getItems(req, res) {
     if (search) {
       params.push(`%${search}%`);
       conditions.push(
-        `(i.folio ILIKE $${params.length}
-          OR i.descripcion ILIKE $${params.length}
-          OR i.no_serie    ILIKE $${params.length}
-          OR i.marca       ILIKE $${params.length}
-          OR CAST(i.id AS TEXT) ILIKE $${params.length})`
+        `(i.folio              ILIKE $${params.length}
+          OR i.clave_patrimonial ILIKE $${params.length}
+          OR i.descripcion       ILIKE $${params.length}
+          OR i.no_serie          ILIKE $${params.length}
+          OR i.marca             ILIKE $${params.length}
+          OR CAST(i.id AS TEXT)  ILIKE $${params.length})`
       );
     }
 
