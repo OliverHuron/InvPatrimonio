@@ -608,8 +608,17 @@ export default function AuditoriaPublica() {
   // ── Scanner: callback unificado (cámara o HID)
   const handleScannedCode = useCallback(async (code, meta = {}) => {
     if (!code) return
-    const trimmed = String(code).trim()
-    if (!trimmed) return
+    const raw = String(code).trim()
+    if (!raw) return
+
+    // Si el valor parece una URL, extraer el último segmento del path
+    // (ej. "https://patrimonio.../auditoria/TOKEN" → "TOKEN")
+    let trimmed = raw
+    try {
+      const url = new URL(raw)
+      const parts = url.pathname.replace(/\/$/, '').split('/').filter(Boolean)
+      if (parts.length > 0) trimmed = parts[parts.length - 1]
+    } catch {} // no es URL, usar raw tal cual
     // Anti repetición de mismo escaneo en 1.5s
     const now = Date.now()
     if (lastScannedRef.current.code === trimmed && now - lastScannedRef.current.ts < 1500) return
@@ -655,11 +664,14 @@ export default function AuditoriaPublica() {
 
     if (!match) {
       if (beepEnabled) beep()
+      const debugMsg = raw !== trimmed
+        ? `Leído: "${trimmed}"\n(original: "${raw}")`
+        : `Leído: "${trimmed}"`
       setBigToast({
         kind: 'error',
         title: 'Código no encontrado',
-        message: trimmed,
-        auto: 2500,
+        message: debugMsg,
+        // Sin auto-dismiss: toca para cerrar
       })
       return
     }
