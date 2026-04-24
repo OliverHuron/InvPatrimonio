@@ -284,8 +284,8 @@ export default function AuditoriaPublica() {
   const lastScannedRef = useRef({ code: null, ts: 0 })
 
   const videoRef = useRef(null)
-  const streamRef = useRef(null)
-  const detectorRef = useRef(null)
+  const scanControlsRef = useRef(null)
+  const handleScannedCodeRef = useRef(null)  // ref para evitar stale closure en el callback de zxing
   const itemsRef = useRef(items)
   itemsRef.current = items
 
@@ -655,56 +655,55 @@ export default function AuditoriaPublica() {
       if (!burstMode) stopScan()
     }
   }, [token, burstMode, beepEnabled, updateEstadoForItem]) // eslint-disable-line
+  // Mantener ref actualizada para el callback de zxing (evita stale closure)
+  handleScannedCodeRef.current = handleScannedCode
 
   // ── Scanner cámara
-  const startScan = async () => {
+  // startScan solo cambia estado; el useEffect de abajo inicia la cámara
+  // DESPUÉS de que React renderice el <video> en el DOM.
+  const startScan = () => {
     if (!scanCameraSupported) {
       setBigToast({ kind: 'info', title: 'Cámara no disponible', message: 'Usa búsqueda manual.', auto: 2500 })
       return
     }
     setScanning(true)
     setManualCode('')
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
-      // Auto-detección solo si el navegador soporta BarcodeDetector (Chrome en Android/macOS)
-      if ('BarcodeDetector' in window) {
-        detectorRef.current = new window.BarcodeDetector({
-          formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'code_93']
-        })
-        const loop = async () => {
-          if (!streamRef.current || !videoRef.current) return
-          try {
-            const codes = await detectorRef.current.detect(videoRef.current)
-            if (codes.length > 0) {
-              const v = codes[0].rawValue
-              await handleScannedCode(v, { source: 'camera' })
-              if (!burstMode) return
-              // pequeña pausa para evitar duplicados
-              setTimeout(() => requestAnimationFrame(loop), 700)
-            } else {
-              requestAnimationFrame(loop)
-            }
-          } catch { requestAnimationFrame(loop) }
-        }
-        loop()
-      }
-      // Si no hay BarcodeDetector, la cámara queda abierta en modo manual (el usuario escribe el código)
-    } catch {
-      setScanning(false)
-      setBigToast({ kind: 'error', title: 'No se pudo abrir la cámara', message: 'Verifica permisos.', auto: 2500 })
-    }
   }
   const stopScan = () => {
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    streamRef.current = null
-    detectorRef.current = null
+    try { scanControlsRef.current?.stop() } catch {}
+    scanControlsRef.current = null
     setScanning(false)
   }
+
+  // Se ejecuta después de que React renderice el modal con <video> en el DOM
+  useEffect(() => {
+    if (!scanning) return
+    let cancelled = false
+    import('@zxing/browser').then(({ BrowserMultiFormatReader }) => {
+      if (cancelled || !videoRef.current) return
+      const codeReader = new BrowserMultiFormatReader()
+      return codeReader.decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
+        videoRef.current,
+        (result) => { if (result) handleScannedCodeRef.current?.(result.getText(), { source: 'camera' }) }
+      )
+    }).then(controls => {
+      if (!controls) return
+      if (cancelled) controls.stop()
+      else scanControlsRef.current = controls
+    }).catch(() => {
+      if (!cancelled) {
+        setScanning(false)
+        setBigToast({
+          kind: 'error',
+          title: 'No se pudo abrir la cámara',
+          message: 'En iPhone: Ajustes › Safari › Cámara → Permitir.',
+          auto: 5000,
+        })
+      }
+    })
+    return () => { cancelled = true }
+  }, [scanning]) // eslint-disable-line
 
   // ── Logout
   const handleLogout = async () => {
@@ -905,54 +904,45 @@ export default function AuditoriaPublica() {
         <div className="pub-scan-modal" onClick={stopScan}>
           <div className="pub-scan-inner" onClick={e => e.stopPropagation()}>
             <div className="pub-scan-header">
-              <span>
-                {'BarcodeDetector' in window
-                  ? (burstMode ? 'Modo ráfaga: escanea sin parar' : 'Apunta al código')
-                  : 'Apunta al código y escríbelo abajo'}
-              </span>
+              <span>{burstMode ? 'Modo ráfaga: escanea sin parar' : 'Apunta al código'}</span>
               <button onClick={stopScan}><FaTimes size={16} /></button>
             </div>
             <video ref={videoRef} className="pub-scan-video" playsInline muted />
             <div className="pub-scan-overlay"><div className="pub-scan-frame" /></div>
 
-            {/* Entrada manual para iOS / Firefox (sin BarcodeDetector) */}
-            {'BarcodeDetector' in window ? null : (
-              <div className="pub-scan-manual">
-                <input
-                  type="text"
-                  placeholder="Escribe folio, serie o ID…"
-                  value={manualCode}
-                  onChange={e => setManualCode(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && manualCode.trim()) {
-                      handleScannedCode(manualCode.trim(), { source: 'manual' })
-                      setManualCode('')
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  className="pub-scan-manual-btn"
-                  disabled={!manualCode.trim()}
-                  onClick={() => {
-                    if (manualCode.trim()) {
-                      handleScannedCode(manualCode.trim(), { source: 'manual' })
-                      setManualCode('')
-                    }
-                  }}
-                >
-                  <FaCheck size={14} /> Buscar
-                </button>
-              </div>
-            )}
+            {/* Entrada manual como alternativa */}
+            <div className="pub-scan-manual">
+              <input
+                type="text"
+                placeholder="O escribe folio, serie o ID…"
+                value={manualCode}
+                onChange={e => setManualCode(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && manualCode.trim()) {
+                    handleScannedCode(manualCode.trim(), { source: 'manual' })
+                    setManualCode('')
+                  }
+                }}
+              />
+              <button
+                className="pub-scan-manual-btn"
+                disabled={!manualCode.trim()}
+                onClick={() => {
+                  if (manualCode.trim()) {
+                    handleScannedCode(manualCode.trim(), { source: 'manual' })
+                    setManualCode('')
+                  }
+                }}
+              >
+                <FaCheck size={14} />
+              </button>
+            </div>
 
             <div className="pub-scan-toolbar">
-              {'BarcodeDetector' in window && (
-                <label className="pub-toggle">
-                  <input type="checkbox" checked={burstMode} onChange={e => setBurstMode(e.target.checked)} />
-                  Ráfaga
-                </label>
-              )}
+              <label className="pub-toggle">
+                <input type="checkbox" checked={burstMode} onChange={e => setBurstMode(e.target.checked)} />
+                Ráfaga
+              </label>
               <label className="pub-toggle">
                 <input type="checkbox" checked={beepEnabled} onChange={e => setBeepEnabled(e.target.checked)} />
                 {beepEnabled ? <FaVolumeUp size={11} /> : <FaVolumeMute size={11} />} Beep
