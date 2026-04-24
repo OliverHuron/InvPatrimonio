@@ -386,7 +386,7 @@ export default function AuditoriaPublica() {
   useEffect(() => {
     if (authState !== 'ok') return
     fetch(`${API_BASE}/auditoria/${token}/filter-options`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(r => (r.ok || r.status === 304) ? r.json() : Promise.reject(r.status))
       .then(data => { if (data.success) setFilterOpts({ ubicaciones: data.ubicaciones, responsables: data.responsables }) })
       .catch(err => console.warn('[AuditoriaPublica] filter-options falló:', err))
   }, [authState, token])

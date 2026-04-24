@@ -285,6 +285,7 @@ async function getFilterOptions(req, res) {
          ORDER BY usu_asig`
       ),
     ]);
+    res.set('Cache-Control', 'no-store');
     return res.json({
       success: true,
       ubicaciones: ubicRes.rows.map(r => r.ubicacion),
