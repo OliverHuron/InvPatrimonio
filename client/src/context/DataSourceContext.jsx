@@ -17,7 +17,6 @@ export const DataSourceProvider = ({ children }) => {
     features: {
       listado: false,
       fotos: false,
-      categorias: false,
       busqueda: false
     }
   });
@@ -48,7 +47,6 @@ export const DataSourceProvider = ({ children }) => {
         features: {
           listado: true,
           fotos: true,
-          categorias: true,
           busqueda: true
         }
       });

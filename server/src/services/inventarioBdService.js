@@ -732,43 +732,6 @@ const upsertFotoSlot = async (data) => {
 };
 
 // =====================================================
-// CATEGORÍAS
-// =====================================================
-
-/**
- * Obtener todas las categorías activas
- */
-const getAllCategorias = async () => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM categorias WHERE activo = true ORDER BY path_completo'
-    );
-    
-    return result.rows;
-  } catch (error) {
-    console.error('[BD Local] Error obteniendo categorías:', error);
-    throw error;
-  }
-};
-
-/**
- * Obtener categorías por nivel
- */
-const getCategoriasByNivel = async (nivel) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM categorias WHERE nivel = $1 AND activo = true ORDER BY orden',
-      [nivel]
-    );
-    
-    return result.rows;
-  } catch (error) {
-    console.error('[BD Local] Error obteniendo categorías por nivel:', error);
-    throw error;
-  }
-};
-
-// =====================================================
 // EXPORTAR FUNCIONES
 // =====================================================
 module.exports = {
@@ -788,9 +751,5 @@ module.exports = {
   getFotosByItem,
   addFotoToItem,
   deleteFotoByOrden,
-  upsertFotoSlot,
-  
-  // Categorías
-  getAllCategorias,
-  getCategoriasByNivel
+  upsertFotoSlot
 };

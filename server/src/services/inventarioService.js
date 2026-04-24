@@ -280,24 +280,6 @@ const deleteFotoByOrden = async (tipoInventario, inventarioId, orden) => {
 };
 
 // =====================================================
-// CATEGORÍAS (Solo disponible en BD local)
-// =====================================================
-
-/**
- * Obtener todas las categorías
- */
-const getAllCategorias = async () => {
-  return await inventarioBdService.getAllCategorias();
-};
-
-/**
- * Obtener categorías por nivel
- */
-const getCategoriasByNivel = async (nivel) => {
-  return await inventarioBdService.getCategoriasByNivel(nivel);
-};
-
-// =====================================================
 // UTILIDADES
 // =====================================================
 
@@ -314,7 +296,6 @@ const getDataSourceInfo = () => {
     features: {
       listado: source === 'bd',
       fotos: source === 'bd',
-      categorias: source === 'bd',
       busqueda: source === 'bd'
     }
   };
@@ -341,10 +322,6 @@ module.exports = {
   addFotoToItem,
   upsertFotoSlot,
   deleteFotoByOrden,
-  
-  // Categorías
-  getAllCategorias,
-  getCategoriasByNivel,
   
   // Utilidades
   getDataSourceInfo,

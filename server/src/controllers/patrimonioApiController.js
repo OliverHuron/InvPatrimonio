@@ -551,24 +551,6 @@ const getDataSourceInfo = async (req, res) => {
   }
 };
 
-/**
- * Obtener catálogo de categorías para ENTREGA Responsable
- */
-const getCategoriasEntrega = async (req, res) => {
-  try {
-    const categorias = await inventarioService.getAllCategorias();
-    res.json({
-      success: true,
-      data: categorias
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error al obtener categorías'
-    });
-  }
-};
-
 module.exports = {
   getPatrimonioById,
   getAllPatrimonios,
@@ -591,7 +573,6 @@ module.exports = {
   getXmlPatrimoniociProxy,
   uploadXmlPatrimonioci,
   deleteXmlPatrimonioci,
-  getCategoriasEntrega,
   // Info del sistema
   getDataSourceInfo
 };
