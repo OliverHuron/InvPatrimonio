@@ -900,7 +900,7 @@ export default function AuditoriaPublica() {
                 onChange={e => handleFilterField('id', e.target.value)} />
             </div>
             <div className="pub-filter-group">
-              <label htmlFor="filter-ubicacion">Ubicación</label>
+              <label htmlFor="filter-ubicacion">Ubicación {filterOpts.ubicaciones.length > 0 && `(${filterOpts.ubicaciones.length})`}</label>
               <select
                 id="filter-ubicacion"
                 value={filters.ubicacion}
@@ -913,7 +913,7 @@ export default function AuditoriaPublica() {
               </select>
             </div>
             <div className="pub-filter-group">
-              <label htmlFor="filter-responsable">Responsable</label>
+              <label htmlFor="filter-responsable">Responsable {filterOpts.responsables.length > 0 && `(${filterOpts.responsables.length})`}</label>
               <select
                 id="filter-responsable"
                 value={filters.responsable}
