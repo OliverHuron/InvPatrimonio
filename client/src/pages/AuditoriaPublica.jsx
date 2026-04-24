@@ -279,6 +279,7 @@ export default function AuditoriaPublica() {
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
   const [geo, setGeo] = useState(null)
+  const [filterOpts, setFilterOpts] = useState({ ubicaciones: [], responsables: [] })
 
   const [bigToast, setBigToast] = useState(null) // { kind, title, message, item }
   const [undoEntry, setUndoEntry] = useState(null) // { item, prevEstado, ccid, timeoutId }
@@ -380,6 +381,15 @@ export default function AuditoriaPublica() {
   }, [token, filters])
 
   useEffect(() => { if (authState === 'ok') fetchItems(1, filters) }, [authState]) // eslint-disable-line
+
+  // ── Cargar opciones de filtros (ubicaciones y responsables)
+  useEffect(() => {
+    if (authState !== 'ok') return
+    fetch(`${API_BASE}/auditoria/${token}/filter-options`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => { if (data.success) setFilterOpts({ ubicaciones: data.ubicaciones, responsables: data.responsables }) })
+      .catch(() => {})
+  }, [authState, token])
 
   // ── SSE: refrescar la lista cuando otro auditor o el admin cambien algo
   useEffect(() => {
@@ -891,15 +901,27 @@ export default function AuditoriaPublica() {
             </label>
             <label>
               Ubicación
-              <input type="text" placeholder="Filtrar por ubicación…"
+              <select
                 value={filters.ubicacion}
-                onChange={e => handleFilterField('ubicacion', e.target.value)} />
+                onChange={e => handleFilterField('ubicacion', e.target.value)}
+              >
+                <option value="">Todas las ubicaciones</option>
+                {filterOpts.ubicaciones.map(u => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
             </label>
             <label>
               Responsable
-              <input type="text" placeholder="Nombre o número de empleado…"
+              <select
                 value={filters.responsable}
-                onChange={e => handleFilterField('responsable', e.target.value)} />
+                onChange={e => handleFilterField('responsable', e.target.value)}
+              >
+                <option value="">Todos los responsables</option>
+                {filterOpts.responsables.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </label>
             <div className="pub-filter-toggles">
               <label className="pub-toggle">

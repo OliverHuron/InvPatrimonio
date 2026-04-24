@@ -271,6 +271,31 @@ async function getSession(req, res) {
   });
 }
 
+async function getFilterOptions(req, res) {
+  try {
+    const [ubicRes, respRes] = await Promise.all([
+      pool.query(
+        `SELECT DISTINCT ubicacion FROM inventario_interno
+         WHERE ubicacion IS NOT NULL AND ubicacion <> ''
+         ORDER BY ubicacion`
+      ),
+      pool.query(
+        `SELECT DISTINCT usu_asig FROM inventario_interno
+         WHERE usu_asig IS NOT NULL AND usu_asig <> ''
+         ORDER BY usu_asig`
+      ),
+    ]);
+    return res.json({
+      success: true,
+      ubicaciones: ubicRes.rows.map(r => r.ubicacion),
+      responsables: respRes.rows.map(r => r.usu_asig),
+    });
+  } catch (err) {
+    console.error('[Audit] getFilterOptions:', err.message);
+    return res.status(500).json({ success: false, message: 'Error obteniendo opciones' });
+  }
+}
+
 async function getItems(req, res) {
   try {
     const page     = Math.max(1, parseInt(req.query.page     || '1',  10));
@@ -693,6 +718,7 @@ module.exports = {
   loginPublic,
   logoutPublic,
   getSession,
+  getFilterOptions,
   getItems,
   updateEstado,
   createSesion,

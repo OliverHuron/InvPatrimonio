@@ -262,6 +262,18 @@
   outline: none;
 }
 .pub-filters-panel input:focus { border-color: #3b82f6; }
+.pub-filters-panel select {
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  outline: none;
+  background: #fff;
+  color: #1e293b;
+  appearance: auto;
+  width: 100%;
+}
+.pub-filters-panel select:focus { border-color: #3b82f6; }
 
 /* ── Modal de escáner ─────────────────────────────── */
 .pub-scan-modal {

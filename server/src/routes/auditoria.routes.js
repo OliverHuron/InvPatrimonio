@@ -70,6 +70,7 @@ router.post('/:token/login',  loginLimiter, auditController.requireAuditTokenOnl
 router.post('/:token/logout',               auditController.requireAuditTokenOnly, auditController.logoutPublic);
 
 router.get('/:token',                  auditController.requireAuditToken, auditController.getSession);
+router.get('/:token/filter-options',   auditController.requireAuditToken, auditController.getFilterOptions);
 router.get('/:token/items',            auditController.requireAuditToken, auditController.getItems);
 router.patch(
   '/:token/items/:id/estado',
