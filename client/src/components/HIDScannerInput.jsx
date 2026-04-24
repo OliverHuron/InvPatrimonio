@@ -19,12 +19,20 @@ export default function HIDScannerInput({ enabled = true, onScan, blockedRefs = 
   // Re-foco persistente cuando el usuario no esté escribiendo en otro input
   useEffect(() => {
     if (!enabled) return;
-    const focus = () => {
+    const isInteractive = (el) => {
+      if (!el || !el.tagName) return false;
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'OPTION' || tag === 'BUTTON') return true;
+      if (el.isContentEditable) return true;
+      // Subir por ancestros para detectar labels que envuelven inputs/selects
+      if (el.closest && el.closest('label, select, input, textarea, button, [contenteditable="true"]')) return true;
+      return false;
+    };
+    const focus = (ev) => {
+      // Si el click fue sobre (o dentro de) un control interactivo, no robar foco
+      if (ev && isInteractive(ev.target)) return;
       const ae = document.activeElement;
-      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
-        // El usuario está editando, no robar el foco
-        return;
-      }
+      if (isInteractive(ae)) return;
       // Tampoco robar foco si está dentro de refs bloqueados
       for (const r of blockedRefs) {
         if (r?.current && (r.current === ae || r.current.contains?.(ae))) return;
