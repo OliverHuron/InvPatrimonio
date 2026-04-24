@@ -125,6 +125,7 @@ function ItemCard({ item, onUpdate, reviewedInSession, online }) {
           <span>{[item.marca, item.modelo].filter(Boolean).join(' · ')}</span>
         )}
         {item.no_serie && <span className="pub-card-serie"><FaBarcode size={10} /> {item.no_serie}</span>}
+        {item.clave_patrimonial && <span className="pub-card-serie"><FaHashtag size={9} /> {item.clave_patrimonial}</span>}
         {item.ubicacion && <span className="pub-card-ubic"><FaMapMarkerAlt size={10} /> {item.ubicacion}</span>}
         {item.usu_asig && <span className="pub-card-usu"><FaUser size={10} /> {item.usu_asig}</span>}
       </div>

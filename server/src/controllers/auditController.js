@@ -288,9 +288,9 @@ async function getItems(req, res) {
       const lN = params.length;
       conditions.push(
         `(i.folio                ILIKE $${eN}
-          OR i.clave_patrimonial ILIKE $${eN}
-          OR i.no_serie          ILIKE $${eN}
-          OR CAST(i.id AS TEXT)  ILIKE $${eN}
+          OR i.clave_patrimonial ILIKE $${lN}
+          OR i.no_serie          ILIKE $${lN}
+          OR CAST(i.id AS TEXT)  = $${eN}
           OR i.descripcion       ILIKE $${lN}
           OR i.marca             ILIKE $${lN})`
       );
