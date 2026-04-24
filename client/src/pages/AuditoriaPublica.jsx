@@ -486,9 +486,9 @@ export default function AuditoriaPublica() {
     // anti doble-tap mismo estado
     if (shouldDedupe(item.id, estado)) return true
 
-    // confirmación si cambia rápido a estado distinto
+    // confirmación si cambia rápido a estado distinto (solo en edición manual, no en scanner)
     const recent = recentDifferent(item.id, estado)
-    if (recent) {
+    if (recent && source === 'manual') {
       const ok = window.confirm(
         `Hace ${Math.round((Date.now() - recent.ts) / 1000)}s marcaste este bien como "${recent.estado}". ¿Cambiar a "${estado}"?`
       )
