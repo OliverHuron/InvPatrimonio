@@ -455,9 +455,8 @@ export default function AuditoriaPublica() {
     }
   }, [bigToast])
 
-  // ── Núcleo: actualizar estado (online o cola offline)
+  // ── Núcleo: actualizar estado (siempre intenta fetch; encola solo si falla la red)
   const sendUpdate = useCallback(async (itemId, estado, observaciones, ccid, metadata) => {
-    if (!online) return { ok: false, status: 0, body: { offline: true } }
     try {
       const res = await fetch(`${API_BASE}/auditoria/${token}/items/${itemId}/estado`, {
         method: 'PATCH',
@@ -475,7 +474,7 @@ export default function AuditoriaPublica() {
     } catch (err) {
       return { ok: false, status: 0, body: { error: err.message } }
     }
-  }, [token, online])
+  }, [token])
 
   const updateEstadoForItem = useCallback(async (item, estado, observaciones, source) => {
     if (item.estado === estado && !observaciones) {
@@ -534,13 +533,24 @@ export default function AuditoriaPublica() {
       setItems(prev => prev.map(it => it.id === item.id ? { ...it, estado: prevEstado } : it))
       setBigToast({
         kind: 'error',
-        title: 'No se pudo guardar',
+        title: `Error ${r.status}`,
         message: r.body?.message || 'Datos inválidos',
-        auto: 3000,
+        auto: 4000,
       })
       return false
     }
-    // sin red u otros: encolar
+    if (r.status >= 500) {
+      // Error de servidor — revertir y mostrar error visible
+      setItems(prev => prev.map(it => it.id === item.id ? { ...it, estado: prevEstado } : it))
+      setBigToast({
+        kind: 'error',
+        title: `Error del servidor (${r.status})`,
+        message: r.body?.message || 'Contacta al administrador.',
+        auto: 5000,
+      })
+      return false
+    }
+    // sin red (status 0): encolar
     await enqueue({
       token,
       item_id: item.id,
@@ -550,7 +560,7 @@ export default function AuditoriaPublica() {
     }).catch(() => {})
     setBigToast({
       kind: 'warn',
-      title: 'Guardado offline',
+      title: 'Sin conexión — guardado offline',
       message: 'Se enviará cuando recuperes conexión',
       auto: 2500,
     })
