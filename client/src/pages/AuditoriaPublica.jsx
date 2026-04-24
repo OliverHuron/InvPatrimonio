@@ -893,15 +893,16 @@ export default function AuditoriaPublica() {
 
         {showFilters && (
           <div className="pub-filters-panel">
-            <label>
-              ID
-              <input type="number" placeholder="ID exacto…"
+            <div className="pub-filter-group">
+              <label htmlFor="filter-id">ID</label>
+              <input id="filter-id" type="number" placeholder="ID exacto…"
                 value={filters.id}
                 onChange={e => handleFilterField('id', e.target.value)} />
-            </label>
-            <label>
-              Ubicación
+            </div>
+            <div className="pub-filter-group">
+              <label htmlFor="filter-ubicacion">Ubicación</label>
               <select
+                id="filter-ubicacion"
                 value={filters.ubicacion}
                 onChange={e => handleFilterField('ubicacion', e.target.value)}
               >
@@ -910,10 +911,11 @@ export default function AuditoriaPublica() {
                   <option key={u} value={u}>{u}</option>
                 ))}
               </select>
-            </label>
-            <label>
-              Responsable
+            </div>
+            <div className="pub-filter-group">
+              <label htmlFor="filter-responsable">Responsable</label>
               <select
+                id="filter-responsable"
                 value={filters.responsable}
                 onChange={e => handleFilterField('responsable', e.target.value)}
               >
@@ -922,7 +924,7 @@ export default function AuditoriaPublica() {
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
-            </label>
+            </div>
             <div className="pub-filter-toggles">
               <label className="pub-toggle">
                 <input type="checkbox" checked={hidEnabled} onChange={e => setHidEnabled(e.target.checked)} />

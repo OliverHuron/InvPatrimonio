@@ -246,6 +246,15 @@
   padding-top: 0.5rem;
   border-top: 1px solid #f1f5f9;
 }
+.pub-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
 .pub-filters-panel label {
   display: flex;
   flex-direction: column;
@@ -254,15 +263,18 @@
   color: #64748b;
   font-weight: 500;
 }
-.pub-filters-panel input {
+.pub-filters-panel input,
+.pub-filter-group input {
   padding: 0.4rem 0.65rem;
   border: 1px solid #cbd5e1;
   border-radius: 7px;
   font-size: 0.82rem;
   outline: none;
 }
-.pub-filters-panel input:focus { border-color: #3b82f6; }
-.pub-filters-panel select {
+.pub-filters-panel input:focus,
+.pub-filter-group input:focus { border-color: #3b82f6; }
+.pub-filters-panel select,
+.pub-filter-group select {
   padding: 0.4rem 0.65rem;
   border: 1px solid #cbd5e1;
   border-radius: 7px;
@@ -270,10 +282,10 @@
   outline: none;
   background: #fff;
   color: #1e293b;
-  appearance: auto;
   width: 100%;
 }
-.pub-filters-panel select:focus { border-color: #3b82f6; }
+.pub-filters-panel select:focus,
+.pub-filter-group select:focus { border-color: #3b82f6; }
 
 /* ── Modal de escáner ─────────────────────────────── */
 .pub-scan-modal {
