@@ -326,6 +326,8 @@
   border-radius: 8px;
   padding: 10px 14px;
   width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
   word-break: break-all;
 }
 
@@ -351,6 +353,7 @@
   flex-direction: column;
   gap: 4px;
   width: 100%;
+  min-width: 0;
   text-align: left;
 }
 .aud-cred-row > label {
@@ -369,7 +372,7 @@
   font-size: 14px !important;
   color: #0f172a !important;
 }
-.aud-link-text { flex: 1; word-break: break-all; }
+.aud-link-text { flex: 1; min-width: 0; word-break: break-all; overflow-wrap: break-word; }
 
 /* Events modal */
 .aud-events-wrap {

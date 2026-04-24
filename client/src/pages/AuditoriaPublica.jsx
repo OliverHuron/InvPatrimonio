@@ -267,6 +267,7 @@ export default function AuditoriaPublica() {
   const [showFilters, setShowFilters] = useState(false)
   const [scanCameraSupported, setScanCameraSupported] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [manualCode, setManualCode] = useState('')
   const [burstMode, setBurstMode] = useState(true)
   const [beepEnabled, setBeepEnabled] = useState(true)
   const [hidEnabled, setHidEnabled] = useState(true)
@@ -290,7 +291,10 @@ export default function AuditoriaPublica() {
 
   // ── Detect support
   useEffect(() => {
-    setScanCameraSupported(typeof window !== 'undefined' && 'BarcodeDetector' in window)
+    setScanCameraSupported(
+      typeof window !== 'undefined' &&
+      !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+    )
   }, [])
 
   // ── Online/offline + queue counter
@@ -655,10 +659,11 @@ export default function AuditoriaPublica() {
   // ── Scanner cámara
   const startScan = async () => {
     if (!scanCameraSupported) {
-      setBigToast({ kind: 'info', title: 'Cámara no disponible', message: 'Usa una pistola USB o búsqueda manual.', auto: 2500 })
+      setBigToast({ kind: 'info', title: 'Cámara no disponible', message: 'Usa búsqueda manual.', auto: 2500 })
       return
     }
     setScanning(true)
+    setManualCode('')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       streamRef.current = stream
@@ -666,25 +671,29 @@ export default function AuditoriaPublica() {
         videoRef.current.srcObject = stream
         await videoRef.current.play()
       }
-      detectorRef.current = new window.BarcodeDetector({
-        formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'code_93']
-      })
-      const loop = async () => {
-        if (!streamRef.current || !videoRef.current) return
-        try {
-          const codes = await detectorRef.current.detect(videoRef.current)
-          if (codes.length > 0) {
-            const v = codes[0].rawValue
-            await handleScannedCode(v, { source: 'camera' })
-            if (!burstMode) return
-            // pequeña pausa para evitar duplicados
-            setTimeout(() => requestAnimationFrame(loop), 700)
-          } else {
-            requestAnimationFrame(loop)
-          }
-        } catch { requestAnimationFrame(loop) }
+      // Auto-detección solo si el navegador soporta BarcodeDetector (Chrome en Android/macOS)
+      if ('BarcodeDetector' in window) {
+        detectorRef.current = new window.BarcodeDetector({
+          formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'code_93']
+        })
+        const loop = async () => {
+          if (!streamRef.current || !videoRef.current) return
+          try {
+            const codes = await detectorRef.current.detect(videoRef.current)
+            if (codes.length > 0) {
+              const v = codes[0].rawValue
+              await handleScannedCode(v, { source: 'camera' })
+              if (!burstMode) return
+              // pequeña pausa para evitar duplicados
+              setTimeout(() => requestAnimationFrame(loop), 700)
+            } else {
+              requestAnimationFrame(loop)
+            }
+          } catch { requestAnimationFrame(loop) }
+        }
+        loop()
       }
-      loop()
+      // Si no hay BarcodeDetector, la cámara queda abierta en modo manual (el usuario escribe el código)
     } catch {
       setScanning(false)
       setBigToast({ kind: 'error', title: 'No se pudo abrir la cámara', message: 'Verifica permisos.', auto: 2500 })
@@ -896,16 +905,54 @@ export default function AuditoriaPublica() {
         <div className="pub-scan-modal" onClick={stopScan}>
           <div className="pub-scan-inner" onClick={e => e.stopPropagation()}>
             <div className="pub-scan-header">
-              <span>{burstMode ? 'Modo ráfaga: escanea sin parar' : 'Apunta al código'}</span>
+              <span>
+                {'BarcodeDetector' in window
+                  ? (burstMode ? 'Modo ráfaga: escanea sin parar' : 'Apunta al código')
+                  : 'Apunta al código y escríbelo abajo'}
+              </span>
               <button onClick={stopScan}><FaTimes size={16} /></button>
             </div>
             <video ref={videoRef} className="pub-scan-video" playsInline muted />
             <div className="pub-scan-overlay"><div className="pub-scan-frame" /></div>
+
+            {/* Entrada manual para iOS / Firefox (sin BarcodeDetector) */}
+            {'BarcodeDetector' in window ? null : (
+              <div className="pub-scan-manual">
+                <input
+                  type="text"
+                  placeholder="Escribe folio, serie o ID…"
+                  value={manualCode}
+                  onChange={e => setManualCode(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && manualCode.trim()) {
+                      handleScannedCode(manualCode.trim(), { source: 'manual' })
+                      setManualCode('')
+                    }
+                  }}
+                  autoFocus
+                />
+                <button
+                  className="pub-scan-manual-btn"
+                  disabled={!manualCode.trim()}
+                  onClick={() => {
+                    if (manualCode.trim()) {
+                      handleScannedCode(manualCode.trim(), { source: 'manual' })
+                      setManualCode('')
+                    }
+                  }}
+                >
+                  <FaCheck size={14} /> Buscar
+                </button>
+              </div>
+            )}
+
             <div className="pub-scan-toolbar">
-              <label className="pub-toggle">
-                <input type="checkbox" checked={burstMode} onChange={e => setBurstMode(e.target.checked)} />
-                Ráfaga
-              </label>
+              {'BarcodeDetector' in window && (
+                <label className="pub-toggle">
+                  <input type="checkbox" checked={burstMode} onChange={e => setBurstMode(e.target.checked)} />
+                  Ráfaga
+                </label>
+              )}
               <label className="pub-toggle">
                 <input type="checkbox" checked={beepEnabled} onChange={e => setBeepEnabled(e.target.checked)} />
                 {beepEnabled ? <FaVolumeUp size={11} /> : <FaVolumeMute size={11} />} Beep
