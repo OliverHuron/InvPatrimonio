@@ -19,6 +19,7 @@ const SAFE_COLUMNS = `
   i.modelo,
   i.no_serie,
   i.ubicacion,
+  i.responsable,
   i.usu_asig,
   i.numero_empleado_usuario,
   i.tipo_bien,
@@ -280,16 +281,16 @@ async function getFilterOptions(req, res) {
          ORDER BY ubicacion`
       ),
       pool.query(
-        `SELECT DISTINCT usu_asig FROM inventario_interno
-         WHERE usu_asig IS NOT NULL AND usu_asig <> ''
-         ORDER BY usu_asig`
+        `SELECT DISTINCT responsable FROM inventario_interno
+         WHERE responsable IS NOT NULL AND responsable <> ''
+         ORDER BY responsable`
       ),
     ]);
     res.set('Cache-Control', 'no-store');
     return res.json({
       success: true,
       ubicaciones: ubicRes.rows.map(r => r.ubicacion),
-      responsables: respRes.rows.map(r => r.usu_asig),
+      responsables: respRes.rows.map(r => r.responsable),
     });
   } catch (err) {
     console.error('[Audit] getFilterOptions:', err.message);
@@ -343,7 +344,8 @@ async function getItems(req, res) {
     if (responsable) {
       params.push(`%${responsable}%`);
       conditions.push(
-        `(i.usu_asig ILIKE $${params.length}
+        `(i.responsable ILIKE $${params.length}
+          OR i.usu_asig ILIKE $${params.length}
           OR i.numero_empleado_usuario ILIKE $${params.length})`
       );
     }
