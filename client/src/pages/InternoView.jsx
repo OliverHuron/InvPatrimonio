@@ -38,9 +38,6 @@ const InternoView = () => {
   const [fotos, setFotos] = useState([])
   const [brokenFotos, setBrokenFotos] = useState({})
   const [uploadingOrden, setUploadingOrden] = useState(null)
-  const [categoriasEntrega, setCategoriasEntrega] = useState([])
-  const [entregaPath, setEntregaPath] = useState([])
-  const [entregaManualMode, setEntregaManualMode] = useState(false)
   const [filters, setFilters] = useState({
     q: '',
     responsable: '',
@@ -207,27 +204,12 @@ const InternoView = () => {
 
   const renderFormField = (key) => {
     const meta = FIELD_META[key] || { label: key, type: 'text' }
-    // Special-case: responsable uses the cascade selector UI from above
+    // Special-case: responsable uses a plain text input
     if (key === 'responsable') {
       return (
         <div key={`form-${key}`} className="form-group detail-item">
           <label>{meta.label}</label>
-          <select
-            value=""
-            className="select-cascade-control"
-            title={formData.responsable || 'Seleccionar responsable'}
-            onChange={(e) => handleEntregaStep(e.target.value)}
-          >
-            <option value="">{entregaPath.length === 0 ? 'Seleccionar responsable' : 'Selecciona categoría dependiente'}</option>
-            <option value="__MANUAL__">Manual (escribir nombre)</option>
-            {entregaPath.length > 0 && <option value="__UP__">← Subir un nivel</option>}
-            {opcionesEntregaActual.map((opt) => (
-              <option key={opt.id} value={opt.label} title={opt.label}>{opt.label}</option>
-            ))}
-          </select>
-          {entregaManualMode && (
-            <input type="text" name="responsable" value={formData.responsable || ''} onChange={handleInputChange} placeholder="Escribe el nombre manualmente" style={{ marginTop: '0.4rem' }} />
-          )}
+          <input type="text" name="responsable" value={formData.responsable || ''} onChange={handleInputChange} placeholder="Nombre del responsable" />
         </div>
       )
     }
@@ -667,17 +649,6 @@ const InternoView = () => {
     numero_empleado_usuario: data.numero_empleado_usuario || ''
   })
 
-  const parseEntregaPath = (value = '') => {
-    const raw = String(value || '').trim()
-    if (!raw) return []
-    return raw.split('>').map((p) => p.trim()).filter(Boolean)
-  }
-
-  const updateEntregaFromPath = (pathParts) => {
-    const value = (pathParts || []).filter(Boolean).join(' > ')
-    setFormData((prev) => ({ ...prev, responsable: value }))
-  }
-
   // Cargar opciones de filtros una sola vez (todos los datos sin filtros)
   const loadFilterOptions = async () => {
     if (filterOptionsLoaded) return
@@ -793,7 +764,6 @@ const InternoView = () => {
     document.body.classList.add('interno-active')
     loadFilterOptions()
     loadAllItems(filters, 1)
-    loadEntregaOptions()
 
     return () => {
       document.body.classList.remove('interno-active')
@@ -850,38 +820,10 @@ const InternoView = () => {
     return () => scroller.removeEventListener('scroll', onScroll)
   }, [tableScrollRef.current, headerRowRef.current])
 
-  const loadEntregaOptions = async () => {
-    const sessionId = getSessionId()
-    try {
-      const response = await fetch(`${API_BASE}/categorias/entrega`, {
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' }
-      })
-      const data = await response.json()
-      if (!data.success) return
-      const opciones = (data.data || [])
-        .filter((cat) => cat && cat.codigo && cat.nombre)
-        .map((cat) => ({
-          id: cat.id,
-          padre_id: cat.padre_id,
-          nivel: cat.nivel,
-          orden: cat.orden ?? 0,
-          codigo: String(cat.codigo),
-          nombre: String(cat.nombre),
-          label: `${cat.codigo}. ${cat.nombre}`.replace(/\.\s\./g, '.')
-        }))
-      setCategoriasEntrega(opciones)
-    } catch (error) {
-      console.error('Error cargando catálogo de entrega:', error)
-      setCategoriasEntrega([])
-    }
-  }
-  
   // Abrir drawer para ver detalles
   const handleView = (item) => {
     setSelectedItem(item)
     setFormData({ ...item })
-    setEntregaPath(parseEntregaPath(item.responsable))
     setDrawerMode('view')
     setShowDrawer(true)
     setBrokenFotos({})
@@ -922,8 +864,6 @@ const InternoView = () => {
       idcon: '',
       usuario_registro: ''
     })
-    setEntregaPath([])
-    setEntregaManualMode(false)
     setDrawerMode('create')
     setShowDrawer(true)
     setFotos([])
@@ -933,8 +873,6 @@ const InternoView = () => {
   const handleEdit = (item) => {
     setSelectedItem(item)
     setFormData({ ...item })
-    setEntregaPath(parseEntregaPath(item.responsable))
-    setEntregaManualMode(false)
     setDrawerMode('edit')
     setShowDrawer(true)
     setBrokenFotos({})
@@ -949,41 +887,9 @@ const InternoView = () => {
     setDrawerMode('view')
     setFotos([])
     setBrokenFotos({})
-    setEntregaPath([])
-    setEntregaManualMode(false)
   }
 
-  const categoriasOrdenadas = categoriasEntrega
-    .sort((a, b) => (a.orden - b.orden) || a.codigo.localeCompare(b.codigo, undefined, { numeric: true }))
-  const findByLabel = (label) => categoriasOrdenadas.find((c) => c.label === label)
-  const nodoActual = entregaPath.length ? findByLabel(entregaPath[entregaPath.length - 1]) : null
-  const parentIdActual = nodoActual ? Number(nodoActual.id) : null
-  const opcionesEntregaActual = categoriasOrdenadas.filter((c) => {
-    if (parentIdActual === null) return c.padre_id === null
-    return Number(c.padre_id) === parentIdActual
-  })
-
-  const handleEntregaStep = (value) => {
-    if (!value) return
-    if (value === '__MANUAL__') {
-      setEntregaManualMode(true)
-      setEntregaPath([])
-      return
-    }
-    if (value === '__UP__') {
-      const next = entregaPath.slice(0, -1)
-      setEntregaPath(next)
-      updateEntregaFromPath(next)
-      setEntregaManualMode(false)
-      return
-    }
-    const next = [...entregaPath, value]
-    setEntregaPath(next)
-    updateEntregaFromPath(next)
-    setEntregaManualMode(false)
-  }
-
-  const loadFotos = async (id) => {
+  const loadFotos= async (id) => {
     const sessionId = getSessionId()
     try {
       const response = await fetch(`${API_BASE}/patrimonioci/${id}/fotos`, {

@@ -247,8 +247,6 @@ router.post('/auth/login', async (req, res) => {
 
 // Info del sistema (modo API/BD)
 router.get('/info', patrimonioApiController.getDataSourceInfo);
-router.get('/categorias/entrega', patrimonioApiController.getCategoriasEntrega);
-
 // === PATRIMONIO CI (Interno) ===
 // SSE: stream de actualizaciones en tiempo real (debe ir ANTES de /:id)
 router.get('/patrimonioci/stream', (req, res) => {
