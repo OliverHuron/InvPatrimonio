@@ -890,58 +890,59 @@ export default function AuditoriaPublica() {
             )
           })}
         </div>
-
-        {showFilters && (
-          <div className="pub-filters-panel">
-            <div className="pub-filter-group">
-              <label htmlFor="filter-id">ID</label>
-              <input id="filter-id" type="number" placeholder="ID exacto…"
-                value={filters.id}
-                onChange={e => handleFilterField('id', e.target.value)} />
-            </div>
-            <div className="pub-filter-group">
-              <label htmlFor="filter-ubicacion">Ubicación {filterOpts.ubicaciones.length > 0 && `(${filterOpts.ubicaciones.length})`}</label>
-              <select
-                id="filter-ubicacion"
-                value={filters.ubicacion}
-                onChange={e => handleFilterField('ubicacion', e.target.value)}
-              >
-                <option value="">Todas las ubicaciones</option>
-                {filterOpts.ubicaciones.map(u => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
-            </div>
-            <div className="pub-filter-group">
-              <label htmlFor="filter-responsable">Responsable {filterOpts.responsables.length > 0 && `(${filterOpts.responsables.length})`}</label>
-              <select
-                id="filter-responsable"
-                value={filters.responsable}
-                onChange={e => handleFilterField('responsable', e.target.value)}
-              >
-                <option value="">Todos los responsables</option>
-                {filterOpts.responsables.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-            <div className="pub-filter-toggles">
-              <label className="pub-toggle">
-                <input type="checkbox" checked={hidEnabled} onChange={e => setHidEnabled(e.target.checked)} />
-                <FaKeyboard size={12} /> Pistola USB activa
-              </label>
-              <label className="pub-toggle">
-                <input type="checkbox" checked={beepEnabled} onChange={e => setBeepEnabled(e.target.checked)} />
-                {beepEnabled ? <FaVolumeUp size={12} /> : <FaVolumeMute size={12} />} Beep
-              </label>
-              <label className="pub-toggle">
-                <input type="checkbox" checked={burstMode} onChange={e => setBurstMode(e.target.checked)} />
-                Modo ráfaga
-              </label>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Panel de filtros — fuera del sticky para evitar stacking context */}
+      {showFilters && (
+        <div className="pub-filters-panel">
+          <div className="pub-filter-group">
+            <label htmlFor="filter-id">ID</label>
+            <input id="filter-id" type="number" placeholder="ID exacto…"
+              value={filters.id}
+              onChange={e => handleFilterField('id', e.target.value)} />
+          </div>
+          <div className="pub-filter-group">
+            <label htmlFor="filter-ubicacion">Ubicación {filterOpts.ubicaciones.length > 0 && `(${filterOpts.ubicaciones.length})`}</label>
+            <select
+              id="filter-ubicacion"
+              value={filters.ubicacion}
+              onChange={e => handleFilterField('ubicacion', e.target.value)}
+            >
+              <option value="">Todas las ubicaciones</option>
+              {filterOpts.ubicaciones.map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+          <div className="pub-filter-group">
+            <label htmlFor="filter-responsable">Responsable {filterOpts.responsables.length > 0 && `(${filterOpts.responsables.length})`}</label>
+            <select
+              id="filter-responsable"
+              value={filters.responsable}
+              onChange={e => handleFilterField('responsable', e.target.value)}
+            >
+              <option value="">Todos los responsables</option>
+              {filterOpts.responsables.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+          <div className="pub-filter-toggles">
+            <label className="pub-toggle">
+              <input type="checkbox" checked={hidEnabled} onChange={e => setHidEnabled(e.target.checked)} />
+              <FaKeyboard size={12} /> Pistola USB activa
+            </label>
+            <label className="pub-toggle">
+              <input type="checkbox" checked={beepEnabled} onChange={e => setBeepEnabled(e.target.checked)} />
+              {beepEnabled ? <FaVolumeUp size={12} /> : <FaVolumeMute size={12} />} Beep
+            </label>
+            <label className="pub-toggle">
+              <input type="checkbox" checked={burstMode} onChange={e => setBurstMode(e.target.checked)} />
+              Modo ráfaga
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Toast grande */}
       {bigToast && (
