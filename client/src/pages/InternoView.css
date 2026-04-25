@@ -20,28 +20,79 @@ body.interno-active {
   overflow: hidden;
 }
 
-/* ===== Fix: action buttons appearance on desktop ===== */
-@media (min-width: 1025px) {
-  .table-row .action-buttons { gap: 0.5rem !important; }
-  .table-row .action-buttons .btn-icon {
-    width: 36px !important;
-    height: 36px !important;
-    padding: 0.28rem !important;
-    min-width: 36px !important;
-    border-radius: 6px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-  .interno-view .btn-icon svg, .interno-view .btn-icon > svg {
-    width: 70% !important;
-    height: 70% !important;
-    fill: currentColor !important;
-    display: block !important;
-  }
-  /* keep the semantic color backgrounds but slightly reduce opacity so the icon stands out */
-  .btn-view { background: rgba(25, 118, 210, 0.08); }
-  .btn-edit { background: rgba(25, 118, 210, 0.12); }
+/* ===== Fix: ensure the "Ver XML" icon button inside .xml-actions (detail drawer) is clearly visible ===== */
+.xml-actions .btn-icon.btn-xml {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  padding: 5px !important;
+  border-radius: 6px !important;
+  background: #1976D2 !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+}
+.xml-actions .btn-icon.btn-xml:hover {
+  background: #145ca8 !important;
+}
+.xml-actions .btn-icon.btn-xml svg,
+.xml-actions .btn-icon.btn-xml > svg {
+  width: 16px !important;
+  height: 16px !important;
+  display: block !important;
+  fill: currentColor !important;
+}
+
+/* Inline XML icon inside the filename input row (Editar Patrimonio) */
+.xml-edit-inline {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+.xml-edit-inline .xml-meta,
+.xml-edit-inline .xml-empty {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xml-edit-inline .xml-inline-btn {
+  flex: 0 0 auto;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  padding: 5px !important;
+  border-radius: 6px !important;
+  background: #1976D2 !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.xml-edit-inline .xml-inline-btn:hover { background: #145ca8 !important; }
+.xml-edit-inline .xml-inline-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+  display: block !important;
+  fill: currentColor !important;
+}
+
+/* ===== Reduce action-column icon buttons in the table (they were too big) ===== */
+.table-row .action-buttons .btn-icon {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  padding: 2px !important;
+  border-radius: 4px !important;
+}
+.table-row .action-buttons .btn-icon svg,
+.table-row .action-buttons .btn-icon > svg {
+  width: 12px !important;
+  height: 12px !important;
 }
 
 
@@ -1665,12 +1716,12 @@ body.interno-active {
 
 /* Desktop compact action override: keep icons small so table fits */
 @media (min-width: 1024px) {
-  .table-row .action-buttons { gap: 0.35rem !important; }
+  .table-row .action-buttons { gap: 0.3rem !important; }
   .table-row .action-buttons .btn-icon {
-    width: 30px !important;
-    height: 30px !important;
-    padding: 0.18rem !important;
-    min-width: 30px !important;
+    width: 24px !important;
+    height: 24px !important;
+    padding: 2px !important;
+    min-width: 24px !important;
     border-radius: 4px !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -1678,8 +1729,8 @@ body.interno-active {
   }
   .table-row .action-buttons .btn-icon svg,
   .table-row .action-buttons .btn-icon > svg {
-    width: 75% !important;
-    height: 75% !important;
+    width: 13px !important;
+    height: 13px !important;
     display: block !important;
   }
   .table-row .td.col-acciones { padding-left: 4px !important; padding-right: 4px !important; }
@@ -1726,7 +1777,6 @@ body.interno-active {
     padding: 6px !important;
     border-radius: 8px !important;
     overflow-x: visible !important;
-    -webkit-overflow-scrolling: touch !important;
     /* limit header actions max width and align to the right */
     width: min(760px, 100%) !important;
     max-width: 760px !important;
@@ -1794,7 +1844,6 @@ body.interno-active {
         max-height: calc(100vh - 220px);
         overflow-y: auto;
         padding: 0 12px 12px 12px;
-        -webkit-overflow-scrolling: touch;
       }
 
       .table-container > .pagination-bar {

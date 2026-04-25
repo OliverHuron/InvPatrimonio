@@ -326,39 +326,6 @@ const InternoView = () => {
     }
   }
 
-  const handleDeleteXml = async (id) => {
-    const targetId = id || selectedItem?.id
-    if (!targetId) return
-    // Prevent deletion if XML origin is external API
-    const origin = (xmlModal && xmlModal.open && xmlModal.id === targetId) ? xmlModal.origin : (xmlInfo && xmlInfo.origin)
-    if (origin === 'api') {
-      toast.info('No se puede eliminar el XML: proviene de la API externa')
-      return
-    }
-    try {
-      setLoading(true)
-      const sessionId = getSessionId()
-      const resp = await fetch(`${API_BASE}/patrimonioci/${targetId}/xml`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' }
-      })
-      const result = await resp.json()
-      if (result.success) {
-        toast.success('XML eliminado')
-        setXmlInfo({ exists: false, filename: '', content: '' })
-        if (xmlModal.open && xmlModal.id === targetId) closeXmlModal()
-      } else {
-        toast.error('Error eliminando XML')
-      }
-    } catch (error) {
-      console.error('Error eliminando XML:', error)
-      toast.error('Error eliminando XML')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleOpenXml = (item) => {
     openXmlModal(item)
   }
@@ -1210,7 +1177,7 @@ const InternoView = () => {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      const safeName = String(responsable).replace(/[^a-z0-9_\-]/gi, '_').slice(0, 80) || new Date().toISOString().slice(0, 10)
+      const safeName = String(responsable).replace(/[^a-z0-9_-]/gi, '_').slice(0, 80) || new Date().toISOString().slice(0, 10)
       link.setAttribute('download', `inventario_interno_rm_${safeName}_${new Date().toISOString().slice(0, 10)}.csv`)
       document.body.appendChild(link)
       link.click()
@@ -1648,7 +1615,7 @@ const InternoView = () => {
                     {!collapsedSections.xml && (
                       <>
                         <input ref={xmlInputRef} type="file" accept=".xml" style={{ display: 'none' }} onChange={handleXmlFileSelected} />
-                        <div className="xml-block xml-edit" onClick={() => {
+                        <div className="xml-block xml-edit xml-edit-inline" onClick={() => {
                           if (!selectedItem?.id) return toast.info('Guarda el registro antes de subir el XML')
                           if (xmlInputRef.current) xmlInputRef.current.click()
                         }}>
@@ -1657,12 +1624,22 @@ const InternoView = () => {
                           ) : (
                             <div className="xml-empty">Vacio — Presiona para subir XML</div>
                           )}
+                          {xmlInfo.exists && (
+                            <button className="btn-icon btn-xml xml-inline-btn" title="Abrir XML" onClick={(e) => {
+                              e.stopPropagation()
+                              if (xmlInfo.url) {
+                                window.open(xmlInfo.url, '_blank')
+                              } else if (xmlInfo.content) {
+                                const blob = new Blob([xmlInfo.content], { type: 'application/xml; charset=utf-8' })
+                                const blobUrl = URL.createObjectURL(blob)
+                                window.open(blobUrl, '_blank')
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+                              } else {
+                                handleOpenXml(selectedItem)
+                              }
+                            }}><FaFileCode /></button>
+                          )}
                         </div>
-                        {xmlInfo.exists && (
-                          <div className="xml-actions">
-                            <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(xmlModal.url || `${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${selectedItem?.id}.xml`, '_blank') }}>Abrir</button>
-                          </div>
-                        )}
                       </>
                     )}
                   </div>

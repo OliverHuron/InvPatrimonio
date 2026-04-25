@@ -154,7 +154,7 @@ function ItemCard({ item, onUpdate, reviewedInSession, online }) {
         <div className="pub-card-obs">
           <textarea
             ref={obsRef}
-            placeholder="Observación opcional (ej: 'sin etiqueta', 'dañado')…"
+            placeholder="Observación opcional"
             value={obs}
             onChange={e => setObs(e.target.value)}
             rows={2}
@@ -210,9 +210,9 @@ function LoginScreen({ token, onSuccess, sessionInfo }) {
           <MdAssignmentTurnedIn size={28} />
           <h2>Auditoría de Campo</h2>
           {sessionInfo?.intern_name && (
-            <p>Bienvenido(a), <strong>{sessionInfo.intern_name}</strong></p>
+            <p>Hola, <strong>{sessionInfo.intern_name}</strong></p>
           )}
-          <p className="pub-login-sub">Ingresa el usuario y contraseña que te entregaron.</p>
+          <p className="pub-login-sub">Ingresa tu usuario y contraseña.</p>
         </div>
 
         <label>
@@ -245,7 +245,7 @@ function LoginScreen({ token, onSuccess, sessionInfo }) {
         </button>
 
         <p className="pub-login-foot">
-          Si tu enlace o credenciales no funcionan, contacta al responsable que te los compartió.
+          Si el acceso no funciona, contacta al administrador.
         </p>
       </form>
     </div>
@@ -571,8 +571,8 @@ export default function AuditoriaPublica() {
     }).catch(() => {})
     setBigToast({
       kind: 'warn',
-      title: 'Sin conexión — guardado offline',
-      message: 'Se enviará cuando recuperes conexión',
+      title: 'Sin conexión',
+      message: 'El cambio se enviará al recuperar la conexión.',
       auto: 2500,
     })
     return true
@@ -693,8 +693,8 @@ export default function AuditoriaPublica() {
       if (beepEnabled) beep()
       setBigToast({
         kind: 'ok',
-        title: '✓ Localizado',
-        message: `${match.folio || '#' + match.id} — ${match.descripcion || ''}`,
+        title: 'Localizado',
+        message: `${match.folio || '#' + match.id} · ${match.descripcion || ''}`,
         auto: 2500,
       })
       // Si no estamos en modo ráfaga, cerrar scanner
@@ -965,7 +965,7 @@ export default function AuditoriaPublica() {
         <div className="pub-scan-modal" onClick={stopScan}>
           <div className="pub-scan-inner" onClick={e => e.stopPropagation()}>
             <div className="pub-scan-header">
-              <span>{burstMode ? 'Modo ráfaga: escanea sin parar' : 'Apunta al código'}</span>
+              <span>{burstMode ? 'Modo ráfaga activo' : 'Apunta al código'}</span>
               <button onClick={stopScan}><FaTimes size={16} /></button>
             </div>
             <video ref={videoRef} className="pub-scan-video" playsInline muted />
@@ -1023,7 +1023,7 @@ export default function AuditoriaPublica() {
         ) : items.length === 0 ? (
           <div className="pub-empty">
             <FaSearch size={28} color="#cbd5e1" />
-            <p>No se encontraron bienes.<br />Prueba con otros filtros.</p>
+            <p>No se encontraron bienes.<br />Ajusta los filtros e intenta de nuevo.</p>
           </div>
         ) : (
           <>

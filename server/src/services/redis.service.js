@@ -64,7 +64,9 @@ async function get(key) {
     const value = await redisClient.get(key);
     return value ? JSON.parse(value) : null;
   } catch (error) {
-    console.error('Error obteniendo cache:', error);
+    if (error?.message !== 'Connection is closed.') {
+      console.error('Error obteniendo cache:', error.message);
+    }
     return null;
   }
 }
@@ -76,7 +78,9 @@ async function set(key, value, ttlSeconds = 3600) {
     await redisClient.setex(key, ttlSeconds, JSON.stringify(value));
     return true;
   } catch (error) {
-    console.error('Error guardando en cache:', error);
+    if (error?.message !== 'Connection is closed.') {
+      console.error('Error guardando en cache:', error.message);
+    }
     return false;
   }
 }

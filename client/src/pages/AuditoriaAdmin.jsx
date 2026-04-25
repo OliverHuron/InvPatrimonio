@@ -4,7 +4,7 @@
 // =====================================================
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { FaPlus, FaTrash, FaCopy, FaListAlt, FaCheck, FaTimes, FaKey, FaSync, FaEye } from 'react-icons/fa'
+import { FaPlus, FaTrash, FaCopy, FaListAlt, FaTimes, FaKey, FaSync, FaEye } from 'react-icons/fa'
 import { MdAssignmentTurnedIn } from 'react-icons/md'
 import { toast } from 'react-toastify'
 import './AuditoriaAdmin.css'
@@ -240,7 +240,7 @@ export default function AuditoriaAdmin() {
         ) : sesiones.length === 0 ? (
           <div className="aud-empty">
             <MdAssignmentTurnedIn size={40} color="#ccc" />
-            <p>No hay sesiones activas.<br />Crea una para generar un enlace.</p>
+            <p>No hay sesiones activas.<br />Cree una para generar un enlace.</p>
           </div>
         ) : (
           <table className="aud-table">
@@ -327,7 +327,7 @@ export default function AuditoriaAdmin() {
                   />
                 </label>
                 <label>
-                  Vigencia (horas) — máx. 24
+                  Vigencia (horas, máximo 24)
                   <input
                     type="number"
                     min={1}
@@ -350,8 +350,7 @@ export default function AuditoriaAdmin() {
               </form>
             ) : (
               <div className="aud-link-result">
-                <FaCheck size={28} color="#2e7d32" />
-                <p>Acceso generado para <strong>{form.intern_name}</strong></p>
+                <p className="aud-result-intro">Acceso generado para <strong>{form.intern_name}</strong>.</p>
 
                 <div className="aud-cred-row">
                   <label>Enlace</label>
@@ -384,7 +383,7 @@ export default function AuditoriaAdmin() {
                 </div>
 
                 <p className="aud-link-note">
-                  Vigencia: {newCreds.expires_in_hours}h. Comparte el enlace y entrégale el usuario y contraseña por un canal aparte.
+                  Vigencia: {newCreds.expires_in_hours} h. Envíe el usuario y la contraseña al practicante por un canal seguro.
                 </p>
 
                 <div className="aud-modal-footer">
@@ -406,7 +405,7 @@ export default function AuditoriaAdmin() {
         <div className="aud-modal-backdrop" onClick={closeAccess}>
           <div className="aud-modal" onClick={e => e.stopPropagation()}>
             <div className="aud-modal-header">
-              <h3><FaKey style={{ marginRight: 6 }} /> Acceso — {accessSesion.intern_name}</h3>
+              <h3><FaKey style={{ marginRight: 6 }} /> Acceso de {accessSesion.intern_name}</h3>
               <button className="aud-modal-close" onClick={closeAccess}><FaTimes /></button>
             </div>
 
@@ -414,8 +413,7 @@ export default function AuditoriaAdmin() {
               <div className="aud-loading">Cargando…</div>
             ) : regenerated ? (
               <div className="aud-link-result">
-                <FaCheck size={28} color="#2e7d32" />
-                <p><strong>Credenciales nuevas</strong> — entrégale ambos datos al practicante.</p>
+                <p className="aud-result-intro"><strong>Credenciales nuevas.</strong> Comparta el usuario y la contraseña con el practicante.</p>
 
                 <div className="aud-cred-row">
                   <label>Enlace</label>
@@ -448,15 +446,14 @@ export default function AuditoriaAdmin() {
               </div>
             ) : (
               <div className="aud-link-result">
-                <p>
-                  <strong>Por seguridad</strong>, el enlace y la contraseña no se vuelven a mostrar.
-                  Si el practicante los perdió, regenera credenciales nuevas.
+                <p className="aud-result-intro">
+                  Por seguridad, el enlace y la contraseña no se muestran nuevamente. Si el practicante perdió el acceso, regenere las credenciales.
                 </p>
 
                 <div className="aud-cred-row">
                   <label>Usuario</label>
                   <div className="aud-link-box">
-                    <span className="aud-link-text aud-mono">{accessData.username || '— (sesión sin login)'}</span>
+                    <span className="aud-link-text aud-mono">{accessData.username || 'Sesión sin login'}</span>
                     {accessData.username && (
                       <button onClick={() => copyText(accessData.username, 'Usuario copiado')}><FaCopy size={14} /></button>
                     )}
@@ -467,7 +464,7 @@ export default function AuditoriaAdmin() {
                   <label>Vigencia</label>
                   <div className="aud-link-box">
                     <span className="aud-link-text">
-                      {accessData.expires_in_hours}h · expira {fmtDate(accessData.expires_at)}
+                      {accessData.expires_in_hours} h · Expira {fmtDate(accessData.expires_at)}
                     </span>
                   </div>
                 </div>
@@ -478,7 +475,7 @@ export default function AuditoriaAdmin() {
                     className="aud-btn-primary"
                     onClick={handleRegenerate}
                     disabled={regenerating || !!accessData.revoked_at}
-                    title={accessData.revoked_at ? 'Sesión revocada, crea una nueva' : 'Generar nuevo enlace y contraseña'}
+                    title={accessData.revoked_at ? 'La sesión está revocada. Crea una nueva' : 'Generar nuevo enlace y contraseña'}
                   >
                     <FaSync size={12} /> {regenerating ? 'Regenerando…' : 'Regenerar credenciales'}
                   </button>
@@ -494,13 +491,13 @@ export default function AuditoriaAdmin() {
         <div className="aud-modal-backdrop" onClick={() => setShowEvents(false)}>
           <div className="aud-modal aud-modal-wide" onClick={e => e.stopPropagation()}>
             <div className="aud-modal-header">
-              <h3>Actividad — {selectedSesion.intern_name}</h3>
+              <h3>Actividad de {selectedSesion.intern_name}</h3>
               <button className="aud-modal-close" onClick={() => setShowEvents(false)}><FaTimes /></button>
             </div>
             {loadingEvents ? (
               <div className="aud-loading">Cargando…</div>
             ) : eventos.length === 0 ? (
-              <div className="aud-empty">Sin actividad registrada aún.</div>
+              <div className="aud-empty">Sin actividad registrada.</div>
             ) : (
               <div className="aud-events-wrap">
                 <table className="aud-table aud-events-table">
