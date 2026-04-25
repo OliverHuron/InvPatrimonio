@@ -1667,10 +1667,10 @@ body.interno-active {
 @media (min-width: 1024px) {
   .table-row .action-buttons { gap: 0.35rem !important; }
   .table-row .action-buttons .btn-icon {
-    width: 26px !important;
-    height: 26px !important;
-    padding: 0.12rem !important;
-    min-width: 26px !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0.18rem !important;
+    min-width: 30px !important;
     border-radius: 4px !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -1678,8 +1678,8 @@ body.interno-active {
   }
   .table-row .action-buttons .btn-icon svg,
   .table-row .action-buttons .btn-icon > svg {
-    width: 60% !important;
-    height: 60% !important;
+    width: 75% !important;
+    height: 75% !important;
     display: block !important;
   }
   .table-row .td.col-acciones { padding-left: 4px !important; padding-right: 4px !important; }

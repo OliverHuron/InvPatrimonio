@@ -1754,9 +1754,18 @@ const InternoView = () => {
               <pre className="xml-preview">{xmlModal.content || '—'}</pre>
             </div>
             <div className="xml-modal-footer">
-              <a className="btn-secondary" href={xmlModal.url || `${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${xmlModal.id}.xml`} target="_blank" rel="noopener noreferrer">Abrir en nueva pestaña</a>
-              <button className="btn-secondary" onClick={() => { closeXmlModal(); handleEdit(selectedItem) }}>Editar</button>
-              <button className="btn-secondary" onClick={() => handleDeleteXml(xmlModal.id)}>Eliminar</button>
+              <button className="btn-secondary" onClick={() => {
+                if (xmlModal.url) {
+                  window.open(xmlModal.url, '_blank')
+                } else if (xmlModal.content) {
+                  const blob = new Blob([xmlModal.content], { type: 'application/xml; charset=utf-8' })
+                  const blobUrl = URL.createObjectURL(blob)
+                  window.open(blobUrl, '_blank')
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+                } else {
+                  window.open(`${BACKEND_BASE_URL.replace(/\/$/, '')}/uploads/xml/${xmlModal.id}.xml`, '_blank')
+                }
+              }}>Abrir en nueva pestaña</button>
             </div>
           </div>
         </>
