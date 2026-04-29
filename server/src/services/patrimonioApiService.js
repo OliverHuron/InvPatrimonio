@@ -248,6 +248,7 @@ const getPatrimoniociById = async (id, umichSessionId = null) => {
       numero_serie: raw.num_serie || null,
       dependencia: raw.depenadsc || null,
       ubicacion: raw.ures || null,
+      archi: raw.archi || null,
       _source: 'api_externa_ci',
       _raw: raw
     };
@@ -395,6 +396,21 @@ const getPatrimonioFxmlById = async (id, umichSessionId = null) => {
   }
 };
 
+/**
+ * Obtener el campo `archi` (imagen) desde la API externa (si existe)
+ * Devuelve null si no se encuentra.
+ */
+const getPatrimonioArchiById = async (id, umichSessionId = null) => {
+  try {
+    const raw = await getRawPatrimonioById(id, umichSessionId);
+    if (!raw) return null;
+    return raw.archi || raw.imagen || raw.photo || raw.image || null;
+  } catch (error) {
+    console.error(`[Patrimonio API] Error obteniendo campo archi para ${id}:`, error.message);
+    throw error;
+  }
+};
+
 // =====================================================
 // EXPORTAR FUNCIONES (al final para evitar referencia antes de inicialización)
 // =====================================================
@@ -413,6 +429,7 @@ module.exports = {
   // Raw/raw-fxml accessors
   getRawPatrimonioById,
   getPatrimonioFxmlById,
+  getPatrimonioArchiById,
   
   // Utilidades
   transformApiToInternal,

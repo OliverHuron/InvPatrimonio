@@ -289,6 +289,9 @@ router.get('/patrimonioci/:id/xml/proxy', patrimonioApiController.getXmlPatrimon
 router.post('/patrimonioci/:id/xml', uploadXml.single('xmlfile'), patrimonioApiController.uploadXmlPatrimonioci);
 router.delete('/patrimonioci/:id/xml', patrimonioApiController.deleteXmlPatrimonioci);
 
+// === Imagen (archi) para Patrimonio CI ===
+router.get('/patrimonioci/:id/archi', patrimonioApiController.getArchiPatrimonioci);
+
 // === PATRIMONIO (Externo) ===
 router.get('/patrimonio', patrimonioApiController.getAllPatrimonios);
 router.get('/patrimonio/:id', patrimonioApiController.getPatrimonioById);

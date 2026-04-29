@@ -1042,7 +1042,7 @@ body.interno-active {
 
 .photo-slots {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.75rem;
 }
 
@@ -1068,8 +1068,8 @@ body.interno-active {
 
 .photo-preview {
   width: 100%;
-  height: 110px;
-  object-fit: cover;
+  height: 260px;
+  object-fit: contain;
   border-radius: 6px;
   border: 1px solid #ecf0f1;
   background: #f8f9fa;
@@ -1077,7 +1077,7 @@ body.interno-active {
 
 .photo-empty {
   width: 100%;
-  height: 110px;
+  height: 260px;
   display: grid;
   place-items: center;
   border: 1px dashed #d0d7de;
@@ -1415,6 +1415,91 @@ body.interno-active {
   line-height: 1.35;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Image fullscreen modal */
+.photo-clickable {
+  cursor: zoom-in;
+}
+
+.photo-magnifier-wrap {
+  position: relative;
+  cursor: crosshair;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.photo-magnifier-wrap .photo-preview {
+  display: block;
+}
+
+.photo-zoom-lens {
+  position: absolute;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.photo-zoom-panel {
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  z-index: 2000;
+  background-color: #f0f0f0;
+}
+
+.img-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1300;
+}
+
+.img-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1301;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.img-modal-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+
+.img-modal-close {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 1302;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  font-size: 1.8rem;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: background 0.2s;
+}
+
+.img-modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 @media (max-width: 360px) {

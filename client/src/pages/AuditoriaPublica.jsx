@@ -99,55 +99,63 @@ function ItemCard({ item, onUpdate, reviewedInSession, online }) {
   const reviewed = reviewedInSession.has(item.id)
 
   return (
-    <div className={`pub-card ${flash ? 'pub-card-flash' : ''} ${reviewed ? 'pub-card-reviewed' : ''}`}>
+    <div
+      className={`pub-card ${flash ? 'pub-card-flash' : ''} ${reviewed ? 'pub-card-reviewed' : ''}`}
+      style={{ background: cfg.bg, borderLeftColor: cfg.border }}
+    >
       <div className="pub-card-head">
         <div className="pub-card-id">
           <div className="pub-card-ids">
-            <span className="pub-card-num-id"><FaHashtag size={9} />{item.id}</span>
+            <span className="pub-card-num-id" title="ID del bien"><FaHashtag size={9} />{item.id}</span>
             {item.folio && (
-              <span className="pub-card-folio">
+              <span className="pub-card-folio" title="Folio patrimonial">
                 <MdConfirmationNumber size={12} />{item.folio}
               </span>
             )}
           </div>
-          {reviewed && <span className="pub-card-check-badge"><FaCheck size={9} /> Marcado</span>}
+          {reviewed && <span className="pub-card-check-badge" title="Revisado en esta sesión"><FaCheck size={9} /> Marcado</span>}
         </div>
         <span className="pub-card-estado-badge"
+              title="Estado actual del bien"
               style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
           {estadoActual}
         </span>
       </div>
 
-      <p className="pub-card-desc">{item.descripcion || '—'}</p>
+      <p className="pub-card-desc" title="Descripción del bien">{item.descripcion || '—'}</p>
 
       <div className="pub-card-meta">
         {(item.marca || item.modelo) && (
-          <span>{[item.marca, item.modelo].filter(Boolean).join(' · ')}</span>
+          <span title="Marca · Modelo">{[item.marca, item.modelo].filter(Boolean).join(' · ')}</span>
         )}
-        {item.no_serie && <span className="pub-card-serie"><FaBarcode size={10} /> {item.no_serie}</span>}
-        {item.clave_patrimonial && <span className="pub-card-serie"><FaHashtag size={9} /> {item.clave_patrimonial}</span>}
-        {item.ubicacion && <span className="pub-card-ubic"><FaMapMarkerAlt size={10} /> {item.ubicacion}</span>}
-        {item.usu_asig && <span className="pub-card-usu"><FaUser size={10} /> {item.usu_asig}</span>}
+        {item.no_serie && <span className="pub-card-serie" title="Número de serie"><FaBarcode size={10} /> {item.no_serie}</span>}
+        {item.clave_patrimonial && <span className="pub-card-serie" title="Clave patrimonial"><FaHashtag size={9} /> {item.clave_patrimonial}</span>}
+        {item.ubicacion && <span className="pub-card-ubic" title="Ubicación"><FaMapMarkerAlt size={10} /> {item.ubicacion}</span>}
+        {item.usu_asig && <span className="pub-card-usu" title="Usuario asignado"><FaUser size={10} /> {item.usu_asig}</span>}
       </div>
 
-      <div className="pub-card-btns">
-        {ESTADOS.map(e => {
-          const c = ESTADO_CFG[e] || {}
-          const isActive = estadoActual === e
-          const isPending = pendingEstado === e
-          return (
-            <button
-              key={e}
-              className={`pub-card-btn ${isActive ? 'pub-card-btn-active' : ''} ${isPending ? 'pub-card-btn-pending' : ''}`}
-              style={isActive || isPending
-                ? { background: c.btn, color: '#fff', borderColor: c.btn }
-                : { color: c.btn, borderColor: c.border }}
-              onClick={() => handleEstadoClick(e)}
-            >
-              {isActive && <FaCheck size={9} />} {e}
-            </button>
-          )
-        })}
+      <div className="pub-card-select-row" title="Cambiar estado del bien">
+        <select
+          className="pub-card-estado-select"
+          value={pendingEstado ?? estadoActual}
+          style={{
+            background: (ESTADO_CFG[pendingEstado ?? estadoActual] || cfg).bg,
+            color: (ESTADO_CFG[pendingEstado ?? estadoActual] || cfg).color,
+            borderColor: (ESTADO_CFG[pendingEstado ?? estadoActual] || cfg).border,
+          }}
+          onChange={e => {
+            const val = e.target.value
+            if (val === estadoActual) { handleCancel(); return }
+            setPendingEstado(val)
+            setObs('')
+            setShowObs(true)
+            setTimeout(() => obsRef.current?.focus(), 50)
+          }}
+        >
+          {ESTADOS.map(e => (
+            <option key={e} value={e}>{e}</option>
+          ))}
+        </select>
       </div>
 
       {showObs && (
@@ -207,8 +215,7 @@ function LoginScreen({ token, onSuccess, sessionInfo }) {
     <div className="pub-login-page">
       <form className="pub-login-card" onSubmit={submit}>
         <div className="pub-login-head">
-          <MdAssignmentTurnedIn size={28} />
-          <h2>Auditoría de Campo</h2>
+          <h2>Auditoría</h2>
           {sessionInfo?.intern_name && (
             <p>Hola, <strong>{sessionInfo.intern_name}</strong></p>
           )}
@@ -593,13 +600,21 @@ export default function AuditoriaPublica() {
   }, [undoEntry, sendUpdate, geo, online, token])
 
   // ── Búsqueda
+  const searchDebounceRef = useRef(null)
+  const handleSearchInput = (value) => {
+    setSearchInput(value)
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      const updated = { ...filters, search: value }
+      setFilters(updated); fetchItems(1, updated)
+    }, 400)
+  }
   const handleSearch = (e) => {
     e?.preventDefault?.()
-    const updated = { ...filters, search: searchInput }
-    setFilters(updated); fetchItems(1, updated)
   }
   const handleClearSearch = () => {
     setSearchInput('')
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
     const updated = { ...filters, search: '' }
     setFilters(updated); fetchItems(1, updated)
   }
@@ -804,9 +819,8 @@ export default function AuditoriaPublica() {
       <header className="pub-header">
         <div className="pub-header-top">
           <div className="pub-header-title">
-            <MdAssignmentTurnedIn size={20} />
             <div>
-              <h1>Auditoría de Campo</h1>
+              <h1 className="pub-header-main-title">Auditoría</h1>
               <span>Hola, <strong>{session.intern_name}</strong> · Expira {expiresStr}</span>
             </div>
           </div>
@@ -825,7 +839,7 @@ export default function AuditoriaPublica() {
                 <FaSync size={10} className={syncing ? 'pub-spin' : ''} /> {pendingCount}
               </span>
             )}
-            <button className="pub-btn-icon-mini" title="Salir" onClick={handleLogout}>
+            <button className="pub-btn-icon-mini pub-btn-logout" title="Salir" onClick={handleLogout}>
               <FaSignOutAlt size={13} />
             </button>
           </div>
@@ -850,7 +864,7 @@ export default function AuditoriaPublica() {
               type="text"
               placeholder="Buscar folio, ID, descripción, serie, marca…"
               value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
+              onChange={e => handleSearchInput(e.target.value)}
             />
             {searchInput && (
               <button type="button" className="pub-search-clear" onClick={handleClearSearch}>
@@ -858,53 +872,27 @@ export default function AuditoriaPublica() {
               </button>
             )}
           </div>
-          <button type="submit" className="pub-btn-search">Buscar</button>
           <button type="button" className="pub-btn-scan" onClick={startScan} title="Escanear con cámara">
             <FaQrcode size={18} />
           </button>
-          <button
-            type="button"
-            className={`pub-btn-filter ${showFilters ? 'active' : ''}`}
-            onClick={() => setShowFilters(f => !f)}
-            title="Filtros"
-          >
-            <FaFilter size={14} />
-          </button>
         </form>
 
-        {/* Chips de estado */}
-        <div className="pub-estado-chips">
-          <button className={`pub-chip ${!filters.estado ? 'pub-chip-active' : ''}`}
-                  onClick={() => applyEstadoFilter('')}>Todos</button>
-          {ESTADOS.map(e => {
-            const c = ESTADO_CFG[e] || {}
-            return (
-              <button key={e}
-                className={`pub-chip ${filters.estado === e ? 'pub-chip-active' : ''}`}
-                style={filters.estado === e
-                  ? { background: c.btn, color: '#fff', borderColor: c.btn }
-                  : { color: c.btn, borderColor: c.border }}
-                onClick={() => applyEstadoFilter(e)}>
-                {e}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+        {/* Filtros siempre visibles */}
+        <div className="pub-filters-row">
+          <select
+            className="pub-filter-select"
+            value={filters.estado}
+            onChange={e => applyEstadoFilter(e.target.value)}
+          >
+            <option value="">Todos los estados</option>
+            {ESTADOS.map(e => (
+              <option key={e} value={e}>{e}</option>
+            ))}
+          </select>
 
-      {/* Panel de filtros — fuera del sticky para evitar stacking context */}
-      {showFilters && (
-        <div className="pub-filters-panel">
-          <div className="pub-filter-group">
-            <label htmlFor="filter-id">ID</label>
-            <input id="filter-id" type="number" placeholder="ID exacto…"
-              value={filters.id}
-              onChange={e => handleFilterField('id', e.target.value)} />
-          </div>
-          <div className="pub-filter-group">
-            <label htmlFor="filter-ubicacion">Ubicación {filterOpts.ubicaciones.length > 0 && `(${filterOpts.ubicaciones.length})`}</label>
+          {filterOpts.ubicaciones.length > 0 && (
             <select
-              id="filter-ubicacion"
+              className="pub-filter-select"
               value={filters.ubicacion}
               onChange={e => handleFilterField('ubicacion', e.target.value)}
             >
@@ -913,11 +901,11 @@ export default function AuditoriaPublica() {
                 <option key={u} value={u}>{u}</option>
               ))}
             </select>
-          </div>
-          <div className="pub-filter-group">
-            <label htmlFor="filter-responsable">Responsable {filterOpts.responsables.length > 0 && `(${filterOpts.responsables.length})`}</label>
+          )}
+
+          {filterOpts.responsables.length > 0 && (
             <select
-              id="filter-responsable"
+              className="pub-filter-select"
               value={filters.responsable}
               onChange={e => handleFilterField('responsable', e.target.value)}
             >
@@ -926,23 +914,26 @@ export default function AuditoriaPublica() {
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
-          </div>
-          <div className="pub-filter-toggles">
-            <label className="pub-toggle">
+          )}
+
+
+
+          <div className="pub-filter-toggles-inline">
+            <label className="pub-toggle" title="Pistola USB activa">
               <input type="checkbox" checked={hidEnabled} onChange={e => setHidEnabled(e.target.checked)} />
-              <FaKeyboard size={12} /> Pistola USB activa
+              <FaKeyboard size={12} />
             </label>
-            <label className="pub-toggle">
+            <label className="pub-toggle" title={beepEnabled ? 'Beep activado' : 'Beep desactivado'}>
               <input type="checkbox" checked={beepEnabled} onChange={e => setBeepEnabled(e.target.checked)} />
-              {beepEnabled ? <FaVolumeUp size={12} /> : <FaVolumeMute size={12} />} Beep
+              {beepEnabled ? <FaVolumeUp size={12} /> : <FaVolumeMute size={12} />}
             </label>
-            <label className="pub-toggle">
+            <label className="pub-toggle" title="Modo ráfaga">
               <input type="checkbox" checked={burstMode} onChange={e => setBurstMode(e.target.checked)} />
-              Modo ráfaga
+              Ráfaga
             </label>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Toast grande */}
       {bigToast && (
@@ -1030,7 +1021,6 @@ export default function AuditoriaPublica() {
             <div className="pub-result-info">
               {totalItems} resultados
               {filters.search && <> · búsqueda: <em>"{filters.search}"</em></>}
-              {filters.id && <> · ID: <em>{filters.id}</em></>}
               {filters.estado && <> · estado: <em>{filters.estado}</em></>}
             </div>
 

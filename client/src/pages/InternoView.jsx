@@ -4,7 +4,7 @@
 // =====================================================
 
 import React, { useState, useEffect, useRef } from 'react'
-import { FaPlus, FaEdit, FaEye, FaSync, FaUpload, FaCamera, FaFileExcel, FaTrash, FaChevronDown, FaFileCode, FaPrint } from 'react-icons/fa'
+import { FaPlus, FaEdit, FaEye, FaSync, FaFileExcel, FaChevronDown, FaFileCode, FaPrint } from 'react-icons/fa'
 import { toast } from 'react-toastify'
 import './InternoView.css'
 import umsnhLogo from '../assets/umsnh-.png'
@@ -22,7 +22,9 @@ const InternoView = () => {
   const normalizeDate = (value) => (value ? String(value).split('T')[0] : '')
   const toFileUrl = (ruta) => {
     if (!ruta) return ''
-    const cleanPath = String(ruta).replace(/^\/+/, '')
+    const s = String(ruta)
+    if (s.startsWith('http://') || s.startsWith('https://')) return s
+    const cleanPath = s.replace(/^\/+/, '')
     return `${BACKEND_BASE_URL}/${cleanPath}?v=${photoRefreshTs}`
   }
   
@@ -35,9 +37,7 @@ const InternoView = () => {
   const [showDrawer, setShowDrawer] = useState(false)
   const [drawerMode, setDrawerMode] = useState('view') // 'view', 'create', 'edit'
   const [selectedItem, setSelectedItem] = useState(null)
-  const [fotos, setFotos] = useState([])
-  const [brokenFotos, setBrokenFotos] = useState({})
-  const [uploadingOrden, setUploadingOrden] = useState(null)
+
   const [filters, setFilters] = useState({
     q: '',
     responsable: '',
@@ -63,10 +63,35 @@ const InternoView = () => {
   const toggleSection = (sectionKey) => {
     setCollapsedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }))
   }
-  // XML state + ref for file input
+  // XML state
   const [xmlInfo, setXmlInfo] = useState({ exists: false, filename: '', content: '', url: '' })
-  const xmlInputRef = useRef(null)
   const [xmlModal, setXmlModal] = useState({ open: false, filename: '', content: '', id: null, url: '' })
+  // Imagen (archi) state
+  const [archiUrl, setArchiUrl] = useState('')
+  const [archiModal, setArchiModal] = useState(false)
+  const magnifierRef = useRef(null)
+  const ZOOM = 3
+  const PANEL_W = 280
+  const PANEL_H = 220
+  const LENS_W = Math.round(PANEL_W / ZOOM)
+  const LENS_H = Math.round(PANEL_H / ZOOM)
+  const [magnifier, setMagnifier] = useState({ visible: false, lensX: 0, lensY: 0, panelX: 0, panelY: 0, imgW: 0, imgH: 0 })
+
+  const handleMagnifierMove = (e) => {
+    if (!magnifierRef.current) return
+    const rect = magnifierRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    let lensX = x - LENS_W / 2
+    let lensY = y - LENS_H / 2
+    lensX = Math.max(0, Math.min(lensX, rect.width - LENS_W))
+    lensY = Math.max(0, Math.min(lensY, rect.height - LENS_H))
+    const spaceLeft = rect.left - PANEL_W - 12
+    const panelX = spaceLeft >= 4 ? rect.left - PANEL_W - 12 : rect.right + 12
+    const panelY = Math.max(8, Math.min(e.clientY - PANEL_H / 2, window.innerHeight - PANEL_H - 8))
+    setMagnifier({ visible: true, lensX, lensY, panelX, panelY, imgW: rect.width, imgH: rect.height })
+  }
+  const handleMagnifierLeave = () => setMagnifier(m => ({ ...m, visible: false }))
 
   const closeXmlModal = () => setXmlModal({ open: false, filename: '', content: '', id: null })
 
@@ -285,44 +310,20 @@ const InternoView = () => {
     }
   }
 
-  const handleXmlFileSelected = async (e) => {
-    const file = e.target.files && e.target.files[0]
-    if (!file) return
-    if (!selectedItem || !selectedItem.id) {
-      toast.info('Guarda el registro antes de subir el XML')
-      return
-    }
-    // If XML origin is from API, disallow uploading local XML
-    if ((xmlInfo && xmlInfo.origin === 'api') || (xmlModal && xmlModal.origin === 'api')) {
-      toast.info('No se puede subir XML: el fxml proviene de la API externa')
-      if (xmlInputRef.current) xmlInputRef.current.value = null
-      return
-    }
+  const loadArchiInfo = async (id) => {
+    if (!id) return setArchiUrl('')
     try {
-      setLoading(true)
-      const form = new FormData()
-      form.append('xmlfile', file)
-      const sessionId = getSessionId()
-      const resp = await fetch(`${API_BASE}/patrimonioci/${selectedItem.id}/xml`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' },
-        body: form
-      })
-      const result = await resp.json()
-      if (result.success) {
-        toast.success('XML subido')
-        await loadXmlInfo(selectedItem.id)
+      const response = await fetch(`${API_BASE}/patrimonioci/${id}/archi`, { credentials: 'include' })
+      if (!response.ok) return setArchiUrl('')
+      const data = await response.json()
+      if (data.success && data.data?.exists && data.data?.url) {
+        setArchiUrl(data.data.url)
       } else {
-        toast.error('Error subiendo XML')
+        setArchiUrl('')
       }
     } catch (error) {
-      console.error('Error subiendo XML:', error)
-      toast.error('Error subiendo XML')
-    } finally {
-      setLoading(false)
-      // reset input
-      if (xmlInputRef.current) xmlInputRef.current.value = null
+      console.error('Error cargando imagen archi:', error)
+      setArchiUrl('')
     }
   }
 
@@ -338,7 +339,7 @@ const InternoView = () => {
 
   const generatePrintHtml = (it, assets = {}) => {
     const c = (k) => escHtml(it && it[k] ? it[k] : '')
-    const photo = assets.photo || toFileUrl(it && (it.foto || it.photo || it.imagen)) || ''
+    const photo = assets.photo || toFileUrl(it && (it.archi || it.foto || it.photo || it.imagen)) || ''
     const folioText = (c('folio') || '').replace(/-/g, '\u2011')
     return `<!DOCTYPE html>
 <html lang="es">
@@ -376,18 +377,15 @@ const InternoView = () => {
     }
     .fields { width:100%; }
     table.fields-table { width:100%; border-collapse:collapse; font-size:12px; }
-    table.fields-table td { padding:8px 6px; vertical-align:top; line-height:1.04; }
-    table.fields-table tr.spacer td { padding-top:10px }
-    td.lbl { text-align:right; font-weight:bold; white-space:nowrap; padding-right:2px; width:30%; }
-    td.colon { text-align:left; width:18px; padding-left:2px; padding-right:6px; }
-    td.val { text-align:left; padding-left:10px; }
+    table.fields-table td { padding:5px 4px; vertical-align:top; line-height:1.2; }
+    table.fields-table tr.spacer td { padding-top:6px }
     td.lbl { text-align:right; font-weight:bold; white-space:nowrap; padding-right:6px; width:30%; }
     td.colon { text-align:center; width:6px; }
     td.val { text-align:left; padding-left:12px; }
-    .photo-wrap { display:flex; justify-content:center; margin:18px 0 12px 0; }
-    .photo-box { width:220px; height:160px; border:0.9px solid #555; overflow:hidden; }
-    .photo-box img { width:100%; height:100%; object-fit:cover; }
-    .sigs { display:flex; justify-content:space-between; gap:16px; margin-top:28px; }
+    .photo-wrap { display:flex; justify-content:center; margin:10px 0 8px 0; }
+    .photo-box { width:200px; height:140px; border:0.9px solid #555; overflow:hidden; }
+    .photo-box img { width:100%; height:100%; object-fit:fill; }
+    .sigs { display:flex; justify-content:space-between; gap:16px; margin-top:50px; }
     .sig { flex:1; text-align:center; }
     .sig-line { border-top:0.8px solid #000; margin-bottom:6px; }
     .header-center p { line-height:1.04; }
@@ -480,7 +478,22 @@ const InternoView = () => {
       const umsnhUrl = umsnhLogo
       const patrUrl = patrLogo
       const watermarkUrl = watermarkImg
-      const photoUrl = toFileUrl(it && (it.foto || it.photo || it.imagen)) || ''
+      // Fetch archi image URL from API endpoint (same flow as loadArchiInfo)
+      let photoUrl = ''
+      if (it.id) {
+        try {
+          const archiResp = await fetch(`${API_BASE}/patrimonioci/${it.id}/archi`, { credentials: 'include' })
+          if (archiResp.ok) {
+            const archiData = await archiResp.json()
+            if (archiData.success && archiData.data?.exists && archiData.data?.url) {
+              photoUrl = archiData.data.url
+            }
+          }
+        } catch (e) {}
+      }
+      if (!photoUrl) {
+        photoUrl = toFileUrl(it && (it.foto || it.photo || it.imagen)) || ''
+      }
 
       const [umsnhData, patrData, watermarkData, photoData] = await Promise.all([
         fetchAsDataUrl(umsnhUrl).catch(() => ''),
@@ -613,7 +626,8 @@ const InternoView = () => {
     estado: data.estado || 'Sin asignar',
     responsable: data.responsable || data.entrega_responsable || data.dependencia || '',
     usu_asig: data.usu_asig || data.responsable_usuario || '',
-    numero_empleado_usuario: data.numero_empleado_usuario || ''
+    numero_empleado_usuario: data.numero_empleado_usuario || '',
+    archi: data.archi || ''
   })
 
   // Cargar opciones de filtros una sola vez (todos los datos sin filtros)
@@ -793,9 +807,8 @@ const InternoView = () => {
     setFormData({ ...item })
     setDrawerMode('view')
     setShowDrawer(true)
-    setBrokenFotos({})
-    loadFotos(item.id)
     loadXmlInfo(item.id)
+    loadArchiInfo(item.id)
   }
   
   // Abrir drawer para crear
@@ -833,7 +846,6 @@ const InternoView = () => {
     })
     setDrawerMode('create')
     setShowDrawer(true)
-    setFotos([])
   }
   
   // Abrir drawer para editar
@@ -842,9 +854,8 @@ const InternoView = () => {
     setFormData({ ...item })
     setDrawerMode('edit')
     setShowDrawer(true)
-    setBrokenFotos({})
-    loadFotos(item.id)
     loadXmlInfo(item.id)
+    loadArchiInfo(item.id)
   }
   
   // Cerrar drawer
@@ -852,103 +863,9 @@ const InternoView = () => {
     setShowDrawer(false)
     setSelectedItem(null)
     setDrawerMode('view')
-    setFotos([])
-    setBrokenFotos({})
+    setArchiUrl('')
   }
 
-  const loadFotos= async (id) => {
-    const sessionId = getSessionId()
-    try {
-      const response = await fetch(`${API_BASE}/patrimonioci/${id}/fotos`, {
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' }
-      })
-      const data = await response.json()
-      if (!data.success) return setFotos([])
-      setFotos(data.data || [])
-    } catch (error) {
-      console.error('Error cargando fotos:', error)
-      setFotos([])
-    }
-  }
-
-  const getFotoByOrden = (orden) => fotos.find((f) => Number(f.orden) === orden)
-
-  const convertImageToWebpFile = (file, id, orden) => new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return reject(new Error('No se pudo procesar imagen'))
-        ctx.drawImage(img, 0, 0)
-        canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error('No se pudo convertir a WebP'))
-          resolve(new File([blob], `${id}_${orden}.webp`, { type: 'image/webp' }))
-        }, 'image/webp', 0.82)
-      }
-      img.onerror = () => reject(new Error('Imagen inválida'))
-      img.src = reader.result
-    }
-    reader.onerror = () => reject(new Error('No se pudo leer la imagen'))
-    reader.readAsDataURL(file)
-  })
-
-  const handleUploadFoto = async (orden, file) => {
-    if (!selectedItem?.id || !file) return
-    const sessionId = getSessionId()
-    try {
-      setUploadingOrden(orden)
-      const webpFile = await convertImageToWebpFile(file, selectedItem.id, orden)
-      const form = new FormData()
-      form.append('foto', webpFile)
-      const response = await fetch(`${API_BASE}/patrimonioci/${selectedItem.id}/fotos/${orden}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' },
-        body: form
-      })
-      const data = await response.json()
-      if (!data.success) throw new Error(data.message || 'No se pudo subir la foto')
-      setBrokenFotos((prev) => ({
-        ...prev,
-        [`view-${orden}`]: false,
-        [`edit-${orden}`]: false
-      }))
-      setPhotoRefreshTs(Date.now())
-      toast.success(`Foto ${orden} actualizada`)
-      loadFotos(selectedItem.id)
-    } catch (error) {
-      console.error('Error subiendo foto:', error)
-      toast.error(error.message || 'Error subiendo foto')
-    } finally {
-      setUploadingOrden(null)
-    }
-  }
-
-  const handleDeleteFoto = async (orden) => {
-    if (!selectedItem?.id) return
-    const sessionId = getSessionId()
-    try {
-      const response = await fetch(`${API_BASE}/patrimonioci/${selectedItem.id}/fotos/${orden}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' }
-      })
-      const data = await response.json()
-      if (!data.success) throw new Error(data.message || 'No se pudo eliminar la foto')
-      setPhotoRefreshTs(Date.now())
-      toast.success(`Foto ${orden} eliminada`)
-      loadFotos(selectedItem.id)
-    } catch (error) {
-      console.error('Error eliminando foto:', error)
-      toast.error(error.message || 'Error eliminando foto')
-    }
-  }
-  
   // Manejar cambios en el formulario
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -1571,124 +1488,33 @@ const InternoView = () => {
                     </div>
                     {!collapsedSections.fotografia && (
                       <div className="photo-slots">
-                        {[1, 2, 3].map((orden) => {
-                          const foto = getFotoByOrden(orden)
-                          return (
-                            <div className="photo-slot" key={`view-photo-${orden}`}>
-                              <div className="photo-slot-header">
-                                <span>Foto {orden}</span>
-                                <span className="photo-name">{selectedItem?.id ? `${selectedItem.id}_${orden}` : `slot_${orden}`}</span>
-                              </div>
-                              {foto && !brokenFotos[`view-${orden}`] ? (
-                                <img
-                                  className="photo-preview"
-                                  src={toFileUrl(foto.ruta_archivo)}
-                                  alt={`Foto ${orden}`}
-                                  onError={() => setBrokenFotos((prev) => ({ ...prev, [`view-${orden}`]: true }))}
+                        <div className="photo-slot">
+                          {archiUrl ? (
+                            <div
+                              className="photo-magnifier-wrap"
+                              ref={magnifierRef}
+                              onMouseMove={handleMagnifierMove}
+                              onMouseLeave={handleMagnifierLeave}
+                              onClick={() => setArchiModal(true)}
+                            >
+                              <img
+                                className="photo-preview"
+                                src={archiUrl}
+                                alt="Foto del bien"
+                                onError={(e) => { e.target.style.display = 'none' }}
+                              />
+                              {magnifier.visible && (
+                                <div
+                                  className="photo-zoom-lens"
+                                  style={{ left: magnifier.lensX, top: magnifier.lensY, width: LENS_W, height: LENS_H }}
                                 />
-                              ) : (
-                                <div className="photo-empty">Sin imagen</div>
                               )}
                             </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {drawerMode !== 'view' && (
-                <>
-                  {renderSection('rm', 'edit')}
-                  {renderSection('identificacion', 'edit')}
-                  {renderSection('informacionContable', 'edit')}
-                  {renderSection('controlInterno', 'edit')}
-
-                  <div className="drawer-section">
-                    <div className="section-header" onClick={() => toggleSection('xml')}>
-                      <div className="section-left">
-                        <h3>XML del bien</h3>
-                      </div>
-                      <button className="section-toggle" aria-expanded={!collapsedSections.xml}><FaChevronDown className={collapsedSections.xml ? 'rotated' : ''} /></button>
-                    </div>
-                    {!collapsedSections.xml && (
-                      <>
-                        <input ref={xmlInputRef} type="file" accept=".xml" style={{ display: 'none' }} onChange={handleXmlFileSelected} />
-                        <div className="xml-block xml-edit xml-edit-inline" onClick={() => {
-                          if (!selectedItem?.id) return toast.info('Guarda el registro antes de subir el XML')
-                          if (xmlInputRef.current) xmlInputRef.current.click()
-                        }}>
-                          {xmlInfo.exists ? (
-                            <div className="xml-meta">{xmlInfo.filename || `${selectedItem?.id}.xml`}</div>
                           ) : (
-                            <div className="xml-empty">Vacio — Presiona para subir XML</div>
-                          )}
-                          {xmlInfo.exists && (
-                            <button className="btn-icon btn-xml xml-inline-btn" title="Abrir XML" onClick={(e) => {
-                              e.stopPropagation()
-                              if (xmlInfo.url) {
-                                window.open(xmlInfo.url, '_blank')
-                              } else if (xmlInfo.content) {
-                                const blob = new Blob([xmlInfo.content], { type: 'application/xml; charset=utf-8' })
-                                const blobUrl = URL.createObjectURL(blob)
-                                window.open(blobUrl, '_blank')
-                                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
-                              } else {
-                                handleOpenXml(selectedItem)
-                              }
-                            }}><FaFileCode /></button>
+                            <div className="photo-empty">Sin imagen</div>
                           )}
                         </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="drawer-section">
-                    <div className="section-header" onClick={() => toggleSection('fotografia')}>
-                      <h3>Fotografía del bien (máximo 3)</h3>
-                      <button className="section-toggle" aria-expanded={!collapsedSections.fotografia}><FaChevronDown className={collapsedSections.fotografia ? 'rotated' : ''} /></button>
-                    </div>
-                    {!collapsedSections.fotografia && (
-                      <>
-                        {!selectedItem?.id && drawerMode === 'create' && (
-                          <div className="photo-helper">Primero guarda el registro para habilitar fotos.</div>
-                        )}
-                        <div className="photo-slots">
-                          {[1, 2, 3].map((orden) => {
-                            const foto = getFotoByOrden(orden)
-                            return (
-                              <div className="photo-slot" key={`edit-photo-${orden}`}>
-                                <div className="photo-slot-header">
-                                  <span>Foto {orden}</span>
-                                  <span className="photo-name">{selectedItem?.id ? `${selectedItem.id}_${orden}` : `slot_${orden}`}</span>
-                                </div>
-                                {foto && !brokenFotos[`edit-${orden}`] ? (
-                                  <img
-                                    className="photo-preview"
-                                    src={toFileUrl(foto.ruta_archivo)}
-                                    alt={`Foto ${orden}`}
-                                    onError={() => setBrokenFotos((prev) => ({ ...prev, [`edit-${orden}`]: true }))}
-                                  />
-                                ) : (
-                                  <div className="photo-empty">Sin imagen</div>
-                                )}
-                                <div className="photo-actions">
-                                  <label className={`btn-secondary btn-upload ${(!selectedItem?.id || uploadingOrden === orden) ? 'disabled' : ''}`}>
-                                    <FaUpload />
-                                    <input type="file" accept="image/*" disabled={!selectedItem?.id || uploadingOrden === orden} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUploadFoto(orden, file); e.target.value = '' }} />
-                                  </label>
-                                  <label className={`btn-secondary btn-upload ${(!selectedItem?.id || uploadingOrden === orden) ? 'disabled' : ''}`} title="Tomar foto">
-                                    <FaCamera />
-                                    <input type="file" accept="image/*" capture="environment" disabled={!selectedItem?.id || uploadingOrden === orden} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUploadFoto(orden, file); e.target.value = '' }} />
-                                  </label>
-                                  <button type="button" className="btn-icon btn-delete-photo" onClick={() => handleDeleteFoto(orden)} disabled={!selectedItem?.id || !foto || uploadingOrden === orden} title="Eliminar foto"><FaTrash /></button>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 </>
@@ -1744,6 +1570,36 @@ const InternoView = () => {
                 }
               }}>Abrir en nueva pestaña</button>
             </div>
+          </div>
+        </>
+      )}
+      {magnifier.visible && archiUrl && (
+        <div
+          className="photo-zoom-panel"
+          style={{
+            position: 'fixed',
+            left: magnifier.panelX,
+            top: magnifier.panelY,
+            width: PANEL_W,
+            height: PANEL_H,
+            backgroundImage: `url(${archiUrl})`,
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: `${magnifier.imgW * ZOOM}px ${magnifier.imgH * ZOOM}px`,
+            backgroundPosition: `-${magnifier.lensX * ZOOM}px -${magnifier.lensY * ZOOM}px`,
+          }}
+        />
+      )}
+      {archiModal && archiUrl && (
+        <>
+          <div className="img-modal-overlay" onClick={() => setArchiModal(false)} />
+          <div className="img-modal" role="dialog" aria-modal="true">
+            <button className="img-modal-close" onClick={() => setArchiModal(false)}>×</button>
+            <img
+              className="img-modal-img"
+              src={archiUrl}
+              alt="Foto del bien"
+              onError={(e) => { e.target.alt = 'No se pudo cargar la imagen' }}
+            />
           </div>
         </>
       )}

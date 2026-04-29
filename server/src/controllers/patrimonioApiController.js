@@ -534,6 +534,37 @@ const deleteXmlPatrimonioci = async (req, res) => {
 };
 
 /**
+ * Obtener URL de imagen (archi) desde la API externa
+ * Ruta: GET /patrimonioci/:id/archi
+ */
+const getArchiPatrimonioci = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const umichSessionId = getUmichSessionFromRequest(req);
+
+    const archiField = await patrimonioApiService.getPatrimonioArchiById(id, umichSessionId);
+    if (!archiField) return res.json({ success: true, data: { exists: false } });
+
+    let url = String(archiField).trim();
+    if (!/^https?:\/\//i.test(url)) {
+      const apiBase = process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+      try {
+        const baseUrl = new URL(apiBase);
+        url = url.startsWith('/') ? `${baseUrl.origin}${url}` : `${apiBase.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+      } catch (e) {
+        const origin = apiBase.split('/').slice(0, 3).join('/');
+        url = url.startsWith('/') ? `${origin}${url}` : `${apiBase.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+      }
+    }
+
+    return res.json({ success: true, data: { exists: true, url } });
+  } catch (error) {
+    console.error('Error al obtener archi:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Error al obtener imagen' });
+  }
+};
+
+/**
  * Obtener información del modo de datos actual
  */
 const getDataSourceInfo = async (req, res) => {
@@ -573,6 +604,8 @@ module.exports = {
   getXmlPatrimoniociProxy,
   uploadXmlPatrimonioci,
   deleteXmlPatrimonioci,
+  // Imagen (archi)
+  getArchiPatrimonioci,
   // Info del sistema
   getDataSourceInfo
 };
