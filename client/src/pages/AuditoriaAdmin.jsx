@@ -246,7 +246,7 @@ export default function AuditoriaAdmin() {
           <table className="aud-table">
             <thead>
               <tr>
-                <th>Practicante</th>
+                <th>Auditor</th>
                 <th>Progreso</th>
                 <th>Revisados</th>
                 <th>Último acceso</th>
@@ -317,7 +317,7 @@ export default function AuditoriaAdmin() {
             {!newCreds ? (
               <form onSubmit={handleCreate} className="aud-create-form">
                 <label>
-                  Nombre del practicante
+                  Nombre del Auditor
                   <input
                     type="text"
                     value={form.intern_name}
@@ -503,7 +503,7 @@ export default function AuditoriaAdmin() {
                 <table className="aud-table aud-events-table">
                   <thead>
                     <tr>
-                      <th>Folio</th>
+                      <th>ID</th>
                       <th>Descripción</th>
                       <th>Anterior</th>
                       <th>Nuevo</th>
@@ -514,7 +514,7 @@ export default function AuditoriaAdmin() {
                   <tbody>
                     {eventos.map(ev => (
                       <tr key={ev.id}>
-                        <td>{ev.folio || '—'}</td>
+                        <td>{ev.inventario_id || '—'}</td>
                         <td className="aud-desc">{ev.descripcion}</td>
                         <td>
                           <span

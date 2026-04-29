@@ -31,7 +31,7 @@ const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
           <li className={location.pathname === '/auditoria' ? 'active' : ''}>
             <Link to="/auditoria" className="menu-link" onClick={onClose}>
               <MdAssignmentTurnedIn size={18} />
-              Auditoría de Campo
+              Auditoría
             </Link>
           </li>
         </ul>
