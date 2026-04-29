@@ -14,27 +14,37 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
-// Rate limiting
+// Rate limiting — desactivado en desarrollo para no interferir con el trabajo local
 const limiter = rateLimit({
-  windowMs: process.env.RATE_LIMIT_WINDOW_MS || 1 * 60 * 1000,
-  max: process.env.RATE_LIMIT_MAX_REQUESTS || 1000000,
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 300,
   message: {
     success: false,
     message: 'Demasiadas solicitudes, intenta de nuevo más tarde.'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req, res) => {
-    if (req.path === '/api/health') {
-      return true;
-    }
+  skip: (req) => {
+    // En desarrollo no limitamos para no interferir con recargas frecuentes
+    if (process.env.NODE_ENV !== 'production') return true;
+    if (req.path === '/api/health') return true;
     return false;
   }
 });
 
 // Middleware
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  contentSecurityPolicy: process.env.NODE_ENV === 'production'
+    ? {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'none'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          upgradeInsecureRequests: [],
+        }
+      }
+    : false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
@@ -76,8 +86,8 @@ app.use(compression({
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-app.use(express.json({ charset: 'utf-8', limit: '500mb' }));
-app.use(express.urlencoded({ extended: true, charset: 'utf-8', limit: '500mb' }));
+app.use(express.json({ charset: 'utf-8', limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, charset: 'utf-8', limit: '10mb' }));
 
 // Serve uploaded files
 const path = require('path');

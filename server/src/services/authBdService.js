@@ -10,6 +10,11 @@ const bcrypt = require('bcrypt');
  */
 const loginLocal = async (usuario, contrasena) => {
   try {
+    // Protección contra bcrypt bomb: contraseñas muy largas pueden saturar la CPU
+    if (!contrasena || contrasena.length > 128) {
+      throw new Error('Credenciales inválidas');
+    }
+
     // Buscar usuario
     const result = await pool.query(
       'SELECT * FROM public.usuarios WHERE usuario = $1 AND activo = true',
@@ -54,6 +59,9 @@ const loginLocal = async (usuario, contrasena) => {
  */
 const createUser = async (data) => {
   try {
+    if (!data.contrasena || data.contrasena.length > 128) {
+      throw new Error('La contraseña excede la longitud máxima permitida (128 caracteres)');
+    }
     // Hash de la contraseña
     const hashedPassword = await bcrypt.hash(data.contrasena, 12);
     
@@ -100,6 +108,9 @@ const userExists = async (usuario) => {
  */
 const changePassword = async (usuario, nuevaContrasena) => {
   try {
+    if (!nuevaContrasena || nuevaContrasena.length > 128) {
+      throw new Error('La contraseña excede la longitud máxima permitida (128 caracteres)');
+    }
     const hashedPassword = await bcrypt.hash(nuevaContrasena, 12);
     
     await pool.query(

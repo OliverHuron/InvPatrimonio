@@ -1453,6 +1453,14 @@ const InternoView = () => {
             </div>
             
             <div className="drawer-content">
+              {(drawerMode === 'edit' || drawerMode === 'create') && (
+                <>
+                  {renderSection('rm', 'edit')}
+                  {renderSection('identificacion', 'edit')}
+                  {renderSection('informacionContable', 'edit')}
+                  {renderSection('controlInterno', 'edit')}
+                </>
+              )}
               {drawerMode === 'view' && (
                 <>
                   {renderSection('rm', 'view')}
@@ -1527,7 +1535,7 @@ const InternoView = () => {
                   <button className="btn-secondary" onClick={handleCloseDrawer}>
                     Cerrar
                   </button>
-                  <button className="btn-primary" onClick={() => setDrawerMode('edit')}>
+                  <button className="btn-primary" onClick={() => { setFormData({ ...selectedItem }); setDrawerMode('edit'); }}>
                     Editar
                   </button>
                 </>

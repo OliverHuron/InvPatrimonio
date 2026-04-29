@@ -3,6 +3,7 @@
 // =====================================================
 const express = require('express');
 const router = express.Router();
+const Joi = require('joi');
 const patrimonioApiController = require('../controllers/patrimonioApiController');
 const authController = require('../controllers/authController');
 const authBdService = require('../services/authBdService');
@@ -15,6 +16,14 @@ const multer = require('multer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_super_secreto_cambialo_en_produccion';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+
+// Esquema de validación para login
+const loginSchema = Joi.object({
+  username: Joi.string().trim().min(1).max(100).required()
+    .messages({ 'any.required': 'El campo usuario es requerido', 'string.max': 'Usuario demasiado largo' }),
+  password: Joi.string().min(1).max(128).required()
+    .messages({ 'any.required': 'El campo contraseña es requerido', 'string.max': 'Contraseña demasiado larga' })
+});
 
 // NOTE: removed in-memory session->user mapping to simplify auth flow (no role mapping)
 
@@ -84,6 +93,12 @@ const getAuthSource = () => {
 // =====================================================
 router.post('/auth/login', async (req, res) => {
   try {
+    // Validar inputs antes de procesar
+    const { error: validationError } = loginSchema.validate(req.body);
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError.details[0].message });
+    }
+
     const { username, password } = req.body;
     const authSource = getAuthSource();
     

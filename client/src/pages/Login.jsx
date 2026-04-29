@@ -79,6 +79,7 @@ const Login = () => {
                 placeholder="Ingresa tu usuario"
                 autoComplete="off"
                 disabled={loading}
+                maxLength={100}
               />
             </div>
           </div>
@@ -95,6 +96,7 @@ const Login = () => {
                 placeholder="Ingresa tu contraseña"
                 autoComplete="new-password"
                 disabled={loading}
+                maxLength={128}
               />
               <button
                 type="button"
