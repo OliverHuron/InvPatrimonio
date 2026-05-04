@@ -7,6 +7,7 @@ const sseService = require('../services/sseService');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 // Helper: extraer session id UMICH desde header o cookies
 const getUmichSessionFromRequest = (req) => {
@@ -225,6 +226,25 @@ const getAllPatrimonioci = async (req, res) => {
     // Debugging: log received filters and current data source
     console.log('[Controller] getAllPatrimonioci called. Filters:', filters, 'page:', page, 'limit:', limit);
     console.log('[Controller] ENV INVENTARIO_DATA_SOURCE =', process.env.INVENTARIO_DATA_SOURCE);
+
+    // URES filtering (solo en modo BD): si el usuario tiene URES asignada y no es admin,
+    // solo ve los bienes donde ures_responsable coincide con su URES.
+    const authSource = (process.env.INVENTARIO_AUTH_SOURCE || process.env.INVENTARIO_DATA_SOURCE || 'bd').toLowerCase();
+    if (authSource === 'bd') {
+      const token = req.cookies?.auth_token;
+      if (token) {
+        try {
+          const JWT_SECRET = process.env.JWT_SECRET || 'tu_super_secreto_cambialo_en_produccion';
+          const decoded = jwt.verify(token, JWT_SECRET);
+          if (decoded.ures && decoded.rol !== 'administrador') {
+            filters.ures_responsable = decoded.ures;
+            console.log('[Controller] URES filter applied:', decoded.ures);
+          }
+        } catch (e) {
+          // Token inválido o expirado — sin filtro URES
+        }
+      }
+    }
 
     const result = await inventarioService.getAllInventariosInternos(page, limit, filters);
     res.json({

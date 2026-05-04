@@ -120,6 +120,13 @@ const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) =>
       paramIndex++;
     }
 
+    // Filtro URES responsable: solo muestra bienes de la URES del usuario (modo BD demo)
+    if (filters.ures_responsable) {
+      query += ` AND ures_responsable = $${paramIndex}`;
+      params.push(filters.ures_responsable);
+      paramIndex++;
+    }
+
     // Filtro UMA: costo vs (valor_uma_del_año_ejercicio × 70)
     // Usa EXISTS para evitar casteos peligrosos y manejar años sin UMA correctamente.
     // Si el bien no tiene ejercicio, o no hay UMA para ese año, se excluye del filtro.
