@@ -3,19 +3,14 @@
 // =====================================================
 const express = require('express');
 const router = express.Router();
+const redisService = require('../services/redis.service');
 const Joi = require('joi');
 const patrimonioApiController = require('../controllers/patrimonioApiController');
-const authController = require('../controllers/authController');
-const authBdService = require('../services/authBdService');
 const sseService = require('../services/sseService');
 const axios = require('axios');
-const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_super_secreto_cambialo_en_produccion';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 // Esquema de validación para login
 const loginSchema = Joi.object({
@@ -76,20 +71,8 @@ const uploadXml = multer({
   }
 });
 
-// Obtener modo de datos
-const getDataSource = () => {
-  const source = process.env.INVENTARIO_DATA_SOURCE || 'bd';
-  return source.toLowerCase();
-};
-
-// Obtener modo de autenticación (puede ser distinto de la fuente de datos)
-const getAuthSource = () => {
-  const source = process.env.INVENTARIO_AUTH_SOURCE || process.env.INVENTARIO_DATA_SOURCE || 'bd';
-  return source.toLowerCase();
-};
-
 // =====================================================
-// LOGIN DUAL - BD (JWT httpOnly) o API (sessionId)
+// LOGIN — Proxy a UMICH (API mode)
 // =====================================================
 router.post('/auth/login', async (req, res) => {
   try {
@@ -100,68 +83,8 @@ router.post('/auth/login', async (req, res) => {
     }
 
     const { username, password } = req.body;
-    const authSource = getAuthSource();
-    
-    console.log(`[Auth] Auth Modo: ${authSource.toUpperCase()}`);
-    
-    // MODO BD: Autenticación local con JWT httpOnly cookies
-    if (authSource === 'bd') {
-      try {
-        const user = await authBdService.loginLocal(username, password);
-        
-        // Generar JWT
-        const token = jwt.sign(
-          {
-            id: user.id,
-            usuario: user.usuario,
-            rol: user.rol,
-            ures: user.ures
-          },
-          JWT_SECRET,
-          { expiresIn: JWT_EXPIRES_IN }
-        );
-        
-        // Establecer cookie httpOnly
-        res.cookie('auth_token', token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 24 * 60 * 60 * 1000 // 24 horas
-        });
-        
-        console.log('[Auth BD] Login exitoso:', user.usuario);
-        
-        return res.json({
-          success: true,
-          message: 'Login exitoso',
-          user: {
-            id: user.id,
-            username: user.usuario,
-            rol: user.rol,
-            ures: user.ures
-          },
-          source: 'bd'
-        });
-      } catch (error) {
-        console.log('[Auth BD] Login fallido:', error.message);
-        if (error && error.code === '42P01') {
-          return res.status(500).json({
-            success: false,
-            message: 'La tabla de usuarios no existe en esta base de datos. Ejecuta migraciones en producción.',
-            source: 'bd'
-          });
-        }
-        return res.status(401).json({
-          success: false,
-          message: error.message || 'Credenciales inválidas',
-          source: 'bd'
-        });
-      }
-    }
-    
-    // MODO API: Proxy a UMICH
     console.log('[Proxy Login] Intentando login con UMICH...');
-    
+
     const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
     const baseCandidates = [configuredBase];
     if (configuredBase.startsWith('http://')) {
@@ -214,7 +137,7 @@ router.post('/auth/login', async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000 // 24 horas
+            maxAge: 8 * 60 * 60 * 1000 // 8 horas (sesión laboral)
           };
           try {
             // Set both `auth_token` (app conventions) and `JSESSIONID` (UMICH convention)
@@ -277,14 +200,6 @@ router.get('/ures/:code', async (req, res) => {
   // Validar formato numérico (evita path injection)
   if (!/^[1-9]\d{0,19}$/.test(code)) {
     return res.status(400).json({ error: 'Código URES inválido' });
-  }
-
-  const authSource = getAuthSource();
-
-  // En modo BD no hay JSESSIONID de UMICH — aceptar cualquier código numérico válido
-  // (la validación real ocurre al filtrar en la BD)
-  if (authSource === 'bd') {
-    return res.json([{ ures: parseInt(code, 10) }]);
   }
 
   // Modo API: usar SOLO el JSESSIONID real de UMICH desde cookie httpOnly
@@ -378,6 +293,10 @@ router.delete('/patrimonioci/:id/xml', patrimonioApiController.deleteXmlPatrimon
 // === Imagen (archi) para Patrimonio CI ===
 router.get('/patrimonioci/:id/archi', patrimonioApiController.getArchiPatrimonioci);
 
+// === Estado de bien (SQLite item_estados) ===
+router.get('/patrimonioci/:id/estado', patrimonioApiController.getEstadoBien);
+router.patch('/patrimonioci/:id/estado', patrimonioApiController.setEstadoBien);
+
 // === PATRIMONIO (Externo) ===
 router.get('/patrimonio', patrimonioApiController.getAllPatrimonios);
 router.get('/patrimonio/:id', patrimonioApiController.getPatrimonioById);
@@ -412,52 +331,78 @@ router.post('/', patrimonioApiController.createPatrimonio);
 router.put('/:id(\\d+)', patrimonioApiController.updatePatrimonio);
 
 // =====================================================
-// LOGOUT DUAL
+// VERIFY SESSION — verifica contra UMICH con URES (cacheado 5 min)
 // =====================================================
-router.post('/auth/logout', async (req, res) => {
-  const authSource = getAuthSource();
-  
-  if (authSource === 'bd') {
-    // Limpiar cookie JWT
-    res.clearCookie('auth_token');
-    return res.json({ success: true, message: 'Logout exitoso' });
-  } else {
-    // Logout de API externa (si existe)
-    try {
-      const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
-      const baseUrl = configuredBase;
-      // Obtener JSESSIONID desde cookie o header
-      const jsession = req.cookies?.auth_token || req.cookies?.JSESSIONID || req.headers['x-umich-session'] || null;
-      if (jsession) {
-        // Llamar al endpoint de logout de UMICH pasando la cookie
-        await axios.post(`${baseUrl}/auth/logout`, {}, {
-          headers: { Cookie: `JSESSIONID=${jsession}` },
-          timeout: parseInt(process.env.EXTERNAL_API_TIMEOUT || '10000', 10),
-          validateStatus: () => true
-        });
-      }
-    } catch (err) {
-      console.warn('[Proxy Logout] Error llamando logout externo:', err.message || err);
-    } finally {
-      // Limpiar cookies locales
+router.get('/auth/verify', async (req, res) => {
+  const jsession = req.cookies?.JSESSIONID || req.cookies?.auth_token;
+  if (!jsession) return res.status(401).json({ ok: false });
 
+  // Si se pasa ?ures=, verificar contra UMICH que la sesión siga activa
+  const uresCode = req.query?.ures;
+  if (uresCode && /^\d+$/.test(uresCode)) {
+    const cacheKey = `verify:${jsession.slice(0, 16)}:${uresCode}`;
+    const cached = await redisService.get(cacheKey);
+    if (cached) {
+      if (cached.ok) return res.json({ ok: true, cached: true });
       res.clearCookie('auth_token');
       res.clearCookie('JSESSIONID');
+      return res.status(401).json({ ok: false, reason: 'umich_session_expired' });
     }
 
-    return res.json({ success: true, message: 'Logout exitoso' });
+    try {
+      const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+      const umichRes = await axios.get(`${configuredBase}/api/patrimonio/inventarioXures/${uresCode}`, {
+        headers: { Cookie: `JSESSIONID=${jsession}` },
+        timeout: 5000,
+        validateStatus: () => true
+      });
+      if (umichRes.status === 403) {
+        console.log('[Verify] Sesión UMICH expirada (403) — limpiando cookies');
+        // No cachear la expiración — la próxima vez igual fallará sin cache
+        res.clearCookie('auth_token');
+        res.clearCookie('JSESSIONID');
+        return res.status(401).json({ ok: false, reason: 'umich_session_expired' });
+      }
+      // Sesión válida — cachear 5 minutos
+      await redisService.set(cacheKey, { ok: true }, 300);
+    } catch (err) {
+      console.warn('[Verify] No se pudo contactar UMICH:', err.message);
+      // Error de red — no invalidar, dejar pasar
+    }
   }
+
+  return res.json({ ok: true });
 });
 
 // =====================================================
-// PERFIL DE USUARIO (soporta BD y API externa)
+// LOGOUT
+// =====================================================
+router.post('/auth/logout', async (req, res) => {
+  try {
+    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+    const jsession = req.cookies?.auth_token || req.cookies?.JSESSIONID || req.headers['x-umich-session'] || null;
+    if (jsession) {
+      const uresFromQuery = req.query?.ures || req.body?.ures;
+      if (uresFromQuery) await redisService.del(`verify:${jsession.slice(0, 16)}:${uresFromQuery}`).catch(() => {});
+      await axios.post(`${configuredBase}/auth/logout`, {}, {
+        headers: { Cookie: `JSESSIONID=${jsession}` },
+        timeout: parseInt(process.env.EXTERNAL_API_TIMEOUT || '10000', 10),
+        validateStatus: () => true
+      });
+    }
+  } catch (err) {
+    console.warn('[Proxy Logout] Error llamando logout externo:', err.message || err);
+  } finally {
+    res.clearCookie('auth_token');
+    res.clearCookie('JSESSIONID');
+  }
+  return res.json({ success: true, message: 'Logout exitoso' });
+});
+
+// =====================================================
+// PERFIL DE USUARIO
 // =====================================================
 router.get('/auth/profile', async (req, res) => {
-  const authSource = getAuthSource();
-  if (authSource === 'bd') {
-    // Usar verificación JWT local
-    return authController.verifyToken(req, res, () => authController.getProfile(req, res));
-  }
 
   // Modo API: obtener perfil desde UMICH usando la cookie de sesión
   try {

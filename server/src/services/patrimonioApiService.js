@@ -367,6 +367,7 @@ const getAllPatrimonioByUres = async (uresCodes, umichSessionId = null) => {
       }
       console.log(`[PatrimonioAPI] URES ${code}: ${items.length} registros`);
     } catch (err) {
+      if (err.status === 401 || err.status === 403) throw err; // sesión UMICH expirada — propagar al controlador
       console.warn(`[PatrimonioAPI] Error consultando URES ${code}:`, err.message);
     }
   }

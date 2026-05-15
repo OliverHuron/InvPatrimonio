@@ -271,6 +271,7 @@ export default function AuditoriaPublica() {
   const [pagination, setPagination] = useState({ total: 0, page: 1, total_pages: 1 })
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [itemsError, setItemsError] = useState(null)
   const [filters, setFilters] = useState({ search: '', estado: '', ubicacion: '', responsable: '', id: '' })
   const [showFilters, setShowFilters] = useState(false)
   const [scanCameraSupported, setScanCameraSupported] = useState(false)
@@ -366,6 +367,7 @@ export default function AuditoriaPublica() {
   // ── Cargar items
   const fetchItems = useCallback(async (page = 1, f = filters, append = false) => {
     append ? setLoadingMore(true) : setLoading(true)
+    if (!append) setItemsError(null)
     const params = new URLSearchParams({ page, per_page: 30 })
     if (f.search)      params.set('search', f.search)
     if (f.estado)      params.set('estado', f.estado)
@@ -382,6 +384,8 @@ export default function AuditoriaPublica() {
       if (data.success) {
         setItems(prev => append ? [...prev, ...data.data] : data.data)
         setPagination(data.pagination)
+      } else {
+        if (!append) setItemsError(data.message || 'No se pudieron cargar los bienes.')
       }
     } catch { /* ignore */ }
     finally { append ? setLoadingMore(false) : setLoading(false) }
@@ -1010,6 +1014,11 @@ export default function AuditoriaPublica() {
           <div className="pub-loading">
             <div className="pub-spinner" />
             Cargando bienes…
+          </div>
+        ) : itemsError ? (
+          <div className="pub-empty pub-empty-error">
+            <FaTimes size={28} color="#b91c1c" />
+            <p>{itemsError}</p>
           </div>
         ) : items.length === 0 ? (
           <div className="pub-empty">

@@ -56,6 +56,7 @@ export default function AuditoriaAdmin() {
   const [accessSesion, setAccessSesion] = useState(null)
   const [regenerated, setRegenerated] = useState(null) // { link, username, password }
   const [regenerating, setRegenerating] = useState(false)
+  const [refreshingJsession, setRefreshingJsession] = useState(false)
 
   const fetchSesiones = useCallback(async () => {
     setLoading(true)
@@ -210,9 +211,26 @@ export default function AuditoriaAdmin() {
   }
 
   const resetCreate = () => {
-    setShowCreate(false)
     setNewCreds(null)
     setForm({ intern_name: '', expires_in_hours: 8 })
+  }
+
+  const handleRefreshJsession = async () => {
+    if (!accessSesion) return
+    setRefreshingJsession(true)
+    try {
+      const res = await fetch(
+        `${API_BASE}/auditoria/sesiones/${accessSesion.id}/refresh-jsession`,
+        { method: 'POST', credentials: 'include' }
+      )
+      const data = await res.json()
+      if (data.success) toast.success('Sesión UMICH actualizada. Los bienes deberían cargar ahora.')
+      else toast.error(data.message || 'Error al actualizar')
+    } catch {
+      toast.error('Error de red')
+    } finally {
+      setRefreshingJsession(false)
+    }
   }
 
   const closeAccess = () => {
@@ -478,6 +496,14 @@ export default function AuditoriaAdmin() {
 
                 <div className="aud-modal-footer">
                   <button className="aud-btn-secondary" onClick={closeAccess}>Cerrar</button>
+                  <button
+                    className="aud-btn-secondary"
+                    onClick={handleRefreshJsession}
+                    disabled={refreshingJsession || !!accessData.revoked_at}
+                    title="Actualiza la sesión UMICH almacenada con tu sesión activa (sin cambiar el enlace)"
+                  >
+                    <FaSync size={12} /> {refreshingJsession ? 'Actualizando…' : 'Actualizar UMICH'}
+                  </button>
                   <button
                     className="aud-btn-primary"
                     onClick={handleRegenerate}

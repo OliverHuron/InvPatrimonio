@@ -694,6 +694,12 @@ const InternoView = () => {
       })
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
+          localStorage.removeItem('userData')
+          window.location.href = '/login'
+          return
+        }
         throw new Error(`Error ${response.status}`)
       }
 
@@ -740,7 +746,7 @@ const InternoView = () => {
         setItems(prev => {
           let changed = false
           const next = prev.map(it => {
-            if (it.id === data.id && it.estado !== data.estado) {
+            if (Number(it.id) === Number(data.id) && it.estado !== data.estado) {
               changed = true
               return { ...it, estado: data.estado }
             }
@@ -1157,18 +1163,35 @@ const InternoView = () => {
 
       const method = drawerMode === 'create' ? 'POST' : 'PUT'
 
+      // Strip estado — UMICH API doesn't accept it; we handle it separately via SQLite
+      const { estado, ...formDataSinEstado } = formData
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify({ ...formData })
+        body: JSON.stringify(formDataSinEstado)
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
+        // Save estado separately if it changed (API mode only; in BD mode estado is in the main table)
+        const itemId = drawerMode === 'create' ? data.data?.id : selectedItem.id
+        if (itemId && estado) {
+          try {
+            await fetch(`${API_BASE}/patrimonioci/${itemId}/estado`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ estado })
+            })
+          } catch {
+            // Non-fatal: estado endpoint may not exist in BD mode
+          }
+        }
         toast.success(drawerMode === 'create' ? 'Creado exitosamente' : 'Actualizado exitosamente')
         handleCloseDrawer()
         if (drawerMode === 'create' && data.data?.id) {
@@ -1204,8 +1227,8 @@ const InternoView = () => {
 
   const handleQuickEstadoChange = async (item, nuevoEstado) => {
     try {
-      const response = await fetch(`${API_BASE}/patrimonioci/actualizar/${item.id}`, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE}/patrimonioci/${item.id}/estado`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ estado: nuevoEstado })
@@ -1215,7 +1238,7 @@ const InternoView = () => {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, estado: nuevoEstado } : i))
         toast.success('Estado actualizado')
       } else {
-        toast.error('Error al actualizar estado')
+        toast.error(data.message || 'Error al actualizar estado')
       }
     } catch (error) {
       console.error('Error actualizando estado:', error)

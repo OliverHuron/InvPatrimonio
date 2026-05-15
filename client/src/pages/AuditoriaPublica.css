@@ -493,6 +493,8 @@
   font-size: 0.85rem;
 }
 .pub-empty p { margin: 0; line-height: 1.5; }
+.pub-empty-error { color: #b91c1c; }
+.pub-empty-error p { color: #7f1d1d; font-weight: 500; }
 
 /* Grid de tarjetas */
 .pub-cards-grid {
@@ -950,8 +952,8 @@
   font-size: 0.78rem;
   color: #475569;
   cursor: pointer;
-  user-select: none;
   -webkit-user-select: none;
+  user-select: none;
 }
 .pub-toggle input[type="checkbox"] {
   width: 14px;

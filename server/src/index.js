@@ -109,9 +109,7 @@ app.use('/api', (req, res, next) => {
 });
 
 // Initialize services
-const { initializeDatabase } = require('./config/database');
 const { initializeRedis } = require('./services/redis.service');
-const { checkStartup, startUmaCron } = require('./services/umaService');
 
 // Health check (register before mounting other /api routes to avoid conflicts)
 app.get('/api/health', (req, res) => {
@@ -156,12 +154,6 @@ app.use('*', (req, res) => {
 // Initialize services and start server
 async function startServer() {
   try {
-    await initializeDatabase();
-    console.log('Base de datos conectada');
-
-    // UMA: verificar tabla local y arrancar cron de actualización automática
-    await checkStartup();
-    startUmaCron();
 
     try {
       await initializeRedis();

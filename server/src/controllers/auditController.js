@@ -2,32 +2,16 @@
 // CONTROLADOR: Auditoría de Campo
 // Rutas públicas: /api/auditoria/:token/*   (token UUID + cookie audit_access)
 // Rutas admin:    /api/auditoria/sesiones/* (JWT requerido)
+// Almacenamiento: SQLite (server/data/audit.db) — sin dependencia de PostgreSQL
 // =====================================================
 
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
-const { pool } = require('../config/database');
+const { getDb } = require('../services/sqliteService');
 const sseService = require('../services/sseService');
 const inventarioService = require('../services/inventarioService');
 
 // ── Configuración ────────────────────────────────────────────
-const SAFE_COLUMNS = `
-  i.id,
-  i.folio,
-  i.clave_patrimonial,
-  i.descripcion,
-  i.marca,
-  i.modelo,
-  i.no_serie,
-  i.ubicacion,
-  i.responsable,
-  i.usu_asig,
-  i.numero_empleado_usuario,
-  i.tipo_bien,
-  i.ures_asignacion,
-  i.estado
-`;
-
 const ESTADOS_VALIDOS = ['Sin asignar', 'Localizado', 'Baja', 'No Localizado'];
 
 const AUDIT_ACCESS_SECRET =
@@ -35,7 +19,7 @@ const AUDIT_ACCESS_SECRET =
   process.env.JWT_SECRET ||
   'cambia_este_secreto_audit';
 
-const ACCESS_COOKIE_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad
+const ACCESS_COOKIE_TTL_MS = 30 * 60 * 1000;
 
 const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
 
@@ -71,14 +55,12 @@ function generatePassword() {
   return randomString(8, PASSWORD_ALPHABET);
 }
 
-async function generateUniqueUsername() {
+function generateUniqueUsername() {
+  const db = getDb();
+  const stmt = db.prepare('SELECT 1 FROM audit_sessions WHERE username = ? LIMIT 1');
   for (let i = 0; i < 5; i++) {
     const u = generateUsername();
-    const { rows } = await pool.query(
-      'SELECT 1 FROM audit_sessions WHERE username = $1 LIMIT 1',
-      [u]
-    );
-    if (!rows.length) return u;
+    if (!stmt.get(u)) return u;
   }
   return `aud-${randomString(8, '23456789abcdefghjkmnpqrstuvwxyz')}`;
 }
@@ -130,14 +112,6 @@ function clearAccessCookie(res) {
   res.clearCookie('audit_access', { path: '/api/auditoria' });
 }
 
-// Construye el base URL público para el link de auditoría.
-// Prioriza:
-//   1) PUBLIC_BASE_URL (override explícito p.ej. https://miapp.com)
-//   2) CLIENT_URL (CSV — toma el primero)
-//   3) Header Origin del request (cuando admin es la misma SPA)
-//   4) Header Referer
-//   5) Forwarded host del proxy (X-Forwarded-Proto + X-Forwarded-Host) — Railway/Render/Nginx
-//   6) Host del request (último recurso)
 function resolveBaseUrl(req) {
   const fromEnv =
     process.env.PUBLIC_BASE_URL?.trim() ||
@@ -162,16 +136,15 @@ function resolveBaseUrl(req) {
   return `${req.protocol}://${req.get('host')}`;
 }
 
-async function loadSession(tokenPlain) {
+function loadSession(tokenPlain) {
   const hash = hashToken(tokenPlain);
-  const { rows } = await pool.query(
+  const db = getDb();
+  return db.prepare(
     `SELECT * FROM audit_sessions
-     WHERE token_hash = $1
+     WHERE token_hash = ?
        AND revoked_at IS NULL
-       AND expires_at > NOW()`,
-    [hash]
-  );
-  return rows[0] || null;
+       AND expires_at > datetime('now')`
+  ).get(hash) || null;
 }
 
 // ── Middlewares ──────────────────────────────────────────────
@@ -180,11 +153,9 @@ async function requireAuditTokenOnly(req, res, next) {
   const { token } = req.params;
   if (!token) return res.status(401).json({ success: false, message: 'Token requerido' });
   try {
-    const session = await loadSession(token);
+    const session = loadSession(token);
     if (!session) {
-      return res
-        .status(401)
-        .json({ success: false, message: 'Enlace inválido, expirado o revocado' });
+      return res.status(401).json({ success: false, message: 'Enlace inválido, expirado o revocado' });
     }
     req.auditSession = session;
     next();
@@ -198,32 +169,28 @@ async function requireAuditToken(req, res, next) {
   const { token } = req.params;
   if (!token) return res.status(401).json({ success: false, message: 'Token requerido' });
   try {
-    const session = await loadSession(token);
+    const session = loadSession(token);
     if (!session) {
-      return res
-        .status(401)
-        .json({ success: false, message: 'Enlace inválido, expirado o revocado' });
+      return res.status(401).json({ success: false, message: 'Enlace inválido, expirado o revocado' });
     }
 
     const requiresLogin = !!session.password_hash;
     if (requiresLogin) {
       const cookieSessionId = verifyAccessCookie(req.cookies?.audit_access);
       if (cookieSessionId !== session.id) {
-        return res
-          .status(401)
-          .json({ success: false, message: 'Acceso requerido', requires_login: true });
+        return res.status(401).json({ success: false, message: 'Acceso requerido', requires_login: true });
       }
       setAccessCookie(res, session.id);
     }
 
     req.auditSession = session;
 
-    pool
-      .query(
-        'UPDATE audit_sessions SET last_seen_at = NOW(), last_activity_at = NOW() WHERE id = $1',
-        [session.id]
-      )
-      .catch(() => {});
+    // Actualizar last_seen sin bloquear la respuesta
+    try {
+      getDb().prepare(
+        `UPDATE audit_sessions SET last_seen_at = datetime('now'), last_activity_at = datetime('now') WHERE id = ?`
+      ).run(session.id);
+    } catch (_) {}
 
     next();
   } catch (err) {
@@ -247,9 +214,7 @@ async function loginPublic(req, res) {
   }
 
   if (!username || !password) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'Usuario y contraseña requeridos' });
+    return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
   }
 
   if (String(username).toLowerCase() !== String(session.username).toLowerCase()) {
@@ -291,7 +256,7 @@ async function getFilterOptions(req, res) {
       if (!uresCodes.length) return res.json({ success: true, ubicaciones: [], responsables: [] });
 
       const { items } = await inventarioService.getAllInventariosInternos(
-        1, 10000, { ures: uresCodes.join(',') }, null
+        1, 10000, { ures: uresCodes.join(',') }, session.umich_jsession || null
       );
       const ubicaciones = [...new Set(
         items.map(i => i.ubicacion || i._raw?.ubica).filter(Boolean)
@@ -303,24 +268,12 @@ async function getFilterOptions(req, res) {
       return res.json({ success: true, ubicaciones, responsables });
     }
 
-    const [ubicRes, respRes] = await Promise.all([
-      pool.query(
-        `SELECT DISTINCT ubicacion FROM inventario_interno
-         WHERE ubicacion IS NOT NULL AND ubicacion <> ''
-         ORDER BY ubicacion`
-      ),
-      pool.query(
-        `SELECT DISTINCT responsable FROM inventario_interno
-         WHERE responsable IS NOT NULL AND responsable <> ''
-         ORDER BY responsable`
-      ),
-    ]);
+    // Modo BD: leer de inventario_interno via inventarioService
+    const { items } = await inventarioService.getAllInventariosInternos(1, 10000, {});
+    const ubicaciones = [...new Set(items.map(i => i.ubicacion).filter(Boolean))].sort();
+    const responsables = [...new Set(items.map(i => i.responsable || i.usu_asig).filter(Boolean))].sort();
     res.set('Cache-Control', 'no-store');
-    return res.json({
-      success: true,
-      ubicaciones: ubicRes.rows.map(r => r.ubicacion),
-      responsables: respRes.rows.map(r => r.responsable),
-    });
+    return res.json({ success: true, ubicaciones, responsables });
   } catch (err) {
     console.error('[Audit] getFilterOptions:', err.message);
     return res.status(500).json({ success: false, message: 'Error obteniendo opciones' });
@@ -334,8 +287,9 @@ async function getItems(req, res) {
     const { search, estado, ubicacion, responsable, id } = req.query;
 
     const source = inventarioService.getDataSource();
+    const db = getDb();
 
-    // ── API mode: fetch items from UMICH ────────────────────────────
+    // ── API mode ────────────────────────────────────────────────
     if (source === 'api') {
       const session = req.auditSession;
       const uresCodes = parseUresCodes(session.ures_codes);
@@ -349,41 +303,36 @@ async function getItems(req, res) {
       }
 
       const { items: apiItems } = await inventarioService.getAllInventariosInternos(
-        1, 10000, { ures: uresCodes.join(','), q: search || '' }, null
+        1, 10000, { ures: uresCodes.join(','), q: search || '' }, session.umich_jsession || null
       );
 
-      // Overlay latest audit estado for each item from local DB
-      const ids = apiItems.map(i => i.id).filter(id => id != null);
+      // Overlay estado auditado desde item_estados
+      const ids = apiItems.map(i => i.id).filter(v => v != null);
       const estadoMap = {};
       if (ids.length) {
-        const { rows } = await pool.query(
-          `SELECT DISTINCT ON (inventario_id) inventario_id, valor_nuevo
-           FROM audit_events
-           WHERE inventario_id = ANY($1::int[])
-           ORDER BY inventario_id, ts DESC`,
-          [ids]
-        );
-        rows.forEach(r => { estadoMap[r.inventario_id] = r.valor_nuevo; });
+        const placeholders = ids.map(() => '?').join(',');
+        db.prepare(
+          `SELECT inventario_id, estado FROM item_estados WHERE inventario_id IN (${placeholders})`
+        ).all(...ids).forEach(r => { estadoMap[r.inventario_id] = r.estado; });
       }
 
       let items = apiItems.map(item => ({
-        id:                    item.id,
-        folio:                 item.folio        || item._raw?.folio,
-        clave_patrimonial:     item.numero_patrimonio || item._raw?.clavePat,
-        descripcion:           item.descripcion,
-        marca:                 item.marca,
-        modelo:                item.modelo,
-        no_serie:              item.numero_serie || item._raw?.serie,
-        ubicacion:             item.ubicacion    || item._raw?.ubica,
-        responsable:           item.usu_asig     || item._raw?.persona,
-        usu_asig:              item.usu_asig     || item._raw?.persona,
+        id:                      item.id,
+        folio:                   item.folio        || item._raw?.folio,
+        clave_patrimonial:       item.numero_patrimonio || item._raw?.clavePat,
+        descripcion:             item.descripcion,
+        marca:                   item.marca,
+        modelo:                  item.modelo,
+        no_serie:                item.numero_serie || item._raw?.serie,
+        ubicacion:               item.ubicacion    || item._raw?.ubica,
+        responsable:             item.usu_asig     || item._raw?.persona,
+        usu_asig:                item.usu_asig     || item._raw?.persona,
         numero_empleado_usuario: item.numero_empleado || null,
-        tipo_bien:             item.tipo_bien,
-        ures_asignacion:       String(item.ubicacion_id || ''),
-        estado:                estadoMap[item.id] || 'Sin asignar',
+        tipo_bien:               item.tipo_bien,
+        ures_asignacion:         String(item.ubicacion_id || ''),
+        estado:                  estadoMap[item.id] || 'Sin asignar',
       }));
 
-      // Apply remaining filters (q is already applied by inventarioService)
       if (id !== undefined && id !== '') {
         const idNum = parseInt(id, 10);
         if (Number.isFinite(idNum)) items = items.filter(i => i.id === idNum);
@@ -412,83 +361,42 @@ async function getItems(req, res) {
       });
     }
 
-    // ── BD mode: query local table ───────────────────────────────────
-    const conditions = [];
-    const params     = [];
-
-    if (search) {
-      params.push(search);
-      params.push(`%${search}%`);
-      const eN = params.length - 1;
-      const lN = params.length;
-      conditions.push(
-        `(i.folio                ILIKE $${eN}
-          OR i.clave_patrimonial ILIKE $${lN}
-          OR i.no_serie          ILIKE $${lN}
-          OR CAST(i.id AS TEXT)  = $${eN}
-          OR i.descripcion       ILIKE $${lN}
-          OR i.marca             ILIKE $${lN})`
-      );
-    }
-
-    if (id !== undefined && id !== '') {
-      const idNum = parseInt(id, 10);
-      if (Number.isFinite(idNum)) {
-        params.push(idNum);
-        conditions.push(`i.id = $${params.length}`);
-      }
-    }
-
-    if (estado && ESTADOS_VALIDOS.includes(estado)) {
-      params.push(estado);
-      conditions.push(`i.estado = $${params.length}`);
-    }
-
-    if (ubicacion) {
-      params.push(`%${ubicacion}%`);
-      conditions.push(`i.ubicacion ILIKE $${params.length}`);
-    }
-
-    if (responsable) {
-      params.push(`%${responsable}%`);
-      conditions.push(
-        `(i.responsable ILIKE $${params.length}
-          OR i.usu_asig ILIKE $${params.length}
-          OR i.numero_empleado_usuario ILIKE $${params.length})`
-      );
-    }
-
-    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-
-    const countRes = await pool.query(
-      `SELECT COUNT(*) FROM inventario_interno i ${where}`,
-      params
+    // ── BD mode: leer de inventario_interno via inventarioService ──
+    const filters = { q: search || '', estado, ubicacion, responsable };
+    const { items: bdItems, total } = await inventarioService.getAllInventariosInternos(
+      page, per_page, filters
     );
-    const total = parseInt(countRes.rows[0].count, 10);
 
-    params.push(per_page, (page - 1) * per_page);
-    const dataRes = await pool.query(
-      `SELECT ${SAFE_COLUMNS}
-       FROM inventario_interno i
-       ${where}
-       ORDER BY i.folio ASC NULLS LAST, i.id ASC
-       LIMIT $${params.length - 1} OFFSET $${params.length}`,
-      params
-    );
+    // Overlay estado auditado
+    const ids = bdItems.map(i => i.id).filter(v => v != null);
+    const estadoMap = {};
+    if (ids.length) {
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(
+        `SELECT inventario_id, estado FROM item_estados WHERE inventario_id IN (${placeholders})`
+      ).all(...ids).forEach(r => { estadoMap[r.inventario_id] = r.estado; });
+    }
+
+    const data = bdItems.map(i => ({
+      ...i,
+      estado: estadoMap[i.id] || i.estado || 'Sin asignar',
+    }));
 
     return res.json({
       success: true,
-      data: dataRes.rows,
-      pagination: {
-        total,
-        page,
-        per_page,
-        total_pages: Math.ceil(total / per_page),
-      },
+      data,
+      pagination: { total, page, per_page, total_pages: Math.ceil(total / per_page) || 1 },
     });
   } catch (err) {
     console.error('[Audit] getItems:', err.message);
-    return res.status(500).json({ success: false, message: 'Error obteniendo bienes' });
+    if (err.status === 403 || err.status === 401) {
+      return res.status(503).json({
+        success: false,
+        error_code: 'UMICH_SESSION_EXPIRED',
+        message: 'La sesión del administrador en UMICH ha expirado. Pide al administrador que regenere el enlace de auditoría.',
+      });
+    }
+    return res.status(500).json({ success: false, message: 'Error obteniendo bienes: ' + err.message });
   }
 }
 
@@ -507,9 +415,7 @@ async function updateEstado(req, res) {
   let ccid = null;
   if (client_change_id !== undefined && client_change_id !== null && client_change_id !== '') {
     if (!UUID_RE.test(String(client_change_id))) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'client_change_id debe ser UUID v4' });
+      return res.status(400).json({ success: false, message: 'client_change_id debe ser UUID v4' });
     }
     ccid = String(client_change_id).toLowerCase();
   }
@@ -526,61 +432,32 @@ async function updateEstado(req, res) {
     if (Object.keys(m).length) meta = m;
   }
 
-  const source = inventarioService.getDataSource();
-  const client = await pool.connect();
+  const db = getDb();
+
   try {
-    await client.query('BEGIN');
+    const doUpdate = db.transaction(() => {
+      // Deduplicación
+      if (ccid) {
+        const dup = db.prepare(
+          `SELECT valor_nuevo FROM audit_events
+           WHERE audit_session_id = ? AND client_change_id = ? LIMIT 1`
+        ).get(session.id, ccid);
+        if (dup) return { deduped: true, estado: dup.valor_nuevo };
+      }
 
-    if (ccid) {
-      const dup = await client.query(
+      // Valor anterior desde último evento en SQLite
+      const prevEvent = db.prepare(
         `SELECT valor_nuevo FROM audit_events
-         WHERE audit_session_id = $1 AND client_change_id = $2
-         LIMIT 1`,
-        [session.id, ccid]
-      );
-      if (dup.rows.length) {
-        await client.query('COMMIT');
-        return res.json({ success: true, estado: dup.rows[0].valor_nuevo, deduped: true });
-      }
-    }
+         WHERE inventario_id = ? ORDER BY ts DESC LIMIT 1`
+      ).get(id);
+      const valor_anterior = prevEvent?.valor_nuevo || 'Sin asignar';
 
-    let valor_anterior;
-
-    if (source === 'api') {
-      // In API mode: get valor_anterior from latest audit_event (item doesn't exist in BD)
-      const prevEvent = await client.query(
-        `SELECT valor_nuevo FROM audit_events
-         WHERE inventario_id = $1
-         ORDER BY ts DESC LIMIT 1`,
-        [id]
-      );
-      valor_anterior = prevEvent.rows[0]?.valor_nuevo || 'Sin asignar';
-    } else {
-      // BD mode: lock and read from local table
-      const prev = await client.query(
-        'SELECT estado FROM inventario_interno WHERE id = $1 FOR UPDATE',
-        [id]
-      );
-      if (!prev.rows.length) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ success: false, message: 'Bien no encontrado' });
-      }
-      valor_anterior = prev.rows[0].estado;
-
-      if (valor_anterior !== estado) {
-        await client.query(
-          'UPDATE inventario_interno SET estado = $1, fecha_actualizacion = NOW() WHERE id = $2',
-          [estado, id]
-        );
-      }
-    }
-
-    await client.query(
-      `INSERT INTO audit_events
-         (audit_session_id, inventario_id, campo, valor_anterior, valor_nuevo,
-          observaciones, metadata, client_change_id, item_folio, item_descripcion)
-       VALUES ($1, $2, 'estado', $3, $4, $5, $6, $7, $8, $9)`,
-      [
+      db.prepare(
+        `INSERT INTO audit_events
+           (audit_session_id, inventario_id, campo, valor_anterior, valor_nuevo,
+            observaciones, metadata, client_change_id, item_folio, item_descripcion)
+         VALUES (?, ?, 'estado', ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
         session.id,
         id,
         valor_anterior,
@@ -588,35 +465,47 @@ async function updateEstado(req, res) {
         observaciones || null,
         meta ? JSON.stringify(meta) : null,
         ccid,
-        item_folio        || null,
-        item_descripcion  || null,
-      ]
-    );
+        item_folio       || null,
+        item_descripcion || null,
+      );
 
-    await client.query('COMMIT');
+      // Upsert estado actual del bien
+      db.prepare(
+        `INSERT INTO item_estados (inventario_id, estado, audit_session_id, updated_at)
+         VALUES (?, ?, ?, datetime('now'))
+         ON CONFLICT(inventario_id) DO UPDATE SET
+           estado = excluded.estado,
+           audit_session_id = excluded.audit_session_id,
+           updated_at = excluded.updated_at`
+      ).run(id, estado, session.id);
 
-    if (valor_anterior !== estado) {
+      return { deduped: false, valor_anterior };
+    });
+
+    const result = doUpdate();
+
+    if (result.deduped) {
+      return res.json({ success: true, estado: result.estado, deduped: true });
+    }
+
+    if (result.valor_anterior !== estado) {
       try {
-        const clientCount = sseService.broadcast('inventory_updated', {
+        sseService.broadcast('inventory_updated', {
           action: 'audit_estado',
           id: parseInt(id, 10),
           estado,
           session_id: session.id,
         });
-        console.log(`[SSE] inventory_updated broadcast id=${id} estado=${estado} → ${clientCount ?? '?'} clientes`);
       } catch (e) { console.error('[SSE] broadcast falló:', e.message); }
     }
 
-    return res.json({ success: true, estado, no_change: valor_anterior === estado });
+    return res.json({ success: true, estado, no_change: result.valor_anterior === estado });
   } catch (err) {
-    await client.query('ROLLBACK');
-    if (err.code === '23505' && err.constraint?.includes('idempotency')) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.json({ success: true, estado, deduped: true });
     }
     console.error('[Audit] updateEstado:', err.message);
     return res.status(500).json({ success: false, message: 'Error actualizando estado' });
-  } finally {
-    client.release();
   }
 }
 
@@ -646,49 +535,52 @@ async function createSesion(req, res) {
     try { JSON.parse(ures_codes); uresCodesJson = ures_codes; } catch { /* ignore */ }
   }
 
+  const umichJsession = req.cookies?.JSESSIONID || req.cookies?.auth_token || null;
   const plain = crypto.randomUUID();
   const hash  = hashToken(plain);
   const created_by = req.user?.usuario || req.user?.username || 'admin';
-
-  const username = await generateUniqueUsername();
+  const username = generateUniqueUsername();
   const password = generatePassword();
   const password_hash = await bcrypt.hash(password, 10);
 
-  let inserted;
   try {
-    inserted = await pool.query(
+    const db = getDb();
+    const stmt = db.prepare(
       `INSERT INTO audit_sessions
          (token_hash, intern_name, created_by, expires_at,
-          username, password_hash, expires_in_hours, ures_codes)
-       VALUES ($1, $2, $3, NOW() + make_interval(hours => $4), $5, $6, $4, $7)
-       RETURNING id, expires_at`,
-      [hash, String(intern_name).trim(), created_by, hours, username, password_hash, uresCodesJson]
+          username, password_hash, expires_in_hours, ures_codes, umich_jsession)
+       VALUES (?, ?, ?, datetime('now', (? || ' hours')), ?, ?, ?, ?, ?)`
     );
+    const result = stmt.run(
+      hash, String(intern_name).trim(), created_by,
+      String(hours), username, password_hash, hours, uresCodesJson, umichJsession
+    );
+    const inserted = db.prepare('SELECT id, expires_at FROM audit_sessions WHERE id = ?')
+      .get(result.lastInsertRowid);
+
+    const baseUrl = resolveBaseUrl(req);
+    const link = `${baseUrl}/auditoria/${plain}`;
+
+    return res.status(201).json({
+      success: true,
+      id: inserted.id,
+      link,
+      intern_name: String(intern_name).trim(),
+      username,
+      password,
+      expires_in_hours: hours,
+      expires_at: inserted.expires_at,
+    });
   } catch (err) {
     console.error('[Audit] createSesion:', err.message);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Error al crear sesión: ' + err.message });
+    return res.status(500).json({ success: false, message: 'Error al crear sesión: ' + err.message });
   }
-
-  const baseUrl = resolveBaseUrl(req);
-  const link = `${baseUrl}/auditoria/${plain}`;
-
-  return res.status(201).json({
-    success: true,
-    id: inserted.rows[0].id,
-    link,
-    intern_name: String(intern_name).trim(),
-    username,
-    password,
-    expires_in_hours: hours,
-    expires_at: inserted.rows[0].expires_at,
-  });
 }
 
 async function getSesiones(req, res) {
   try {
-    const { rows } = await pool.query(`
+    const db = getDb();
+    const rows = db.prepare(`
       SELECT
         s.id,
         s.intern_name,
@@ -701,21 +593,20 @@ async function getSesiones(req, res) {
         s.last_activity_at,
         s.username,
         s.ures_codes,
-        (s.password_hash IS NOT NULL)                    AS has_credentials,
-        (s.revoked_at IS NOT NULL)                       AS revocada,
-        (s.expires_at <= NOW() AND s.revoked_at IS NULL) AS expirada,
-        COUNT(DISTINCT ae.inventario_id)::INTEGER        AS items_revisados
+        (s.password_hash IS NOT NULL)                         AS has_credentials,
+        (s.revoked_at IS NOT NULL)                            AS revocada,
+        (s.expires_at <= datetime('now') AND s.revoked_at IS NULL) AS expirada,
+        COUNT(DISTINCT ae.inventario_id)                      AS items_revisados
       FROM audit_sessions s
       LEFT JOIN audit_events ae ON ae.audit_session_id = s.id
       GROUP BY s.id
       ORDER BY s.created_at DESC
-    `);
+    `).all();
 
     let total_items = 0;
     const source = inventarioService.getDataSource();
 
     if (source === 'api') {
-      // Use ures from query param (sent by frontend from localStorage)
       const uresParam = req.query.ures;
       if (uresParam) {
         const codes = String(uresParam).split(',').map(s => s.trim()).filter(Boolean);
@@ -724,20 +615,25 @@ async function getSesiones(req, res) {
             1, 1, { ures: codes.join(',') }, null
           );
           total_items = result.total || 0;
-        } catch { /* leave total_items = 0 */ }
+        } catch { /* leave 0 */ }
       }
     } else {
-      const totalRes = await pool.query(
-        'SELECT COUNT(*)::INTEGER AS total FROM inventario_interno'
-      );
-      total_items = totalRes.rows[0].total;
+      try {
+        const result = await inventarioService.getAllInventariosInternos(1, 1, {});
+        total_items = result.total || 0;
+      } catch { /* leave 0 */ }
     }
 
-    const sesiones = rows.map((s) => ({
+    const sesiones = rows.map(s => ({
       ...s,
+      has_credentials: !!s.has_credentials,
+      revocada:        !!s.revocada,
+      expirada:        !!s.expirada,
+      items_revisados: s.items_revisados || 0,
       total_items,
-      porcentaje:
-        total_items > 0 ? Math.round((s.items_revisados / total_items) * 100) : 0,
+      porcentaje: total_items > 0
+        ? Math.round(((s.items_revisados || 0) / total_items) * 100)
+        : 0,
     }));
 
     return res.json({ success: true, data: sesiones, total_items });
@@ -747,87 +643,87 @@ async function getSesiones(req, res) {
   }
 }
 
-// GET /auditoria/sesiones/:id/access
-// El token plain NO se persiste; solo username y metadatos.
-// El link completo solo se reexpone tras "regenerate".
 async function getSesionAccess(req, res) {
   const { id } = req.params;
-  const { rows } = await pool.query(
+  const db = getDb();
+  const row = db.prepare(
     `SELECT id, intern_name, username, expires_at, expires_in_hours,
             (password_hash IS NOT NULL) AS has_password,
             revoked_at, created_at
-     FROM audit_sessions WHERE id = $1`,
-    [id]
-  );
-  if (!rows.length) {
+     FROM audit_sessions WHERE id = ?`
+  ).get(id);
+  if (!row) {
     return res.status(404).json({ success: false, message: 'Sesión no encontrada' });
   }
-  return res.json({ success: true, data: rows[0] });
+  return res.json({ success: true, data: { ...row, has_password: !!row.has_password } });
 }
 
-// POST /auditoria/sesiones/:id/regenerate
-// Genera nuevo token + nuevo password (mantiene username e intern_name)
 async function regenerateCredentials(req, res) {
   const { id } = req.params;
+  const db = getDb();
 
-  const baseRow = await pool.query(
-    'SELECT id, username, expires_in_hours, revoked_at FROM audit_sessions WHERE id = $1',
-    [id]
-  );
-  if (!baseRow.rows.length) {
+  const baseRow = db.prepare(
+    'SELECT id, username, expires_in_hours, revoked_at FROM audit_sessions WHERE id = ?'
+  ).get(id);
+  if (!baseRow) {
     return res.status(404).json({ success: false, message: 'Sesión no encontrada' });
   }
-  if (baseRow.rows[0].revoked_at) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'Sesión revocada, crea una nueva' });
+  if (baseRow.revoked_at) {
+    return res.status(400).json({ success: false, message: 'Sesión revocada, crea una nueva' });
   }
 
-  const hours = Math.min(24, Math.max(1, baseRow.rows[0].expires_in_hours || 8));
+  const hours = Math.min(24, Math.max(1, baseRow.expires_in_hours || 8));
   const plain = crypto.randomUUID();
   const hash  = hashToken(plain);
   const password = generatePassword();
   const password_hash = await bcrypt.hash(password, 10);
 
-  let username = baseRow.rows[0].username;
-  if (!username) username = await generateUniqueUsername();
+  let username = baseRow.username;
+  if (!username) username = generateUniqueUsername();
 
-  await pool.query(
+  // Capturar el JSESSIONID actual del admin al regenerar
+  const umichJsession = req.cookies?.JSESSIONID || req.cookies?.auth_token || null;
+
+  db.prepare(
     `UPDATE audit_sessions
-     SET token_hash = $1,
-         password_hash = $2,
-         username = $3,
-         expires_at = NOW() + make_interval(hours => $4),
-         expires_in_hours = $4,
-         last_activity_at = NULL,
-         last_seen_at = NULL
-     WHERE id = $5`,
-    [hash, password_hash, username, hours, id]
-  );
+     SET token_hash = ?, password_hash = ?, username = ?,
+         expires_at = datetime('now', (? || ' hours')),
+         expires_in_hours = ?,
+         last_activity_at = NULL, last_seen_at = NULL,
+         umich_jsession = ?
+     WHERE id = ?`
+  ).run(hash, password_hash, username, String(hours), hours, umichJsession, id);
 
   const baseUrl = resolveBaseUrl(req);
   const link = `${baseUrl}/auditoria/${plain}`;
 
-  return res.json({
-    success: true,
-    link,
-    username,
-    password,
-    expires_in_hours: hours,
-  });
+  return res.json({ success: true, link, username, password, expires_in_hours: hours });
+}
+
+async function refreshJsession(req, res) {
+  const { id } = req.params;
+  const db = getDb();
+
+  const row = db.prepare('SELECT id, revoked_at FROM audit_sessions WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ success: false, message: 'Sesión no encontrada' });
+  if (row.revoked_at) return res.status(400).json({ success: false, message: 'Sesión revocada' });
+
+  const umichJsession = req.cookies?.JSESSIONID || req.cookies?.auth_token || null;
+  if (!umichJsession) return res.status(400).json({ success: false, message: 'No hay sesión UMICH activa en tu navegador' });
+
+  db.prepare('UPDATE audit_sessions SET umich_jsession = ? WHERE id = ?').run(umichJsession, id);
+  return res.json({ success: true, message: 'Sesión UMICH actualizada' });
 }
 
 async function revokeSesion(req, res) {
   const { id } = req.params;
-  const { rowCount } = await pool.query(
-    `UPDATE audit_sessions SET revoked_at = NOW()
-     WHERE id = $1 AND revoked_at IS NULL`,
-    [id]
-  );
-  if (!rowCount) {
-    return res
-      .status(404)
-      .json({ success: false, message: 'Sesión no encontrada o ya revocada' });
+  const db = getDb();
+  const result = db.prepare(
+    `UPDATE audit_sessions SET revoked_at = datetime('now')
+     WHERE id = ? AND revoked_at IS NULL`
+  ).run(id);
+  if (!result.changes) {
+    return res.status(404).json({ success: false, message: 'Sesión no encontrada o ya revocada' });
   }
   return res.json({ success: true, message: 'Sesión revocada' });
 }
@@ -835,12 +731,13 @@ async function revokeSesion(req, res) {
 async function getSesionEventos(req, res) {
   const { id } = req.params;
   try {
-    const { rows } = await pool.query(
+    const db = getDb();
+    const rows = db.prepare(
       `SELECT
          ae.id,
          ae.inventario_id,
-         COALESCE(i.folio,       ae.item_folio)       AS folio,
-         COALESCE(i.descripcion, ae.item_descripcion) AS descripcion,
+         ae.item_folio       AS folio,
+         ae.item_descripcion AS descripcion,
          ae.campo,
          ae.valor_anterior,
          ae.valor_nuevo,
@@ -848,11 +745,9 @@ async function getSesionEventos(req, res) {
          ae.metadata,
          ae.ts
        FROM audit_events ae
-       LEFT JOIN inventario_interno i ON i.id = ae.inventario_id
-       WHERE ae.audit_session_id = $1
-       ORDER BY ae.ts DESC`,
-      [id]
-    );
+       WHERE ae.audit_session_id = ?
+       ORDER BY ae.ts DESC`
+    ).all(id);
     return res.json({ success: true, data: rows });
   } catch (err) {
     console.error('[Audit] getSesionEventos:', err.message);
@@ -873,6 +768,7 @@ module.exports = {
   getSesiones,
   getSesionAccess,
   regenerateCredentials,
+  refreshJsession,
   revokeSesion,
   getSesionEventos,
 };

@@ -60,6 +60,7 @@ router.post('/sesiones',                requireAdmin, auditController.createSesi
 router.get('/sesiones',                 requireAdmin, auditController.getSesiones);
 router.get('/sesiones/:id/access',      requireAdmin, auditController.getSesionAccess);
 router.post('/sesiones/:id/regenerate', requireAdmin, auditController.regenerateCredentials);
+router.post('/sesiones/:id/refresh-jsession', requireAdmin, auditController.refreshJsession);
 router.get('/sesiones/:id/eventos',     requireAdmin, auditController.getSesionEventos);
 router.delete('/sesiones/:id',          requireAdmin, auditController.revokeSesion);
 

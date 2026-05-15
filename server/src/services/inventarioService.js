@@ -1,387 +1,132 @@
 // =====================================================
-// SERVICIO UNIFICADO DE INVENTARIO
-// Gestiona el switch entre API y Base de Datos
-// Usa variable de entorno INVENTARIO_DATA_SOURCE
+// SERVICIO DE INVENTARIO — Modo API (UMICH)
 // =====================================================
 
 const patrimonioApiService = require('./patrimonioApiService');
-const inventarioBdService = require('./inventarioBdService');
 
-// Obtener modo de datos desde variable de entorno
-const getDataSource = () => {
-  const source = process.env.INVENTARIO_DATA_SOURCE || 'bd';
-  return source.toLowerCase(); // 'api' o 'bd'
-};
-
-// Log del modo actual
-const logSource = (operation) => {
-  const source = getDataSource();
-  console.log(`[Inventario Service] ${operation} - Usando ${source.toUpperCase()}`);
-};
+const getDataSource = () => 'api';
 
 // =====================================================
 // INVENTARIO INTERNO
 // =====================================================
 
-/**
- * Obtener inventario interno por ID
- */
-const getInventarioInternoById = async (id, umichSessionId = null) => {
-  logSource('getInventarioInternoById');
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    return await patrimonioApiService.getPatrimoniociById(id, umichSessionId);
-  } else {
-    // Usar Base de Datos local
-    const item = await inventarioBdService.getInventarioInternoById(id);
-    
-    // Transformar al formato esperado por el frontend
-    if (item) {
-      return {
-        id: item.id,
-        id_pat_ci: item.id,
-        clave_patrimonial: item.clave_patrimonial || item.numero_registro_patrimonial,
-        folio: item.folio || item.no_registro,
-        descripcion: item.descripcion,
-        usuario_creacion: item.usuario_creacion,
-        marca: item.marca,
-        modelo: item.modelo,
-        no_serie: item.no_serie,
-        no_factura: item.no_factura,
-        uuid: item.uuid,
-        ures_asignacion: item.ures_asignacion,
-        ures_gasto: item.ures_gasto || item.ur || item.ures,
-        ubicacion: item.ubicacion,
-        cog: item.cog || item.recurso,
-        dependencia: item.responsable || item.entrega_responsable,
-        responsable: item.responsable || item.entrega_responsable,
-        proveedor: item.proveedor,
-        comentarios: item.comentarios || item.observaciones,
-        fecha_elaboracion: item.fecha_elaboracion,
-        usu_asig: item.usu_asig || item.responsable_usuario,
-        numero_empleado_usuario: item.numero_empleado_usuario,
-        estado: item.estado,
-        costo: item.costo,
-        archi: item.archi || null,
-        _source: 'bd_local'
-      };
-    }
-    return null;
-  }
-};
+const getInventarioInternoById = async (id, umichSessionId = null) =>
+  patrimonioApiService.getPatrimoniociById(id, umichSessionId);
 
-/**
- * Listar inventarios internos
- */
 const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}, umichSessionId = null) => {
-  logSource('getAllInventariosInternos');
-  const source = getDataSource();
+  const codes = filters.ures
+    ? String(filters.ures).split(',').map(s => s.trim()).filter(Boolean)
+    : [];
 
-  if (source === 'api') {
-    const codes = filters.ures
-      ? String(filters.ures).split(',').map(s => s.trim()).filter(Boolean)
-      : [];
+  if (codes.length === 0) return { items: [], total: 0, page: 1, pages: 0 };
 
-    if (codes.length === 0) {
-      return { items: [], total: 0, page: 1, pages: 0 };
-    }
+  const allItems = await patrimonioApiService.getAllPatrimonioByUres(codes, umichSessionId);
 
-    const allItems = await patrimonioApiService.getAllPatrimonioByUres(codes, umichSessionId);
+  // Filtrado en memoria — UMICH no soporta query params
+  // Nota: estado NO se filtra aquí porque viene de SQLite (item_estados), lo aplica el controlador
+  const q           = (filters.q          || '').toLowerCase().trim();
+  const responsable  = (filters.responsable  || '').trim();
+  const resguardante = (filters.resguardante || '').trim();
+  const ubicacion    = (filters.ubicacion    || '').trim();
+  const ejercicio    = filters.ejercicio ? String(filters.ejercicio).trim() : '';
 
-    // Filtrado en memoria (UMICH no soporta query params)
-    const q          = (filters.q          || '').toLowerCase().trim();
-    const responsable  = (filters.responsable  || '').trim();
-    const resguardante = (filters.resguardante || '').trim();
-    const ubicacion    = (filters.ubicacion    || '').trim();
-    const ejercicio    = filters.ejercicio ? String(filters.ejercicio).trim() : '';
-    const estado       = (filters.estado       || '').trim();
+  let filtered = allItems;
 
-    let filtered = allItems;
-
-    if (q) {
-      filtered = filtered.filter(item => {
-        const hay = [
-          item.descripcion,
-          item.marca,
-          item.modelo,
-          item.numero_serie,
-          item.numero_patrimonio,
-          item.folio,
-          item.usu_asig,
-          item.ubicacion,
-          item.id != null ? String(item.id) : null,
-          item._raw?.clavePat,
-          item._raw?.folio,
-          item._raw?.persona,
-          item._raw?.ubica,
-          item._raw?.serie
-        ].filter(Boolean).map(v => String(v).toLowerCase());
-        return hay.some(v => v.includes(q));
-      });
-    }
-    if (responsable) {
-      filtered = filtered.filter(item =>
-        String(item.usu_asig || item._raw?.persona || '').toLowerCase() === responsable.toLowerCase()
-      );
-    }
-    if (resguardante) {
-      filtered = filtered.filter(item =>
-        String(item.usu_asig || item._raw?.persona || '').toLowerCase() === resguardante.toLowerCase()
-      );
-    }
-    if (ubicacion) {
-      filtered = filtered.filter(item =>
-        String(item.ubicacion || item._raw?.ubica || '').toLowerCase() === ubicacion.toLowerCase()
-      );
-    }
-    if (ejercicio) {
-      filtered = filtered.filter(item =>
-        String(item.ejercicio ?? item._raw?.ejercicio ?? '') === ejercicio
-      );
-    }
-    if (estado) {
-      filtered = filtered.filter(item =>
-        String(item.estado || '').toLowerCase() === estado.toLowerCase()
-      );
-    }
-
-    const total = filtered.length;
-    const offset = (page - 1) * limit;
-    const items = filtered.slice(offset, offset + limit);
-    return { items, total, page, pages: Math.ceil(total / limit) || 1, limit };
-  } else {
-    return await inventarioBdService.getAllInventariosInternos(page, limit, filters);
+  if (q) {
+    filtered = filtered.filter(item => {
+      const hay = [
+        item.descripcion, item.marca, item.modelo, item.numero_serie,
+        item.numero_patrimonio, item.folio, item.usu_asig, item.ubicacion,
+        item.id != null ? String(item.id) : null,
+        item._raw?.clavePat, item._raw?.folio, item._raw?.persona,
+        item._raw?.ubica, item._raw?.serie
+      ].filter(Boolean).map(v => String(v).toLowerCase());
+      return hay.some(v => v.includes(q));
+    });
   }
+  if (responsable) {
+    filtered = filtered.filter(item =>
+      String(item.usu_asig || item._raw?.persona || '').toLowerCase() === responsable.toLowerCase()
+    );
+  }
+  if (resguardante) {
+    filtered = filtered.filter(item =>
+      String(item.usu_asig || item._raw?.persona || '').toLowerCase() === resguardante.toLowerCase()
+    );
+  }
+  if (ubicacion) {
+    filtered = filtered.filter(item =>
+      String(item.ubicacion || item._raw?.ubica || '').toLowerCase() === ubicacion.toLowerCase()
+    );
+  }
+  if (ejercicio) {
+    filtered = filtered.filter(item =>
+      String(item.ejercicio ?? item._raw?.ejercicio ?? '') === ejercicio
+    );
+  }
+
+  const total  = filtered.length;
+  const offset = (page - 1) * limit;
+  const items  = filtered.slice(offset, offset + limit);
+  return { items, total, page, pages: Math.ceil(total / limit) || 1, limit };
 };
 
-/**
- * Crear inventario interno
- */
-const createInventarioInterno = async (data, umichSessionId = null) => {
-  logSource('createInventarioInterno');
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    return await patrimonioApiService.createPatrimonioci(data, umichSessionId);
-  } else {
-    return await inventarioBdService.createInventarioInterno(data);
-  }
-};
+const createInventarioInterno = async (data, umichSessionId = null) =>
+  patrimonioApiService.createPatrimonioci(data, umichSessionId);
 
-/**
- * Actualizar inventario interno
- */
-const updateInventarioInterno = async (id, data, umichSessionId = null) => {
-  logSource('updateInventarioInterno');
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    return await patrimonioApiService.updatePatrimonioci(id, data, umichSessionId);
-  } else {
-    return await inventarioBdService.updateInventarioInterno(id, data);
-  }
-};
+const updateInventarioInterno = async (id, data, umichSessionId = null) =>
+  patrimonioApiService.updatePatrimonioci(id, data, umichSessionId);
 
 // =====================================================
 // INVENTARIO EXTERNO
 // =====================================================
 
-/**
- * Obtener inventario externo por ID
- */
-const getInventarioExternoById = async (id, umichSessionId = null) => {
-  logSource('getInventarioExternoById');
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    return await patrimonioApiService.getPatrimonioById(id, umichSessionId);
-  } else {
-    const item = await inventarioBdService.getInventarioExternoById(id);
-    
-    // Transformar al formato esperado por el frontend
-    if (item) {
-      return {
-        id: item.id,
-        id_patrimonio: item.id_patrimonio,
-        no_inventario: item.no_inventario,
-        folio: item.folio,
-        descripcion: item.descripcion,
-        comentarios: item.comentarios,
-        entrega_responsable: item.entrega_responsable,
-        areas_calculo: item.areas_calculo,
-        o_res_asignacion: item.o_res_asignacion,
-        folio_2: item.folio_2,
-        codigo: item.codigo,
-        marca: item.marca,
-        modelo: item.modelo,
-        serie: item.serie,
-        tipo_bien: item.tipo_bien,
-        desc_text: item.desc_text,
-        porc_desc: item.porc_desc,
-        muo: item.muo,
-        equipo: item.equipo,
-        ejercicio: item.ejercicio,
-        adquisicion_compra: item.adquisicion_compra,
-        proveedor_prov: item.proveedor_prov,
-        mycm: item.mycm,
-        proveedor: item.proveedor,
-        anio_alta: item.anio_alta,
-        fec_reg_registros: item.fec_reg_registros,
-        nvo_costo: item.nvo_costo,
-        ubicacion: item.ubicacion,
-        estado_uso: item.estado_uso,
-        responsable_usuario: item.responsable_usuario,
-        numero_empleado_usuario: item.numero_empleado_usuario,
-        usu_reg: item.usu_reg,
-        activo: item.activo,
-        _source: 'bd_local'
-      };
-    }
-    return null;
-  }
-};
+const getInventarioExternoById = async (id, umichSessionId = null) =>
+  patrimonioApiService.getPatrimonioById(id, umichSessionId);
 
-/**
- * Listar inventarios externos
- */
-const getAllInventariosExternos = async (page = 1, limit = 50) => {
-  logSource('getAllInventariosExternos');
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    return {
-      items: [],
-      total: 0,
-      page: 1,
-      pages: 0,
-      message: 'Listado no disponible en modo API'
-    };
-  } else {
-    return await inventarioBdService.getAllInventariosExternos(page, limit);
-  }
-};
+const getAllInventariosExternos = async () => ({
+  items: [], total: 0, page: 1, pages: 0,
+  message: 'Listado no disponible en modo API'
+});
 
-/**
- * Crear inventario externo
- */
-const createInventarioExterno = async (data, umichSessionId = null) => {
-  logSource('createInventarioExterno');
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    return await patrimonioApiService.createPatrimonio(data, umichSessionId);
-  } else {
-    return await inventarioBdService.createInventarioExterno(data);
-  }
-};
+const createInventarioExterno = async (data, umichSessionId = null) =>
+  patrimonioApiService.createPatrimonio(data, umichSessionId);
 
-/**
- * Actualizar inventario externo
- */
-const updateInventarioExterno = async (id, data, umichSessionId = null) => {
-  logSource('updateInventarioExterno');
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    return await patrimonioApiService.updatePatrimonio(id, data, umichSessionId);
-  } else {
-    return await inventarioBdService.updateInventarioExterno(id, data);
-  }
-};
+const updateInventarioExterno = async (id, data, umichSessionId = null) =>
+  patrimonioApiService.updatePatrimonio(id, data, umichSessionId);
 
 // =====================================================
-// FOTOS (Solo disponible en BD local)
+// FOTOS (no disponibles en modo API)
 // =====================================================
 
-/**
- * Obtener fotos de un item
- */
-const getFotosByItem = async (tipoInventario, inventarioId) => {
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    console.warn('[Inventario Service] Fotos no disponibles en modo API');
-    return [];
-  } else {
-    return await inventarioBdService.getFotosByItem(tipoInventario, inventarioId);
-  }
-};
-
-/**
- * Agregar foto a un item
- */
-const addFotoToItem = async (data) => {
-  const source = getDataSource();
-  
-  if (source === 'api') {
-    throw new Error('Gestión de fotos no disponible en modo API');
-  } else {
-    return await inventarioBdService.addFotoToItem(data);
-  }
-};
-
-const upsertFotoSlot = async (data) => {
-  const source = getDataSource();
-  if (source === 'api') {
-    throw new Error('Gestión de fotos no disponible en modo API');
-  }
-  return await inventarioBdService.upsertFotoSlot(data);
-};
-
-const deleteFotoByOrden = async (tipoInventario, inventarioId, orden) => {
-  const source = getDataSource();
-  if (source === 'api') {
-    throw new Error('Gestión de fotos no disponible en modo API');
-  }
-  return await inventarioBdService.deleteFotoByOrden(tipoInventario, inventarioId, orden);
-};
+const getFotosByItem = async () => [];
+const addFotoToItem  = async () => { throw new Error('Fotos no disponibles en modo API'); };
+const upsertFotoSlot = async () => { throw new Error('Fotos no disponibles en modo API'); };
+const deleteFotoByOrden = async () => { throw new Error('Fotos no disponibles en modo API'); };
 
 // =====================================================
 // UTILIDADES
 // =====================================================
 
-/**
- * Obtener información del modo actual
- */
-const getDataSourceInfo = () => {
-  const source = getDataSource();
-  return {
-    mode: source,
-    description: source === 'api' 
-      ? 'Consumiendo API externa de UMICH' 
-      : 'Usando Base de Datos PostgreSQL local',
-    features: {
-      listado: source === 'bd',
-      fotos: source === 'bd',
-      busqueda: source === 'bd'
-    }
-  };
-};
+const getDataSourceInfo = () => ({
+  mode: 'api',
+  description: 'Consumiendo API externa de UMICH',
+  features: { listado: false, fotos: false, busqueda: false }
+});
 
-// =====================================================
-// EXPORTAR FUNCIONES
-// =====================================================
 module.exports = {
-  // Inventario Interno
   getInventarioInternoById,
   getAllInventariosInternos,
   createInventarioInterno,
   updateInventarioInterno,
-  
-  // Inventario Externo
   getInventarioExternoById,
   getAllInventariosExternos,
   createInventarioExterno,
   updateInventarioExterno,
-  
-  // Fotos
   getFotosByItem,
   addFotoToItem,
   upsertFotoSlot,
   deleteFotoByOrden,
-  
-  // Utilidades
   getDataSourceInfo,
-  getDataSource
+  getDataSource,
 };

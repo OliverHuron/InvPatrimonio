@@ -52,16 +52,40 @@ const TOOLTIP_TEXT = {
   varios: 'Si administras más de una dependencia, puedes agregar múltiples códigos. Los inventarios de todas ellas se mostrarán unificados.',
 }
 
-const Tooltip = ({ text, children }) => {
-  const [visible, setVisible] = useState(false)
+const Tooltip = ({ text, children, position = 'bottom' }) => {
+  const [coords, setCoords] = useState(null)
+  const wrapRef = useRef(null)
+
+  const show = () => {
+    if (!wrapRef.current) return
+    const r = wrapRef.current.getBoundingClientRect()
+    if (position === 'right') {
+      setCoords({ top: r.top + r.height / 2, left: r.right + 10 })
+    } else {
+      setCoords({ top: r.bottom + 8, left: r.left + r.width / 2 })
+    }
+  }
+
   return (
     <span
+      ref={wrapRef}
       className="ut-tooltip-wrap"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
+      onMouseEnter={show}
+      onMouseLeave={() => setCoords(null)}
     >
       {children}
-      {visible && <span className="ut-tooltip-box">{text}</span>}
+      {coords && (
+        <span
+          className={`ut-tooltip-box ut-tooltip-box--${position}`}
+          style={
+            position === 'right'
+              ? { position: 'fixed', top: coords.top, left: coords.left, transform: 'translateY(-50%)' }
+              : { position: 'fixed', top: coords.top, left: coords.left, transform: 'translateX(-50%)' }
+          }
+        >
+          {text}
+        </span>
+      )}
     </span>
   )
 }
@@ -228,7 +252,7 @@ const Utilidades = () => {
               <div className="ut-field-header">
                 <h2 className="ut-card-title">
                  URES
-                  <Tooltip text={TOOLTIP_TEXT.que_es}>
+                  <Tooltip text={TOOLTIP_TEXT.que_es} position="right">
                     <span className="ut-info-icon">?</span>
                   </Tooltip>
                 </h2>

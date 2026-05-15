@@ -23,22 +23,38 @@ export const AuthProvider = ({ children }) => {
   // Configurar axios para enviar cookies httpOnly automáticamente
   axios.defaults.withCredentials = true;
 
-  // Al iniciar: restaurar sesión desde userData guardado (no el token)
-  // El token (cookie httpOnly) lo envía el navegador automáticamente en cada petición.
-  // Si la cookie expiró, el interceptor de 401 limpia la sesión cuando ocurra la primera llamada.
+  // Al iniciar: verificar que la cookie (JSESSIONID/JWT) sigue activa antes de restaurar sesión.
+  // Si el perfil devuelve 401, la sesión expiró → limpiar y dejar que ProtectedRoute redirija.
+  // Si hay error de red/servidor, restaurar optimistamente para no bloquear sin necesidad.
   useEffect(() => {
-    try {
+    const validateAndRestore = async () => {
       const storedUser = localStorage.getItem('userData');
-      if (storedUser) {
+      if (!storedUser) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        const uresParam = parsedUser?.ures ? `?ures=${encodeURIComponent(parsedUser.ures)}` : '';
+        await axios.get(`${API_BASE}/auth/verify${uresParam}`, { withCredentials: true });
         setUser(JSON.parse(storedUser));
         setIsAuthenticated(true);
+      } catch (err) {
+        if (err.response?.status === 401) {
+          console.log('[Auth] Sesión expirada en el servidor — redirigiendo al login');
+          await axios.post(`${API_BASE}/auth/logout`, {}, { withCredentials: true }).catch(() => {});
+          localStorage.removeItem('userData');
+        } else {
+          // Error de red o servidor caído — restaurar para no bloquear al usuario
+          console.warn('[Auth] No se pudo verificar sesión (red/servidor), restaurando localmente:', err.message);
+          try { setUser(JSON.parse(storedUser)); setIsAuthenticated(true); } catch (_) { localStorage.removeItem('userData'); }
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.warn('No se pudo restaurar usuario desde localStorage:', err);
-      localStorage.removeItem('userData');
-    } finally {
-      setLoading(false);
-    }
+    };
+    validateAndRestore();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Función de login

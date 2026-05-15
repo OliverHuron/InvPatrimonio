@@ -4,10 +4,32 @@
 const inventarioService = require('../services/inventarioService');
 const patrimonioApiService = require('../services/patrimonioApiService');
 const sseService = require('../services/sseService');
+const { getDb } = require('../services/sqliteService');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const jwt = require('jsonwebtoken');
+
+// Helper: sobreescribe item.estado con el valor guardado en item_estados (SQLite)
+// Solo se aplica en modo API ya que en modo BD el estado viene de la tabla local
+function overlayEstados(items) {
+  if (!items || items.length === 0) return items;
+  try {
+    const db = getDb();
+    const ids = items.map(i => i.id).filter(v => v != null);
+    if (!ids.length) return items;
+    const placeholders = ids.map(() => '?').join(',');
+    const estadoMap = {};
+    db.prepare(
+      `SELECT inventario_id, estado FROM item_estados WHERE inventario_id IN (${placeholders})`
+    ).all(...ids).forEach(r => { estadoMap[r.inventario_id] = r.estado; });
+    return items.map(item => ({
+      ...item,
+      estado: estadoMap[item.id] ?? 'Sin asignar',
+    }));
+  } catch {
+    return items;
+  }
+}
 
 // Helper: extraer session id UMICH desde header o cookies
 const getUmichSessionFromRequest = (req) => {
@@ -189,7 +211,13 @@ const getPatrimoniociById = async (req, res) => {
     console.log(`[Controller] Obteniendo patrimonioci ${id}...`);
     
     const patrimonioci = await inventarioService.getInventarioInternoById(id, umichSessionId);
-    
+
+    // En modo API sobreescribir estado desde item_estados
+    if (patrimonioci && inventarioService.getDataSource() === 'api') {
+      const [withEstado] = overlayEstados([patrimonioci]);
+      return res.json({ success: true, data: withEstado, source: inventarioService.getDataSource() });
+    }
+
     res.json({
       success: true,
       data: patrimonioci,
@@ -228,34 +256,39 @@ const getAllPatrimonioci = async (req, res) => {
     console.log('[Controller] getAllPatrimonioci called. Filters:', filters, 'page:', page, 'limit:', limit);
     console.log('[Controller] ENV INVENTARIO_DATA_SOURCE =', process.env.INVENTARIO_DATA_SOURCE);
 
-    // URES filtering (solo en modo BD): si el usuario tiene URES asignada y no es admin,
-    // solo ve los bienes donde ures_responsable coincide con su URES.
-    const authSource = (process.env.INVENTARIO_AUTH_SOURCE || process.env.INVENTARIO_DATA_SOURCE || 'bd').toLowerCase();
-    if (authSource === 'bd') {
-      const token = req.cookies?.auth_token;
-      if (token) {
-        try {
-          const JWT_SECRET = process.env.JWT_SECRET || 'tu_super_secreto_cambialo_en_produccion';
-          const decoded = jwt.verify(token, JWT_SECRET);
-          if (decoded.ures && decoded.rol !== 'administrador') {
-            filters.ures_responsable = decoded.ures;
-            console.log('[Controller] URES filter applied:', decoded.ures);
-          }
-        } catch (e) {
-          // Token inválido o expirado — sin filtro URES
-        }
+    const umichSessionId = getUmichSessionFromRequest(req);
+
+    // Cuando se filtra por estado, el campo viene de SQLite (item_estados), no de UMICH.
+    // La paginación la hace el servicio ANTES de devolver, así que con un filtro de estado
+    // el servicio podría devolver 500 items donde ninguno tenga ese estado.
+    // Solución: si hay filtro de estado, pedir todos los items y paginar aquí después del overlay.
+    const fetchPage  = filters.estado ? 1      : page;
+    const fetchLimit = filters.estado ? MAX_LIMIT : limit;
+
+    const result = await inventarioService.getAllInventariosInternos(fetchPage, fetchLimit, filters, umichSessionId);
+
+    // Sobreescribir estado desde item_estados (UMICH no expone ni guarda estado)
+    if (Array.isArray(result.items)) {
+      result.items = overlayEstados(result.items);
+
+      // Filtrar por estado y re-paginar (solo cuando el cliente pidió un estado específico)
+      if (filters.estado) {
+        result.items  = result.items.filter(i => i.estado === filters.estado);
+        result.total  = result.items.length;
+        result.pages  = Math.ceil(result.total / limit) || 1;
+        result.page   = page;
+        const offset  = (page - 1) * limit;
+        result.items  = result.items.slice(offset, offset + limit);
       }
     }
 
-    const umichSessionId = getUmichSessionFromRequest(req);
-    const result = await inventarioService.getAllInventariosInternos(page, limit, filters, umichSessionId);
     res.json({
       success: true,
       data: result,
       source: inventarioService.getDataSource()
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message: error.message || 'Error al listar patrimonioci',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -586,6 +619,39 @@ const getArchiPatrimonioci = async (req, res) => {
   }
 };
 
+const getEstadoBien = (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = getDb();
+    const row = db.prepare('SELECT estado, updated_at FROM item_estados WHERE inventario_id = ?').get(id);
+    res.json({ success: true, inventario_id: Number(id), estado: row?.estado ?? 'Sin asignar', updated_at: row?.updated_at ?? null });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const ESTADOS_VALIDOS = ['Sin asignar', 'Localizado', 'Baja', 'No Localizado'];
+
+const setEstadoBien = (req, res) => {
+  const { id } = req.params;
+  const { estado } = req.body || {};
+  if (!estado || !ESTADOS_VALIDOS.includes(estado)) {
+    return res.status(400).json({ success: false, message: `Estado inválido. Permitidos: ${ESTADOS_VALIDOS.join(', ')}` });
+  }
+  try {
+    const db = getDb();
+    db.prepare(
+      `INSERT INTO item_estados (inventario_id, estado, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(inventario_id) DO UPDATE SET estado = excluded.estado, updated_at = excluded.updated_at`
+    ).run(id, estado);
+    sseService.broadcast('inventory_updated', { action: 'estado_updated', id: Number(id), estado });
+    res.json({ success: true, inventario_id: Number(id), estado });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 /**
  * Obtener información del modo de datos actual
  */
@@ -628,6 +694,9 @@ module.exports = {
   deleteXmlPatrimonioci,
   // Imagen (archi)
   getArchiPatrimonioci,
+  // Estado (SQLite item_estados)
+  getEstadoBien,
+  setEstadoBien,
   // Info del sistema
   getDataSourceInfo
 };
