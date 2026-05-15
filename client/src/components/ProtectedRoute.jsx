@@ -22,9 +22,8 @@ const ProtectedRoute = ({ children, requiredRole = null, allowedRoles = null }) 
   }
 
   // Verificar rol específico requerido
-  // Si existe `requiredRole` aplicarlo solo si el usuario tiene rol definido.
-  // Si el usuario no tiene `role`, asumimos que la sesión es suficiente (modo híbrido sin rol).
-  if (requiredRole && user?.role !== undefined && user?.role !== requiredRole) {
+  // Si el usuario no tiene rol (null/undefined), se omite la verificación (modo API sin roles)
+  if (requiredRole && user?.role != null && user?.role !== requiredRole) {
     return (
       <div className="access-denied" style={accessDeniedStyle}>
         <div style={messageBoxStyle}>
@@ -38,8 +37,8 @@ const ProtectedRoute = ({ children, requiredRole = null, allowedRoles = null }) 
   }
 
   // Verificar lista de roles permitidos
-  // Aplicar lista de roles permitidos solo cuando el usuario tenga `role` definido.
-  if (allowedRoles && user?.role !== undefined && !allowedRoles.includes(user?.role)) {
+  // Si el usuario no tiene rol, se permite el acceso (modo API externo sin roles)
+  if (allowedRoles && user?.role != null && !allowedRoles.includes(user?.role)) {
     return (
       <div className="access-denied" style={accessDeniedStyle}>
         <div style={messageBoxStyle}>

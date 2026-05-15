@@ -177,6 +177,48 @@
   transform: none;
 }
 
+.siaf-menu-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  padding: 16px 16px 4px;
+  margin: 0;
+}
+
+.menu-link--btn {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.menu-link--disabled {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  color: #bdbdbd;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.siaf-menu li.disabled { cursor: not-allowed; }
+
+.menu-lock {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+
 /* ── MAIN AREA ───────────────────────────────────── */
 
 .siaf-main-area {

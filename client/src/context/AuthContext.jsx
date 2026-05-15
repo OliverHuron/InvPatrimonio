@@ -20,115 +20,71 @@ export const AuthProvider = ({ children }) => {
   const API_BASE = API_BASE_URL.replace(/\/$/, '');
   const API_BASE_LEGACY = `${API_BASE}/patrimonio-api`;
 
-  // Configurar axios para enviar cookies
+  // Configurar axios para enviar cookies httpOnly automáticamente
   axios.defaults.withCredentials = true;
 
-  // Verificar autenticación al iniciar
+  // Al iniciar: restaurar sesión desde userData guardado (no el token)
+  // El token (cookie httpOnly) lo envía el navegador automáticamente en cada petición.
+  // Si la cookie expiró, el interceptor de 401 limpia la sesión cuando ocurra la primera llamada.
   useEffect(() => {
-    const initAuth = async () => {
-      // Si hay sessionId en localStorage, añadir header para fallback
-      try {
-        const stored = localStorage.getItem('sessionId');
-        if (stored) axios.defaults.headers.common['X-UMICH-Session'] = stored;
-      } catch (err) {
-        console.warn('No se pudo setear X-UMICH-Session header:', err);
+    try {
+      const storedUser = localStorage.getItem('userData');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+        setIsAuthenticated(true);
       }
-      try {
-        // Intentar obtener perfil desde la cookie
-        let response;
-        try {
-          response = await axios.get(`${API_BASE}/auth/profile`);
-        } catch (error) {
-          if (error.response?.status === 404) {
-            response = await axios.get(`${API_BASE_LEGACY}/auth/profile`);
-          } else {
-            throw error;
-          }
-        }
-        
-        if (response.data?.success) {
-          const userData = response.data.user;
-          setUser({
-            id: userData.id,
-            username: userData.usuario,
-            role: userData.rol, // Mapear 'rol' de BD a 'role' para frontend
-            ures: userData.ures
-          });
-          setIsAuthenticated(true);
-          console.log('Sesión restaurada desde cookie');
-        }
-      } catch (error) {
-        console.log('No hay sesión activa');
-        clearAuth();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
+    } catch (err) {
+      console.warn('No se pudo restaurar usuario desde localStorage:', err);
+      localStorage.removeItem('userData');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Función de login - JWT con httpOnly cookies o sessionId según modo
+  // Función de login
   const login = async (credentials) => {
     try {
       setLoading(true);
-      
+
       const response = await axios.post(
         `${API_BASE}/auth/login`,
         credentials,
         { withCredentials: true }
       ).catch(async (error) => {
         if (error.response?.status === 404) {
-          return axios.post(
-            `${API_BASE_LEGACY}/auth/login`,
-            credentials,
-            { withCredentials: true }
-          );
+          return axios.post(`${API_BASE_LEGACY}/auth/login`, credentials, { withCredentials: true });
         }
         throw error;
       });
-      
+
       if (response.data?.success) {
         const userData = response.data.user;
-        
-        // Modo BD: Cookie JWT automática
-        // Modo API: Guardar sessionId
-        if (response.data.source === 'api' && response.data.sessionId) {
-          localStorage.setItem('sessionId', response.data.sessionId);
-          // Añadir header por defecto para futuras peticiones cuando la cookie no esté disponible
-          axios.defaults.headers.common['X-UMICH-Session'] = response.data.sessionId;
-        }
-        
-        setUser({
+
+        // Guardar solo datos de usuario (no el token — el JSESSIONID/JWT vive en cookie httpOnly)
+        const normalizedUser = {
           id: userData.id,
-          username: userData.username,
-          role: userData.rol, // Mapear 'rol' de BD a 'role' para frontend
-          ures: userData.ures
-        });
+          username: userData.username || userData.usuario,
+          ures: userData.ures ?? null
+        };
+        localStorage.setItem('userData', JSON.stringify(normalizedUser));
+        setUser(normalizedUser);
         setIsAuthenticated(true);
-        
-        console.log(`Login exitoso (${response.data.source}):`, userData.username);
+
+        console.log(`Login exitoso (${response.data.source}):`, normalizedUser.username);
         return { success: true, data: userData };
       } else {
-        return {
-          success: false,
-          error: response.data?.message || 'Credenciales inválidas'
-        };
+        return { success: false, error: response.data?.message || 'Credenciales inválidas' };
       }
     } catch (error) {
       console.error('Error en login:', error);
-
-      if (error.response?.status >= 500) {
-        return {
-          success: false,
-          error: 'Servidor no disponible'
-        };
+      if (!error.response) {
+        return { success: false, error: 'No se pudo conectar con el servidor' };
       }
-
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Error de conexión' 
-      };
+      if (error.response.status >= 500) {
+        return { success: false, error: 'Servidor no disponible. Intenta más tarde.' };
+      }
+      // 401/400: credenciales incorrectas u otro error conocido
+      return { success: false, error: error.response?.data?.message || 'Usuario o contraseña incorrectos' };
     } finally {
       setLoading(false);
     }
@@ -143,11 +99,7 @@ export const AuthProvider = ({ children }) => {
         { withCredentials: true }
       ).catch(async (error) => {
         if (error.response?.status === 404) {
-          return axios.post(
-            `${API_BASE_LEGACY}/auth/logout`,
-            {},
-            { withCredentials: true }
-          );
+          return axios.post(`${API_BASE_LEGACY}/auth/logout`, {}, { withCredentials: true });
         }
         throw error;
       });
@@ -155,52 +107,39 @@ export const AuthProvider = ({ children }) => {
       console.error('Error en logout:', error);
     } finally {
       clearAuth();
-      // Remover header fallback
-      try {
-        delete axios.defaults.headers.common['X-UMICH-Session'];
-      } catch (err) {
-        console.warn('No se pudo borrar X-UMICH-Session header:', err);
-      }
     }
   };
 
-  // Función para limpiar autenticación
   const clearAuth = () => {
-    localStorage.removeItem('sessionId');
+    localStorage.removeItem('userData');
     setUser(null);
     setIsAuthenticated(false);
   };
 
-  // Interceptor para manejar tokens expirados
+  // Interceptor: si una llamada devuelve 401, la sesión expiró → limpiar y redirigir
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401 && isAuthenticated) {
-          console.log('Sesión expirada, redirigiendo a login...');
+          console.log('Sesión expirada');
           clearAuth();
         }
         return Promise.reject(error);
       }
     );
-
     return () => axios.interceptors.response.eject(interceptor);
   }, [isAuthenticated]);
 
   const value = {
-    // Estado
     user,
     loading,
     isAuthenticated,
-    
-    // Funciones
     login,
     logout,
-    
-    // Utilidades
     hasRole: (role) => user?.role === role,
     hasAnyRole: (roles) => roles.includes(user?.role),
-    isAdmin: () => user?.role === 'administrador', // Cambiado para coincidir con BD
+    isAdmin: () => user?.role === 'administrador',
     isUser: () => user?.role === 'usuario'
   };
 

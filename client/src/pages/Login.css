@@ -276,6 +276,7 @@
   display: flex;
   align-items: center;
   padding-left: 14px;
+  padding-right: 8px;
   color: var(--gray-400);
   pointer-events: none;
   flex-shrink: 0;

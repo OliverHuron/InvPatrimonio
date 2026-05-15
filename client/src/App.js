@@ -23,6 +23,7 @@ import Login from './pages/Login'
 import InternoView from './pages/InternoView'
 import AuditoriaAdmin from './pages/AuditoriaAdmin'
 import AuditoriaPublica from './pages/AuditoriaPublica'
+import Utilidades from './pages/Utilidades'
 import Layout from './components/Layout'
 
 function App() {
@@ -68,6 +69,9 @@ function App() {
                   <AuditoriaAdmin />
                 </UserRoute>
               } />
+
+              {/* Ruta de utilidades — configuración de URES */}
+              <Route path="utilidades" element={<Utilidades />} />
             </Route>
 
             {/* Ruta PÚBLICA del practicante — fuera del Layout protegido */}

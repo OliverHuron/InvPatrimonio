@@ -10,6 +10,11 @@ import { toast } from 'react-toastify'
 import './AuditoriaAdmin.css'
 
 const API_BASE = (process.env.REACT_APP_API_URL || '/api').replace(/\/$/, '')
+const URES_KEY = 'patrimonio_ures_config'
+
+function getUresCodes() {
+  try { return JSON.parse(localStorage.getItem(URES_KEY) || '[]') } catch { return [] }
+}
 
 const ESTADO_COLORS = {
   'Localizado':    { bg: '#fefce8', color: '#854d0e' },
@@ -55,7 +60,9 @@ export default function AuditoriaAdmin() {
   const fetchSesiones = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auditoria/sesiones`, { credentials: 'include' })
+      const ures = getUresCodes()
+      const uresParam = ures.length ? `?ures=${encodeURIComponent(ures.join(','))}` : ''
+      const res = await fetch(`${API_BASE}/auditoria/sesiones${uresParam}`, { credentials: 'include' })
       const data = await res.json()
       if (data.success) {
         setSesiones(data.data)
@@ -82,7 +89,7 @@ export default function AuditoriaAdmin() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify({ ...form, ures_codes: getUresCodes() })
       })
       const data = await res.json()
       if (data.success) {
@@ -225,7 +232,7 @@ export default function AuditoriaAdmin() {
       <div className="aud-admin-header">
         <div className="aud-admin-title">
           <MdAssignmentTurnedIn size={22} />
-          <h2>Auditoría de Campo</h2>
+          <h2>Auditoría</h2>
           <span className="aud-total-badge">{totalItems} bienes</span>
         </div>
         <button className="aud-btn-create" onClick={() => setShowCreate(true)}>

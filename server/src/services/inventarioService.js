@@ -74,25 +74,82 @@ const getInventarioInternoById = async (id, umichSessionId = null) => {
 /**
  * Listar inventarios internos
  */
-const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}) => {
+const getAllInventariosInternos = async (page = 1, limit = 500, filters = {}, umichSessionId = null) => {
   logSource('getAllInventariosInternos');
   const source = getDataSource();
-  
+
   if (source === 'api') {
-    // API por defecto no soporta listado completo. Intentar fallback a BD si está disponible.
-    try {
-      console.log('[Inventario Service] Modo API: intentando fallback a BD para listado');
-      return await inventarioBdService.getAllInventariosInternos(page, limit, filters);
-    } catch (err) {
-      console.warn('[Inventario Service] Fallback a BD falló:', err.message || err);
-      return {
-        items: [],
-        total: 0,
-        page: 1,
-        pages: 0,
-        message: 'Listado no disponible en modo API'
-      };
+    const codes = filters.ures
+      ? String(filters.ures).split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+
+    if (codes.length === 0) {
+      return { items: [], total: 0, page: 1, pages: 0 };
     }
+
+    const allItems = await patrimonioApiService.getAllPatrimonioByUres(codes, umichSessionId);
+
+    // Filtrado en memoria (UMICH no soporta query params)
+    const q          = (filters.q          || '').toLowerCase().trim();
+    const responsable  = (filters.responsable  || '').trim();
+    const resguardante = (filters.resguardante || '').trim();
+    const ubicacion    = (filters.ubicacion    || '').trim();
+    const ejercicio    = filters.ejercicio ? String(filters.ejercicio).trim() : '';
+    const estado       = (filters.estado       || '').trim();
+
+    let filtered = allItems;
+
+    if (q) {
+      filtered = filtered.filter(item => {
+        const hay = [
+          item.descripcion,
+          item.marca,
+          item.modelo,
+          item.numero_serie,
+          item.numero_patrimonio,
+          item.folio,
+          item.usu_asig,
+          item.ubicacion,
+          item.id != null ? String(item.id) : null,
+          item._raw?.clavePat,
+          item._raw?.folio,
+          item._raw?.persona,
+          item._raw?.ubica,
+          item._raw?.serie
+        ].filter(Boolean).map(v => String(v).toLowerCase());
+        return hay.some(v => v.includes(q));
+      });
+    }
+    if (responsable) {
+      filtered = filtered.filter(item =>
+        String(item.usu_asig || item._raw?.persona || '').toLowerCase() === responsable.toLowerCase()
+      );
+    }
+    if (resguardante) {
+      filtered = filtered.filter(item =>
+        String(item.usu_asig || item._raw?.persona || '').toLowerCase() === resguardante.toLowerCase()
+      );
+    }
+    if (ubicacion) {
+      filtered = filtered.filter(item =>
+        String(item.ubicacion || item._raw?.ubica || '').toLowerCase() === ubicacion.toLowerCase()
+      );
+    }
+    if (ejercicio) {
+      filtered = filtered.filter(item =>
+        String(item.ejercicio ?? item._raw?.ejercicio ?? '') === ejercicio
+      );
+    }
+    if (estado) {
+      filtered = filtered.filter(item =>
+        String(item.estado || '').toLowerCase() === estado.toLowerCase()
+      );
+    }
+
+    const total = filtered.length;
+    const offset = (page - 1) * limit;
+    const items = filtered.slice(offset, offset + limit);
+    return { items, total, page, pages: Math.ceil(total / limit) || 1, limit };
   } else {
     return await inventarioBdService.getAllInventariosInternos(page, limit, filters);
   }

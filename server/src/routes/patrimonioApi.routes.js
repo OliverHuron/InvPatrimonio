@@ -162,7 +162,7 @@ router.post('/auth/login', async (req, res) => {
     // MODO API: Proxy a UMICH
     console.log('[Proxy Login] Intentando login con UMICH...');
     
-    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
+    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
     const baseCandidates = [configuredBase];
     if (configuredBase.startsWith('http://')) {
       baseCandidates.push(configuredBase.replace('http://', 'https://'));
@@ -183,6 +183,7 @@ router.post('/auth/login', async (req, res) => {
 
     for (const baseUrl of uniqueBases) {
       for (const payload of payloadCandidates) {
+        try {
         const response = await axios.post(`${baseUrl}/auth/login`, payload, {
           validateStatus: () => true,
           timeout: parseInt(process.env.EXTERNAL_API_TIMEOUT || '10000', 10)
@@ -238,6 +239,10 @@ router.post('/auth/login', async (req, res) => {
         }
 
         lastErrorMessage = response.data?.message || response.data?.error || `HTTP ${response.status}`;
+        } catch (attemptErr) {
+          console.warn(`[Proxy Login] Fallo en ${baseUrl}:`, attemptErr.message);
+          lastErrorMessage = lastErrorMessage || 'No se pudo conectar con el servidor';
+        }
       }
     }
 
@@ -262,6 +267,72 @@ router.post('/auth/login', async (req, res) => {
 
 // Info del sistema (modo API/BD)
 router.get('/info', patrimonioApiController.getDataSourceInfo);
+
+// =====================================================
+// VALIDAR URES — proxy a la API externa con sesión
+// =====================================================
+router.get('/ures/:code', async (req, res) => {
+  const { code } = req.params;
+
+  // Validar formato numérico (evita path injection)
+  if (!/^[1-9]\d{0,19}$/.test(code)) {
+    return res.status(400).json({ error: 'Código URES inválido' });
+  }
+
+  const authSource = getAuthSource();
+
+  // En modo BD no hay JSESSIONID de UMICH — aceptar cualquier código numérico válido
+  // (la validación real ocurre al filtrar en la BD)
+  if (authSource === 'bd') {
+    return res.json([{ ures: parseInt(code, 10) }]);
+  }
+
+  // Modo API: usar SOLO el JSESSIONID real de UMICH desde cookie httpOnly
+  const jsession = req.cookies?.JSESSIONID || null;
+  if (!jsession) {
+    return res.status(401).json({ error: 'No autenticado con UMICH' });
+  }
+
+  try {
+    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+    const timeout = parseInt(process.env.EXTERNAL_API_TIMEOUT || '10000', 10);
+    const headers = { Cookie: `JSESSIONID=${jsession}` };
+
+    // Paso 1: verificar existencia de la URES (status 200 Y datos no vacíos)
+    const existsRes = await axios.get(`${configuredBase}/api/ures/${code}`, {
+      headers,
+      timeout,
+      validateStatus: () => true
+    });
+
+    const existsData = Array.isArray(existsRes.data) ? existsRes.data : [];
+    if (existsRes.status !== 200 || String(existsData[0]?.ures_ures) !== '1') {
+      return res.status(404).json({ error: 'URES no existe en el sistema' });
+    }
+
+    // Paso 2: verificar acceso a datos (inventarioXures)
+    const dataRes = await axios.get(`${configuredBase}/api/patrimonio/inventarioXures/${code}`, {
+      headers,
+      timeout,
+      validateStatus: () => true
+    });
+
+    if (dataRes.status === 403) {
+      return res.status(403).json({ error: 'Sin permiso para esta URES' });
+    }
+
+    const items = Array.isArray(dataRes.data) ? dataRes.data : (dataRes.data?.data || []);
+
+    if (items.length === 0) {
+      return res.status(403).json({ error: 'Sin acceso a datos de esta URES' });
+    }
+
+    return res.json([{ ures_ures: '1' }]);
+  } catch (err) {
+    console.error('[URES Proxy] Error:', err.message);
+    return res.status(503).json({ error: 'No se pudo contactar la API externa' });
+  }
+});
 // === PATRIMONIO CI (Interno) ===
 // SSE: stream de actualizaciones en tiempo real (debe ir ANTES de /:id)
 router.get('/patrimonioci/stream', (req, res) => {
@@ -353,7 +424,7 @@ router.post('/auth/logout', async (req, res) => {
   } else {
     // Logout de API externa (si existe)
     try {
-      const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
+      const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
       const baseUrl = configuredBase;
       // Obtener JSESSIONID desde cookie o header
       const jsession = req.cookies?.auth_token || req.cookies?.JSESSIONID || req.headers['x-umich-session'] || null;
@@ -390,7 +461,7 @@ router.get('/auth/profile', async (req, res) => {
 
   // Modo API: obtener perfil desde UMICH usando la cookie de sesión
   try {
-    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'https://api-patrimonio.umich.mx/api-patrimonio';
+    const configuredBase = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
     const baseUrl = configuredBase;
     const jsession = req.cookies?.auth_token || req.cookies?.JSESSIONID || req.headers['x-umich-session'] || null;
     if (!jsession) return res.status(401).json({ success: false, message: 'No autenticado' });

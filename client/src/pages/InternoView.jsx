@@ -19,6 +19,8 @@ const InternoView = () => {
   const [photoRefreshTs, setPhotoRefreshTs] = useState(0)
   const tableScrollRef = useRef(null)
   const headerRowRef = useRef(null)
+  const searchDebounceRef = useRef(null)
+  const loadRequestIdRef = useRef(0)
   const normalizeDate = (value) => (value ? String(value).split('T')[0] : '')
   const toFileUrl = (ruta) => {
     if (!ruta) return ''
@@ -28,8 +30,13 @@ const InternoView = () => {
     return `${BACKEND_BASE_URL}/${cleanPath}?v=${photoRefreshTs}`
   }
   
-  // Obtener sessionId de localStorage
-  const getSessionId = () => localStorage.getItem('sessionId')
+  // Obtener URES configuradas por el usuario (no el token — ese vive en cookie httpOnly)
+  const getUresCodes = () => {
+    try {
+      const stored = localStorage.getItem('patrimonio_ures_config')
+      return stored ? JSON.parse(stored).join(',') : ''
+    } catch { return '' }
+  }
   
   // Estados
   const [items, setItems] = useState([])
@@ -105,10 +112,8 @@ const InternoView = () => {
 
     try {
       setLoading(true)
-      const sessionId = getSessionId()
       const resp = await fetch(`${API_BASE}/patrimonioci/${item.id}/xml`, {
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' }
+        credentials: 'include'
       })
 
       if (resp.ok) {
@@ -128,8 +133,7 @@ const InternoView = () => {
           if ((!data.data.content || data.data.content === '') && data.data.url) {
             try {
               const proxyResp = await fetch(`${API_BASE}/patrimonioci/${item.id}/xml/proxy`, {
-                credentials: 'include',
-                headers: { 'X-UMICH-Session': sessionId || '' }
+                credentials: 'include'
               })
               if (proxyResp.ok) {
                 const proxyData = await proxyResp.json()
@@ -191,7 +195,8 @@ const InternoView = () => {
     ures_gasto: { label: 'Ures de gasto', type: 'text' },
     ures_asignacion: { label: 'URES de asignación', type: 'text' },
     // usuario_creacion: control DB-only field, not shown in form
-    usuario_registro: { label: 'Usuario registro', type: 'text' }
+    usuario_registro: { label: 'Usuario registro', type: 'text' },
+    fxml: { label: 'XML (URL)', type: 'text', readOnly: true }
   }
 
   // Definición de campos por sección. Si un campo aparece en más de una sección,
@@ -593,52 +598,58 @@ const InternoView = () => {
     }
   }
   
-  const normalizeInterno = (data) => ({
-    id: data.id,
-    clave_patrimonial: data.clave_patrimonial || data.numero_registro_patrimonial || '',
-    folio: data.folio || data.no_registro || data.no_obsequio || '',
-    descripcion: data.descripcion || '',
-    marca: data.marca || '',
-    modelo: data.modelo || '',
-    no_serie: data.no_serie || data.no_docente || data.numero_serie || '',
-    no_factura: data.no_factura || '',
-    fec_fact: normalizeDate(data.fec_fact || data.fecha_factura),
-    uuid: data.uuid || '',
-    costo: data.costo || '',
-    ures_asignacion: data.ures_asignacion || data.llaves_adquisicion || '',
-    ures_gasto: data.ures_gasto || data.ur || data.ures || '',
-    ubicacion: data.ubicacion || data.ubicacion_edificio || '',
-    cog: data.cog || data.recurso || '',
-    proveedor: data.proveedor || '',
-    cuenta: data.cuenta || '',
-    descripcion_cuenta: data.descripcion_cuenta || '',
-    tipo_bien: data.tipo_bien || '',
-    ejercicio: data.ejercicio || '',
-    solicitud_orden_compra: data.solicitud_orden_compra || data.solicitud_ord_compra || '',
-    fondo: data.fondo || '',
-    cuenta_por_pagar: data.cuenta_por_pagar || '',
-    idcon: data.idcon || '',
-    usuario_registro: data.usuario_registro || data.usu_reg || '',
-    fecha_registro: normalizeDate(data.fecha_registro),
-    fecha_asignacion: normalizeDate(data.fecha_asignacion),
-    fecha_aprobacion: normalizeDate(data.fecha_aprobacion),
-    comentarios: data.comentarios || data.observaciones || '',
-    estado: data.estado || 'Sin asignar',
-    responsable: data.responsable || data.entrega_responsable || data.dependencia || '',
-    usu_asig: data.usu_asig || data.responsable_usuario || '',
-    numero_empleado_usuario: data.numero_empleado_usuario || '',
-    archi: data.archi || ''
-  })
+  const normalizeInterno = (data) => {
+    // When data comes from the external API via the service, the full camelCase
+    // response is stored in _raw. Use it as a fallback for fields not explicitly mapped.
+    const r = (data && data._raw) ? data._raw : data
+    return {
+      id: data.id ?? r.invpId,
+      clave_patrimonial: data.clave_patrimonial || r.clavePat || data.numero_registro_patrimonial || '',
+      folio: data.folio || r.folio || data.no_registro || data.no_obsequio || '',
+      descripcion: data.descripcion || r.descrip || '',
+      marca: data.marca || r.marca || '',
+      modelo: data.modelo || r.modelo || '',
+      no_serie: data.no_serie || r.serie || data.no_docente || data.numero_serie || '',
+      no_factura: data.no_factura || r.numFact || '',
+      fec_fact: normalizeDate(data.fec_fact || r.ffactura || data.fecha_factura),
+      uuid: data.uuid || r.uuid || '',
+      costo: data.costo ?? r.costo ?? '',
+      ures_asignacion: data.ures_asignacion || data.llaves_adquisicion || '',
+      ures_gasto: data.ures_gasto || data.ur || (r.ures != null ? String(r.ures) : ''),
+      ubicacion: r.ubica || data.ubicacion || data.ubicacion_edificio || '',
+      cog: data.cog || r.cog || data.recurso || '',
+      proveedor: data.proveedor || '',
+      cuenta: data.cuenta || r.cnta || '',
+      descripcion_cuenta: data.descripcion_cuenta || r.cntaDescr || '',
+      tipo_bien: data.tipo_bien || r.tipoBien || '',
+      ejercicio: data.ejercicio ?? r.ejercicio ?? '',
+      solicitud_orden_compra: data.solicitud_orden_compra || r.docu || data.solicitud_ord_compra || '',
+      fondo: data.fondo || r.fondo || '',
+      cuenta_por_pagar: data.cuenta_por_pagar || '',
+      idcon: data.idcon || r.idCon || '',
+      usuario_registro: data.usuario_registro || r.lusu || data.usu_reg || '',
+      fecha_registro: normalizeDate(data.fecha_registro),
+      fecha_asignacion: normalizeDate(data.fecha_asignacion),
+      fecha_aprobacion: normalizeDate(data.fecha_aprobacion),
+      comentarios: data.comentarios || r.texto || data.observaciones || '',
+      estado: data.estado || 'Sin asignar',
+      responsable: data.responsable || r.persona || data.entrega_responsable || data.dependencia || '',
+      usu_asig: data.usu_asig || data.responsable_usuario || '',
+      numero_empleado_usuario: data.numero_empleado_usuario || '',
+      archi: data.archi || r.archi || '',
+      fxml: data.fxml || r.fxml || ''
+    }
+  }
 
   // Cargar opciones de filtros una sola vez (todos los datos sin filtros)
   const loadFilterOptions = async () => {
     if (filterOptionsLoaded) return
-    const sessionId = getSessionId()
+    const ures = getUresCodes()
     try {
       const params = new URLSearchParams({ page: '1', limit: '10000' })
+      if (ures) params.set('ures', ures)
       const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' }
+        credentials: 'include'
       })
 
       if (!response.ok) return
@@ -664,10 +675,12 @@ const InternoView = () => {
   }
   
   const loadAllItems = async (appliedFilters = filters, targetPage = 1) => {
-    const sessionId = getSessionId()
+    const requestId = ++loadRequestIdRef.current
+    const ures = getUresCodes()
     try {
       setLoading(true)
       const params = new URLSearchParams({ page: String(targetPage), limit: String(PAGE_SIZE) })
+      if (ures) params.set('ures', ures)
       if (appliedFilters.q) params.set('q', appliedFilters.q)
       if (appliedFilters.responsable) params.set('responsable', appliedFilters.responsable)
       if (appliedFilters.resguardante) params.set('resguardante', appliedFilters.resguardante)
@@ -677,8 +690,7 @@ const InternoView = () => {
       if (appliedFilters.uma) params.set('uma', appliedFilters.uma)
 
       const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
-        credentials: 'include',
-        headers: { 'X-UMICH-Session': sessionId || '' }
+        credentials: 'include'
       })
 
       if (!response.ok) {
@@ -686,6 +698,7 @@ const InternoView = () => {
       }
 
       const data = await response.json()
+      if (requestId !== loadRequestIdRef.current) return
       const payload = data?.data || {}
       const records = payload.items || []
       const normalized = records.map(normalizeInterno)
@@ -746,8 +759,15 @@ const InternoView = () => {
     loadFilterOptions()
     loadAllItems(filters, 1)
 
+    const onUresUpdated = () => {
+      loadFilterOptions()
+      loadAllItems(filters, 1)
+    }
+    window.addEventListener('ures-updated', onUresUpdated)
+
     return () => {
       document.body.classList.remove('interno-active')
+      window.removeEventListener('ures-updated', onUresUpdated)
     }
   }, [])
 
@@ -808,7 +828,12 @@ const InternoView = () => {
     setDrawerMode('view')
     setShowDrawer(true)
     loadXmlInfo(item.id)
-    loadArchiInfo(item.id)
+    // If the item already has an archi URL (e.g. from external API), use it directly
+    if (item.archi && (item.archi.startsWith('http://') || item.archi.startsWith('https://'))) {
+      setArchiUrl(item.archi)
+    } else {
+      loadArchiInfo(item.id)
+    }
   }
   
   // Abrir drawer para crear
@@ -855,7 +880,11 @@ const InternoView = () => {
     setDrawerMode('edit')
     setShowDrawer(true)
     loadXmlInfo(item.id)
-    loadArchiInfo(item.id)
+    if (item.archi && (item.archi.startsWith('http://') || item.archi.startsWith('https://'))) {
+      setArchiUrl(item.archi)
+    } else {
+      loadArchiInfo(item.id)
+    }
   }
   
   // Cerrar drawer
@@ -880,6 +909,16 @@ const InternoView = () => {
     const nextFilters = { ...filters, [name]: value }
     setFilters(nextFilters)
     loadAllItems(nextFilters, 1)
+  }
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value
+    const nextFilters = { ...filters, q: value }
+    setFilters(nextFilters)
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      loadAllItems(nextFilters, 1)
+    }, 350)
   }
 
   const handleClearFilters = () => {
@@ -908,7 +947,7 @@ const InternoView = () => {
   }
 
   const handleExportExcel = async () => {
-    const sessionId = getSessionId()
+    const ures = getUresCodes()
     try {
       setLoading(true)
       const allRows = []
@@ -917,6 +956,7 @@ const InternoView = () => {
 
       while (currentPage <= totalPages) {
         const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) })
+        if (ures) params.set('ures', ures)
         if (filters.q) params.set('q', filters.q)
         if (filters.responsable) params.set('responsable', filters.responsable)
         if (filters.resguardante) params.set('resguardante', filters.resguardante)
@@ -926,8 +966,7 @@ const InternoView = () => {
         if (filters.uma) params.set('uma', filters.uma)
 
         const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
-          credentials: 'include',
-          headers: { 'X-UMICH-Session': sessionId || '' }
+          credentials: 'include'
         })
 
         if (!response.ok) throw new Error(`Error ${response.status}`)
@@ -1041,7 +1080,7 @@ const InternoView = () => {
 
     try {
       setLoading(true)
-      const sessionId = getSessionId()
+      const ures = getUresCodes()
       const allRows = []
       let currentPage = 1
       let totalPages = 1
@@ -1049,9 +1088,9 @@ const InternoView = () => {
       while (currentPage <= totalPages) {
         const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) })
         params.set('responsable', responsable)
+        if (ures) params.set('ures', ures)
         const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
-          credentials: 'include',
-          headers: { 'X-UMICH-Session': sessionId || '' }
+          credentials: 'include'
         })
 
         if (!response.ok) throw new Error(`Error ${response.status}`)
@@ -1112,20 +1151,16 @@ const InternoView = () => {
   // Guardar (crear o actualizar)
   const handleSave = async () => {
     try {
-      const sessionId = getSessionId()
-      
-      // Usar proxy local para evitar CORS
-      const url = drawerMode === 'create' 
+      const url = drawerMode === 'create'
         ? `${API_BASE}/patrimonioci/insertar`
         : `${API_BASE}/patrimonioci/actualizar/${selectedItem.id}`
-      
+
       const method = drawerMode === 'create' ? 'POST' : 'PUT'
-      
+
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
-          'X-UMICH-Session': sessionId || ''
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify({ ...formData })
@@ -1168,11 +1203,10 @@ const InternoView = () => {
   }
 
   const handleQuickEstadoChange = async (item, nuevoEstado) => {
-    const sessionId = getSessionId()
     try {
       const response = await fetch(`${API_BASE}/patrimonioci/actualizar/${item.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-UMICH-Session': sessionId || '' },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ estado: nuevoEstado })
       })
@@ -1202,18 +1236,6 @@ const InternoView = () => {
         <div>
           <h1>Inventario</h1>
         </div>
-        <div className="header-actions">
-          <button className="btn-refresh" onClick={() => loadAllItems(filters, pagination.page)} disabled={loading}>
-            <FaSync className={loading ? 'spinning' : ''} /> Actualizar
-          </button>
-          <button className="btn-secondary" onClick={handleExportExcel} disabled={loading}>
-            <FaFileExcel /> Exportar Excel
-          </button>
-          <button className="btn-primary" onClick={handleCreate}>
-            <FaPlus /> Crear Nuevo
-          </button>
-        </div>
-        {/* Paginación superior eliminada para evitar duplicados */}
       </div>
 
       <div className="search-bar">
@@ -1223,7 +1245,7 @@ const InternoView = () => {
             type="text"
             name="q"
             value={filters.q}
-            onChange={handleFilterChange}
+            onChange={handleSearchChange}
             placeholder="Búsqueda inteligente"
           />
         </div>

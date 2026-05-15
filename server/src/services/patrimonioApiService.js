@@ -346,17 +346,58 @@ const searchPatrimonios = async (query) => {
 };
 
 /**
+ * Obtener lista de patrimonios por código(s) de URES
+ * Llama a GET /api/patrimonio/inventarioXures/{code} por cada URES y unifica resultados
+ */
+const getAllPatrimonioByUres = async (uresCodes, umichSessionId = null) => {
+  const codes = Array.isArray(uresCodes) ? uresCodes : [uresCodes];
+  const config = umichSessionId ? { umichSessionId } : {};
+  const results = [];
+
+  for (const code of codes) {
+    try {
+      console.log(`[PatrimonioAPI] Consultando inventarioXures/${code}`);
+      const apiData = await get(`/api/patrimonio/inventarioXures/${code}`, config);
+      const items = Array.isArray(apiData) ? apiData : (apiData?.data ? apiData.data : []);
+      for (const raw of items) {
+        if (!raw) continue;
+        const transformed = transformApiToInternal(raw);
+        transformed._raw = raw;
+        results.push(transformed);
+      }
+      console.log(`[PatrimonioAPI] URES ${code}: ${items.length} registros`);
+    } catch (err) {
+      console.warn(`[PatrimonioAPI] Error consultando URES ${code}:`, err.message);
+    }
+  }
+
+  // Deduplicar por invpId para evitar repetidos al consultar múltiples URES
+  const seen = new Map();
+  for (const item of results) {
+    const key = item.id ?? item._raw?.invpId;
+    if (key != null) {
+      if (!seen.has(key)) seen.set(key, item);
+    } else {
+      seen.set(Symbol(), item);
+    }
+  }
+  const deduped = [...seen.values()];
+  console.log(`[PatrimonioAPI] Total tras deduplicar: ${deduped.length} (de ${results.length})`);
+  return deduped;
+};
+
+/**
  * Obtener lista de patrimonios
- * NOTA: La API no soporta listado, esta función es un placeholder
+ * NOTA: La API no soporta listado sin URES — usar getAllPatrimonioByUres
  */
 const getAllPatrimonios = async (page = 1, limit = 50) => {
-  console.warn('[Patrimonio API] ⚠️ La API externa no soporta paginación. Retornando array vacío.');
+  console.warn('[Patrimonio API] ⚠️ La API externa no soporta paginación general. Usar getAllPatrimonioByUres con URES.');
   return {
     items: [],
     total: 0,
     page: 1,
     pages: 0,
-    message: 'Listado no disponible en API externa'
+    message: 'Listado no disponible sin URES — usar getAllPatrimonioByUres'
   };
 };
 
@@ -420,6 +461,7 @@ module.exports = {
   getPatrimoniociById,
   createPatrimonioci,
   updatePatrimonioci,
+  getAllPatrimonioByUres,
   // Alias para compatibilidad
   getPatrimonioCiById: getPatrimoniociById,
   createPatrimonio,

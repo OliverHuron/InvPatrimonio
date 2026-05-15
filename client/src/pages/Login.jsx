@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import './Login.css';
 import logoUmsnh from '../assets/UMSNHLogo1.png';
 
-
 const CAMPUS_IMAGES = [
   '/images/campus-background.jpg',
   '/images/campus-2.jpg',
@@ -115,7 +114,7 @@ const Login = () => {
           </div>
 
           <div className="login-left-footer">
-            © 2026 UMSNH — Todos los derechos reservados
+            © 2026 UMSNH - Todos los derechos reservados
           </div>
         </div>
       </div>
@@ -142,7 +141,7 @@ const Login = () => {
               {error && <div className="login-error">{error}</div>}
 
               <div className="form-group">
-                <label htmlFor="username">Usuario o Matrícula</label>
+                <label htmlFor="username">Usuario</label>
                 <div className="input-wrapper">
                   <span className="input-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -216,7 +215,7 @@ const Login = () => {
 
               <p className="login-help-text">
                 Si tienes problemas para acceder, contacta al{' '}
-                <span className="login-help-link">Departamento de Servicios Escolares</span>
+                <span className="login-help-link">Departamento de Infraestructura Informática</span>
               </p>
             </form>
           </div>

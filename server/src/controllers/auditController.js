@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const { pool } = require('../config/database');
 const sseService = require('../services/sseService');
+const inventarioService = require('../services/inventarioService');
 
 // ── Configuración ────────────────────────────────────────────
 const SAFE_COLUMNS = `
@@ -39,6 +40,14 @@ const ACCESS_COOKIE_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad
 const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parseUresCodes(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+  } catch { return []; }
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -274,6 +283,26 @@ async function getSession(req, res) {
 
 async function getFilterOptions(req, res) {
   try {
+    const source = inventarioService.getDataSource();
+
+    if (source === 'api') {
+      const session = req.auditSession;
+      const uresCodes = parseUresCodes(session.ures_codes);
+      if (!uresCodes.length) return res.json({ success: true, ubicaciones: [], responsables: [] });
+
+      const { items } = await inventarioService.getAllInventariosInternos(
+        1, 10000, { ures: uresCodes.join(',') }, null
+      );
+      const ubicaciones = [...new Set(
+        items.map(i => i.ubicacion || i._raw?.ubica).filter(Boolean)
+      )].sort();
+      const responsables = [...new Set(
+        items.map(i => i.usu_asig || i._raw?.persona).filter(Boolean)
+      )].sort();
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, ubicaciones, responsables });
+    }
+
     const [ubicRes, respRes] = await Promise.all([
       pool.query(
         `SELECT DISTINCT ubicacion FROM inventario_interno
@@ -302,15 +331,94 @@ async function getItems(req, res) {
   try {
     const page     = Math.max(1, parseInt(req.query.page     || '1',  10));
     const per_page = Math.min(100, Math.max(1, parseInt(req.query.per_page || '50', 10)));
-    const offset   = (page - 1) * per_page;
     const { search, estado, ubicacion, responsable, id } = req.query;
 
+    const source = inventarioService.getDataSource();
+
+    // ── API mode: fetch items from UMICH ────────────────────────────
+    if (source === 'api') {
+      const session = req.auditSession;
+      const uresCodes = parseUresCodes(session.ures_codes);
+      if (!uresCodes.length) {
+        return res.json({
+          success: false,
+          message: 'Sesión sin URES configuradas. Pide al administrador que regenere el enlace.',
+          data: [],
+          pagination: { total: 0, page, per_page, total_pages: 0 },
+        });
+      }
+
+      const { items: apiItems } = await inventarioService.getAllInventariosInternos(
+        1, 10000, { ures: uresCodes.join(','), q: search || '' }, null
+      );
+
+      // Overlay latest audit estado for each item from local DB
+      const ids = apiItems.map(i => i.id).filter(id => id != null);
+      const estadoMap = {};
+      if (ids.length) {
+        const { rows } = await pool.query(
+          `SELECT DISTINCT ON (inventario_id) inventario_id, valor_nuevo
+           FROM audit_events
+           WHERE inventario_id = ANY($1::int[])
+           ORDER BY inventario_id, ts DESC`,
+          [ids]
+        );
+        rows.forEach(r => { estadoMap[r.inventario_id] = r.valor_nuevo; });
+      }
+
+      let items = apiItems.map(item => ({
+        id:                    item.id,
+        folio:                 item.folio        || item._raw?.folio,
+        clave_patrimonial:     item.numero_patrimonio || item._raw?.clavePat,
+        descripcion:           item.descripcion,
+        marca:                 item.marca,
+        modelo:                item.modelo,
+        no_serie:              item.numero_serie || item._raw?.serie,
+        ubicacion:             item.ubicacion    || item._raw?.ubica,
+        responsable:           item.usu_asig     || item._raw?.persona,
+        usu_asig:              item.usu_asig     || item._raw?.persona,
+        numero_empleado_usuario: item.numero_empleado || null,
+        tipo_bien:             item.tipo_bien,
+        ures_asignacion:       String(item.ubicacion_id || ''),
+        estado:                estadoMap[item.id] || 'Sin asignar',
+      }));
+
+      // Apply remaining filters (q is already applied by inventarioService)
+      if (id !== undefined && id !== '') {
+        const idNum = parseInt(id, 10);
+        if (Number.isFinite(idNum)) items = items.filter(i => i.id === idNum);
+      }
+      if (estado && ESTADOS_VALIDOS.includes(estado)) {
+        items = items.filter(i => i.estado === estado);
+      }
+      if (ubicacion) {
+        const ub = ubicacion.toLowerCase();
+        items = items.filter(i => i.ubicacion?.toLowerCase().includes(ub));
+      }
+      if (responsable) {
+        const rp = responsable.toLowerCase();
+        items = items.filter(i =>
+          [i.responsable, i.usu_asig, i.numero_empleado_usuario]
+            .some(v => v?.toLowerCase().includes(rp))
+        );
+      }
+
+      const total  = items.length;
+      const offset = (page - 1) * per_page;
+      return res.json({
+        success: true,
+        data: items.slice(offset, offset + per_page),
+        pagination: { total, page, per_page, total_pages: Math.ceil(total / per_page) || 1 },
+      });
+    }
+
+    // ── BD mode: query local table ───────────────────────────────────
     const conditions = [];
     const params     = [];
 
     if (search) {
-      params.push(search);           // $N   — match exacto para identificadores
-      params.push(`%${search}%`);    // $N+1 — substring para campos descriptivos
+      params.push(search);
+      params.push(`%${search}%`);
       const eN = params.length - 1;
       const lN = params.length;
       conditions.push(
@@ -358,7 +466,7 @@ async function getItems(req, res) {
     );
     const total = parseInt(countRes.rows[0].count, 10);
 
-    params.push(per_page, offset);
+    params.push(per_page, (page - 1) * per_page);
     const dataRes = await pool.query(
       `SELECT ${SAFE_COLUMNS}
        FROM inventario_interno i
@@ -386,7 +494,7 @@ async function getItems(req, res) {
 
 async function updateEstado(req, res) {
   const { id } = req.params;
-  const { estado, observaciones, client_change_id, metadata } = req.body || {};
+  const { estado, observaciones, client_change_id, metadata, item_descripcion, item_folio } = req.body || {};
   const session = req.auditSession;
 
   if (!estado || !ESTADOS_VALIDOS.includes(estado)) {
@@ -418,6 +526,7 @@ async function updateEstado(req, res) {
     if (Object.keys(m).length) meta = m;
   }
 
+  const source = inventarioService.getDataSource();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -431,36 +540,46 @@ async function updateEstado(req, res) {
       );
       if (dup.rows.length) {
         await client.query('COMMIT');
-        return res.json({
-          success: true,
-          estado: dup.rows[0].valor_nuevo,
-          deduped: true,
-        });
+        return res.json({ success: true, estado: dup.rows[0].valor_nuevo, deduped: true });
       }
     }
 
-    const prev = await client.query(
-      'SELECT estado FROM inventario_interno WHERE id = $1 FOR UPDATE',
-      [id]
-    );
-    if (!prev.rows.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ success: false, message: 'Bien no encontrado' });
-    }
-    const valor_anterior = prev.rows[0].estado;
+    let valor_anterior;
 
-    if (valor_anterior !== estado) {
-      await client.query(
-        'UPDATE inventario_interno SET estado = $1, fecha_actualizacion = NOW() WHERE id = $2',
-        [estado, id]
+    if (source === 'api') {
+      // In API mode: get valor_anterior from latest audit_event (item doesn't exist in BD)
+      const prevEvent = await client.query(
+        `SELECT valor_nuevo FROM audit_events
+         WHERE inventario_id = $1
+         ORDER BY ts DESC LIMIT 1`,
+        [id]
       );
+      valor_anterior = prevEvent.rows[0]?.valor_nuevo || 'Sin asignar';
+    } else {
+      // BD mode: lock and read from local table
+      const prev = await client.query(
+        'SELECT estado FROM inventario_interno WHERE id = $1 FOR UPDATE',
+        [id]
+      );
+      if (!prev.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, message: 'Bien no encontrado' });
+      }
+      valor_anterior = prev.rows[0].estado;
+
+      if (valor_anterior !== estado) {
+        await client.query(
+          'UPDATE inventario_interno SET estado = $1, fecha_actualizacion = NOW() WHERE id = $2',
+          [estado, id]
+        );
+      }
     }
 
     await client.query(
       `INSERT INTO audit_events
          (audit_session_id, inventario_id, campo, valor_anterior, valor_nuevo,
-          observaciones, metadata, client_change_id)
-       VALUES ($1, $2, 'estado', $3, $4, $5, $6, $7)`,
+          observaciones, metadata, client_change_id, item_folio, item_descripcion)
+       VALUES ($1, $2, 'estado', $3, $4, $5, $6, $7, $8, $9)`,
       [
         session.id,
         id,
@@ -469,12 +588,13 @@ async function updateEstado(req, res) {
         observaciones || null,
         meta ? JSON.stringify(meta) : null,
         ccid,
+        item_folio        || null,
+        item_descripcion  || null,
       ]
     );
 
     await client.query('COMMIT');
 
-    // SSE broadcast: notifica a admin (InternoView) y a otros auditores
     if (valor_anterior !== estado) {
       try {
         const clientCount = sseService.broadcast('inventory_updated', {
@@ -503,7 +623,7 @@ async function updateEstado(req, res) {
 // ── Endpoints admin ──────────────────────────────────────────
 
 async function createSesion(req, res) {
-  const { intern_name } = req.body || {};
+  const { intern_name, ures_codes } = req.body || {};
   if (!intern_name || !String(intern_name).trim()) {
     return res.status(400).json({ success: false, message: 'intern_name es requerido' });
   }
@@ -519,6 +639,13 @@ async function createSesion(req, res) {
   if (!Number.isFinite(hours)) hours = 8;
   hours = Math.min(24, Math.max(1, hours));
 
+  let uresCodesJson = null;
+  if (Array.isArray(ures_codes) && ures_codes.length) {
+    uresCodesJson = JSON.stringify(ures_codes.map(String));
+  } else if (typeof ures_codes === 'string' && ures_codes.trim()) {
+    try { JSON.parse(ures_codes); uresCodesJson = ures_codes; } catch { /* ignore */ }
+  }
+
   const plain = crypto.randomUUID();
   const hash  = hashToken(plain);
   const created_by = req.user?.usuario || req.user?.username || 'admin';
@@ -532,10 +659,10 @@ async function createSesion(req, res) {
     inserted = await pool.query(
       `INSERT INTO audit_sessions
          (token_hash, intern_name, created_by, expires_at,
-          username, password_hash, expires_in_hours)
-       VALUES ($1, $2, $3, NOW() + make_interval(hours => $4), $5, $6, $4)
+          username, password_hash, expires_in_hours, ures_codes)
+       VALUES ($1, $2, $3, NOW() + make_interval(hours => $4), $5, $6, $4, $7)
        RETURNING id, expires_at`,
-      [hash, String(intern_name).trim(), created_by, hours, username, password_hash]
+      [hash, String(intern_name).trim(), created_by, hours, username, password_hash, uresCodesJson]
     );
   } catch (err) {
     console.error('[Audit] createSesion:', err.message);
@@ -553,7 +680,7 @@ async function createSesion(req, res) {
     link,
     intern_name: String(intern_name).trim(),
     username,
-    password, // se devuelve UNA sola vez (no se guarda en plano)
+    password,
     expires_in_hours: hours,
     expires_at: inserted.rows[0].expires_at,
   });
@@ -573,6 +700,7 @@ async function getSesiones(req, res) {
         s.last_seen_at,
         s.last_activity_at,
         s.username,
+        s.ures_codes,
         (s.password_hash IS NOT NULL)                    AS has_credentials,
         (s.revoked_at IS NOT NULL)                       AS revocada,
         (s.expires_at <= NOW() AND s.revoked_at IS NULL) AS expirada,
@@ -583,10 +711,27 @@ async function getSesiones(req, res) {
       ORDER BY s.created_at DESC
     `);
 
-    const totalRes = await pool.query(
-      'SELECT COUNT(*)::INTEGER AS total FROM inventario_interno'
-    );
-    const total_items = totalRes.rows[0].total;
+    let total_items = 0;
+    const source = inventarioService.getDataSource();
+
+    if (source === 'api') {
+      // Use ures from query param (sent by frontend from localStorage)
+      const uresParam = req.query.ures;
+      if (uresParam) {
+        const codes = String(uresParam).split(',').map(s => s.trim()).filter(Boolean);
+        try {
+          const result = await inventarioService.getAllInventariosInternos(
+            1, 1, { ures: codes.join(',') }, null
+          );
+          total_items = result.total || 0;
+        } catch { /* leave total_items = 0 */ }
+      }
+    } else {
+      const totalRes = await pool.query(
+        'SELECT COUNT(*)::INTEGER AS total FROM inventario_interno'
+      );
+      total_items = totalRes.rows[0].total;
+    }
 
     const sesiones = rows.map((s) => ({
       ...s,
@@ -694,8 +839,8 @@ async function getSesionEventos(req, res) {
       `SELECT
          ae.id,
          ae.inventario_id,
-         i.folio,
-         i.descripcion,
+         COALESCE(i.folio,       ae.item_folio)       AS folio,
+         COALESCE(i.descripcion, ae.item_descripcion) AS descripcion,
          ae.campo,
          ae.valor_anterior,
          ae.valor_nuevo,
@@ -703,7 +848,7 @@ async function getSesionEventos(req, res) {
          ae.metadata,
          ae.ts
        FROM audit_events ae
-       JOIN inventario_interno i ON i.id = ae.inventario_id
+       LEFT JOIN inventario_interno i ON i.id = ae.inventario_id
        WHERE ae.audit_session_id = $1
        ORDER BY ae.ts DESC`,
       [id]

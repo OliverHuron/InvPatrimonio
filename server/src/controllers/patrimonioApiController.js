@@ -220,7 +220,8 @@ const getAllPatrimonioci = async (req, res) => {
       ubicacion: req.query.ubicacion || '',
       ejercicio: req.query.ejercicio || req.query.anio_elaboracion || '',
       estado: req.query.estado || '',
-      uma: req.query.uma || ''
+      uma: req.query.uma || '',
+      ures: req.query.ures || ''
     };
 
     // Debugging: log received filters and current data source
@@ -246,7 +247,8 @@ const getAllPatrimonioci = async (req, res) => {
       }
     }
 
-    const result = await inventarioService.getAllInventariosInternos(page, limit, filters);
+    const umichSessionId = getUmichSessionFromRequest(req);
+    const result = await inventarioService.getAllInventariosInternos(page, limit, filters, umichSessionId);
     res.json({
       success: true,
       data: result,
