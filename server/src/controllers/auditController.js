@@ -538,7 +538,7 @@ async function createSesion(req, res) {
   const umichJsession = req.cookies?.JSESSIONID || req.cookies?.auth_token || null;
   const plain = crypto.randomUUID();
   const hash  = hashToken(plain);
-  const created_by = req.user?.usuario || req.user?.username || 'admin';
+  const created_by = req.user?.usuario || req.user?.username || req.body?.admin_username || 'admin';
   const username = generateUniqueUsername();
   const password = generatePassword();
   const password_hash = await bcrypt.hash(password, 10);
@@ -580,6 +580,7 @@ async function createSesion(req, res) {
 async function getSesiones(req, res) {
   try {
     const db = getDb();
+    const adminUser = req.user?.usuario || req.user?.username || req.query?.admin_username || null;
     const rows = db.prepare(`
       SELECT
         s.id,
@@ -599,9 +600,10 @@ async function getSesiones(req, res) {
         COUNT(DISTINCT ae.inventario_id)                      AS items_revisados
       FROM audit_sessions s
       LEFT JOIN audit_events ae ON ae.audit_session_id = s.id
+      WHERE s.created_by = ?
       GROUP BY s.id
       ORDER BY s.created_at DESC
-    `).all();
+    `).all(adminUser);
 
     let total_items = 0;
     const source = inventarioService.getDataSource();

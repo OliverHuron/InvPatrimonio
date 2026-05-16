@@ -345,6 +345,31 @@ const searchPatrimonios = async (query) => {
   };
 };
 
+// Cache en memoria por URES para evitar requests concurrentes duplicados
+const _uresCache = new Map(); // key: `${code}:${umichSessionId}` → { data, expiresAt }
+const _URES_CACHE_TTL = 2 * 60 * 1000; // 2 minutos
+
+const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const _fetchUresWithRetry = async (code, config, maxRetries = 2, retryDelay = 800) => {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`[PatrimonioAPI] Reintento ${attempt}/${maxRetries} para URES ${code}...`);
+        await _sleep(retryDelay * attempt);
+      }
+      const apiData = await get(`/api/patrimonio/inventarioXures/${code}`, config);
+      return Array.isArray(apiData) ? apiData : (apiData?.data ? apiData.data : []);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403) throw err;
+      lastError = err;
+      console.warn(`[PatrimonioAPI] Error URES ${code} (intento ${attempt + 1}):`, err.message);
+    }
+  }
+  throw lastError;
+};
+
 /**
  * Obtener lista de patrimonios por código(s) de URES
  * Llama a GET /api/patrimonio/inventarioXures/{code} por cada URES y unifica resultados
@@ -355,20 +380,33 @@ const getAllPatrimonioByUres = async (uresCodes, umichSessionId = null) => {
   const results = [];
 
   for (const code of codes) {
+    const cacheKey = `${code}:${umichSessionId || 'anon'}`;
+    const now = Date.now();
+
+    // Servir desde cache en memoria si está vigente
+    const cached = _uresCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      console.log(`[PatrimonioAPI] Cache HIT en memoria para URES ${code} (${cached.items.length} registros)`);
+      results.push(...cached.items);
+      continue;
+    }
+
     try {
       console.log(`[PatrimonioAPI] Consultando inventarioXures/${code}`);
-      const apiData = await get(`/api/patrimonio/inventarioXures/${code}`, config);
-      const items = Array.isArray(apiData) ? apiData : (apiData?.data ? apiData.data : []);
-      for (const raw of items) {
+      const rawItems = await _fetchUresWithRetry(code, config);
+      const transformed = [];
+      for (const raw of rawItems) {
         if (!raw) continue;
-        const transformed = transformApiToInternal(raw);
-        transformed._raw = raw;
-        results.push(transformed);
+        const t = transformApiToInternal(raw);
+        t._raw = raw;
+        transformed.push(t);
       }
-      console.log(`[PatrimonioAPI] URES ${code}: ${items.length} registros`);
+      console.log(`[PatrimonioAPI] URES ${code}: ${transformed.length} registros`);
+      _uresCache.set(cacheKey, { items: transformed, expiresAt: now + _URES_CACHE_TTL });
+      results.push(...transformed);
     } catch (err) {
-      if (err.status === 401 || err.status === 403) throw err; // sesión UMICH expirada — propagar al controlador
-      console.warn(`[PatrimonioAPI] Error consultando URES ${code}:`, err.message);
+      if (err.status === 401 || err.status === 403) throw err;
+      console.warn(`[PatrimonioAPI] URES ${code} falló tras reintentos, se omite:`, err.message);
     }
   }
 
@@ -430,9 +468,9 @@ const getPatrimonioFxmlById = async (id, umichSessionId = null) => {
   try {
     const raw = await getRawPatrimonioById(id, umichSessionId);
     if (!raw) return null;
-    // Comprobar variantes comunes de nombre de campo
     return raw.fxml || raw.fxmlContent || raw.fXml || raw.xml || null;
   } catch (error) {
+    if (error.status === 404) return null;
     console.error(`[Patrimonio API] Error obteniendo campo fxml para ${id}:`, error.message);
     throw error;
   }
@@ -448,6 +486,7 @@ const getPatrimonioArchiById = async (id, umichSessionId = null) => {
     if (!raw) return null;
     return raw.archi || raw.imagen || raw.photo || raw.image || null;
   } catch (error) {
+    if (error.status === 404) return null;
     console.error(`[Patrimonio API] Error obteniendo campo archi para ${id}:`, error.message);
     throw error;
   }

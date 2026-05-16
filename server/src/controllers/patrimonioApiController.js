@@ -479,6 +479,17 @@ const getXmlPatrimonioci = async (req, res) => {
       }
     }
 
+    // Verificar que la URL realmente existe antes de reportar exists: true
+    try {
+      const headHeaders = {};
+      if (umichSessionId) headHeaders.Cookie = `JSESSIONID=${umichSessionId}`;
+      await axios.head(resolved, { timeout: 8000, headers: headHeaders });
+    } catch (headErr) {
+      if (headErr.response?.status === 404) {
+        return res.json({ success: true, data: { exists: false } });
+      }
+      // Otros errores (timeout, 500, red) → no dar falso negativo
+    }
     return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: resolved, content: '', origin: dataSource === 'api' ? 'api' : 'local' } });
   } catch (error) {
     console.error('Error al obtener XML:', error);
@@ -540,6 +551,9 @@ const getXmlPatrimoniociProxy = async (req, res) => {
       return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: resolved, content: '', origin: dataSource === 'api' ? 'api' : 'local' } });
     } catch (err) {
       console.warn('[Controller] Proxy fetch failed for fxml URL:', err.message || err);
+      if (err.response?.status === 404) {
+        return res.json({ success: true, data: { exists: false } });
+      }
       return res.json({ success: true, data: { exists: true, filename: `${id}.xml`, url: resolved, content: '', origin: dataSource === 'api' ? 'api' : 'local' } });
     }
   } catch (error) {
@@ -612,6 +626,17 @@ const getArchiPatrimonioci = async (req, res) => {
       }
     }
 
+    // Verificar que la imagen realmente existe antes de reportar exists: true
+    try {
+      const headHeaders = {};
+      if (umichSessionId) headHeaders.Cookie = `JSESSIONID=${umichSessionId}`;
+      await axios.head(url, { timeout: 8000, headers: headHeaders });
+    } catch (headErr) {
+      if (headErr.response?.status === 404) {
+        return res.json({ success: true, data: { exists: false } });
+      }
+      // Otros errores → no dar falso negativo
+    }
     return res.json({ success: true, data: { exists: true, url } });
   } catch (error) {
     console.error('Error al obtener archi:', error);

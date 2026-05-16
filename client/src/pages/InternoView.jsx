@@ -3,13 +3,97 @@
 // API: /api/patrimonioci - Soporta GET, POST, PUT
 // =====================================================
 
-import React, { useState, useEffect, useRef } from 'react'
-import { FaPlus, FaEdit, FaEye, FaSync, FaFileExcel, FaChevronDown, FaFileCode, FaPrint } from 'react-icons/fa'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FaPlus, FaEye, FaSync, FaFileExcel, FaChevronDown, FaFileCode, FaPrint, FaQuestion, FaDownload, FaTimes } from 'react-icons/fa'
+import { Joyride, STATUS } from 'react-joyride'
 import { toast } from 'react-toastify'
+import { normalizeInterno, normalizeDate } from '../utils/inventoryUtils'
+import SmartExportModal from '../components/SmartExportModal'
 import './InternoView.css'
 import umsnhLogo from '../assets/umsnh-.png'
 import patrLogo from '../assets/patrimonio logo.png'
 import watermarkImg from '../assets/Marca de Agua.png'
+
+const TOUR_STEPS = [
+  {
+    target: 'body',
+    placement: 'center',
+    title: 'Guía del Inventario',
+    content: 'Esta guía te muestra las funciones principales del módulo de inventario patrimonial.',
+    disableBeacon: true,
+  },
+  {
+    target: '#inv-search-input',
+    title: 'Búsqueda inteligente',
+    content: 'Escribe cualquier término: número de patrimonio, descripción, marca, modelo o número de serie.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '#inv-filters-row',
+    title: 'Filtros',
+    content: 'Filtra por resguardante, responsable, ubicación, ejercicio, estado o tipo UMA.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '#inv-estado-filter',
+    title: 'Filtro por estado',
+    content: 'Filtra la lista para ver solo los bienes Localizados, No Localizados, con Baja o Sin asignar.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '#inv-results-summary',
+    title: 'Contador de resultados',
+    content: 'Muestra cuántos bienes coinciden con los filtros activos y qué rango estás viendo en la página actual.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+  {
+    target: '#inv-table',
+    title: 'Tabla de inventario',
+    content: 'Cada fila es un bien patrimonial. Puedes hacer clic en una fila para ver su detalle rápido.',
+    placement: 'top',
+    disableBeacon: true,
+  },
+  {
+    target: '.table-row:nth-child(5) .td-estado',
+    title: 'Chip de estado',
+    content: 'Haz clic en el chip de color para cambiar el estado de localización del bien: Sin asignar, Localizado, No Localizado o Baja.',
+    placement: 'left',
+    disableBeacon: true,
+  },
+  {
+    target: '.table-row:nth-child(5) .action-buttons',
+    title: 'Botones de acción',
+    content: (
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span>Al final de cada fila encontrarás tres acciones:</span>
+        <span><FaEye style={{ verticalAlign: 'middle', marginRight: 6 }} />Ver detalle completo del bien</span>
+        <span><FaPrint style={{ verticalAlign: 'middle', marginRight: 6 }} />Formato de impresión oficial</span>
+        <span><FaFileCode style={{ verticalAlign: 'middle', marginRight: 6 }} />Ver el archivo XML del bien</span>
+      </span>
+    ),
+    placement: 'left',
+    disableBeacon: true,
+  },
+  {
+    target: '#inv-pagination',
+    title: 'Paginación',
+    content: 'Navega entre páginas cuando el inventario tiene más de 500 bienes. Puedes ir a cualquier página directamente desde los botones numerados.',
+    placement: 'top',
+    disableBeacon: true,
+  },
+  {
+    target: '#inv-btn-refresh',
+    title: 'Botón de actualizar',
+    content: 'Si notas inconsistencias como menos bienes de los esperados, datos desactualizados o algún error de carga, usa este botón para recargar el inventario desde la API.',
+    placement: 'bottom',
+    disableBeacon: true,
+  },
+]
 
 const InternoView = () => {
   const PAGE_SIZE = 500
@@ -17,11 +101,13 @@ const InternoView = () => {
   const API_BASE = `${API_BASE_URL.replace(/\/$/, '')}`
   const BACKEND_BASE_URL = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '')
   const [photoRefreshTs, setPhotoRefreshTs] = useState(0)
+  const [tourKey, setTourKey] = useState(0)
+  const [runTour, setRunTour] = useState(false)
   const tableScrollRef = useRef(null)
   const headerRowRef = useRef(null)
   const searchDebounceRef = useRef(null)
+  const navigate = useNavigate()
   const loadRequestIdRef = useRef(0)
-  const normalizeDate = (value) => (value ? String(value).split('T')[0] : '')
   const toFileUrl = (ruta) => {
     if (!ruta) return ''
     const s = String(ruta)
@@ -66,6 +152,25 @@ const InternoView = () => {
   const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false)
   const [openEstadoId, setOpenEstadoId] = useState(null)
   const [estadoDropdownPos, setEstadoDropdownPos] = useState({ top: 0, left: 0 })
+
+  // Selección para exportar
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedItems, setSelectedItems] = useState(new Map())
+  const [showExportModal, setShowExportModal] = useState(false)
+
+  const toggleItemSelection = (item) => {
+    setSelectedItems(prev => {
+      const next = new Map(prev)
+      if (next.has(item.id)) next.delete(item.id)
+      else next.set(item.id, item)
+      return next
+    })
+  }
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false)
+    setSelectedItems(new Map())
+  }
 
   const toggleSection = (sectionKey) => {
     setCollapsedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }))
@@ -286,9 +391,6 @@ const InternoView = () => {
                 <div className="section-header" onClick={() => toggleSection(sectionKey)}>
                   <div className="section-left">
                     <h3>{SECTION_LABELS[sectionKey] || sectionKey}</h3>
-                    {sectionKey === 'rm' && (
-                      <button className="btn-secondary btn-export-rm" onClick={(e) => { e.stopPropagation(); handleExportRM(mode) }} title="Exportar RM">Exportar RM</button>
-                    )}
                   </div>
                   <button className="section-toggle" aria-expanded={!collapsedSections[sectionKey]}><FaChevronDown className={collapsedSections[sectionKey] ? 'rotated' : ''} /></button>
                 </div>
@@ -598,48 +700,6 @@ const InternoView = () => {
     }
   }
   
-  const normalizeInterno = (data) => {
-    // When data comes from the external API via the service, the full camelCase
-    // response is stored in _raw. Use it as a fallback for fields not explicitly mapped.
-    const r = (data && data._raw) ? data._raw : data
-    return {
-      id: data.id ?? r.invpId,
-      clave_patrimonial: data.clave_patrimonial || r.clavePat || data.numero_registro_patrimonial || '',
-      folio: data.folio || r.folio || data.no_registro || data.no_obsequio || '',
-      descripcion: data.descripcion || r.descrip || '',
-      marca: data.marca || r.marca || '',
-      modelo: data.modelo || r.modelo || '',
-      no_serie: data.no_serie || r.serie || data.no_docente || data.numero_serie || '',
-      no_factura: data.no_factura || r.numFact || '',
-      fec_fact: normalizeDate(data.fec_fact || r.ffactura || data.fecha_factura),
-      uuid: data.uuid || r.uuid || '',
-      costo: data.costo ?? r.costo ?? '',
-      ures_asignacion: data.ures_asignacion || data.llaves_adquisicion || '',
-      ures_gasto: data.ures_gasto || data.ur || (r.ures != null ? String(r.ures) : ''),
-      ubicacion: r.ubica || data.ubicacion || data.ubicacion_edificio || '',
-      cog: data.cog || r.cog || data.recurso || '',
-      proveedor: data.proveedor || '',
-      cuenta: data.cuenta || r.cnta || '',
-      descripcion_cuenta: data.descripcion_cuenta || r.cntaDescr || '',
-      tipo_bien: data.tipo_bien || r.tipoBien || '',
-      ejercicio: data.ejercicio ?? r.ejercicio ?? '',
-      solicitud_orden_compra: data.solicitud_orden_compra || r.docu || data.solicitud_ord_compra || '',
-      fondo: data.fondo || r.fondo || '',
-      cuenta_por_pagar: data.cuenta_por_pagar || '',
-      idcon: data.idcon || r.idCon || '',
-      usuario_registro: data.usuario_registro || r.lusu || data.usu_reg || '',
-      fecha_registro: normalizeDate(data.fecha_registro),
-      fecha_asignacion: normalizeDate(data.fecha_asignacion),
-      fecha_aprobacion: normalizeDate(data.fecha_aprobacion),
-      comentarios: data.comentarios || r.texto || data.observaciones || '',
-      estado: data.estado || 'Sin asignar',
-      responsable: data.responsable || r.persona || data.entrega_responsable || data.dependencia || '',
-      usu_asig: data.usu_asig || data.responsable_usuario || '',
-      numero_empleado_usuario: data.numero_empleado_usuario || '',
-      archi: data.archi || r.archi || '',
-      fxml: data.fxml || r.fxml || ''
-    }
-  }
 
   // Cargar opciones de filtros una sola vez (todos los datos sin filtros)
   const loadFilterOptions = async () => {
@@ -834,12 +894,8 @@ const InternoView = () => {
     setDrawerMode('view')
     setShowDrawer(true)
     loadXmlInfo(item.id)
-    // If the item already has an archi URL (e.g. from external API), use it directly
-    if (item.archi && (item.archi.startsWith('http://') || item.archi.startsWith('https://'))) {
-      setArchiUrl(item.archi)
-    } else {
-      loadArchiInfo(item.id)
-    }
+    // Always verify through the endpoint so the HEAD check runs
+    loadArchiInfo(item.id)
   }
   
   // Abrir drawer para crear
@@ -886,11 +942,7 @@ const InternoView = () => {
     setDrawerMode('edit')
     setShowDrawer(true)
     loadXmlInfo(item.id)
-    if (item.archi && (item.archi.startsWith('http://') || item.archi.startsWith('https://'))) {
-      setArchiUrl(item.archi)
-    } else {
-      loadArchiInfo(item.id)
-    }
+    loadArchiInfo(item.id)
   }
   
   // Cerrar drawer
@@ -941,6 +993,17 @@ const InternoView = () => {
     loadAllItems(emptyFilters, 1)
   }
 
+  const handleTourCallback = ({ status, type }) => {
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status) || type === 'tour:end') {
+      setRunTour(false)
+    }
+  }
+
+  const startTour = () => {
+    setTourKey(k => k + 1)
+    setRunTour(true)
+  }
+
   const handlePageChange = (nextPage) => {
     if (nextPage < 1 || nextPage > pagination.pages || nextPage === pagination.page) return
     loadAllItems(filters, nextPage)
@@ -951,6 +1014,7 @@ const InternoView = () => {
     const safe = String(value).replace(/"/g, '""')
     return `"${safe}"`
   }
+
 
   const handleExportExcel = async () => {
     const ures = getUresCodes()
@@ -1074,86 +1138,6 @@ const InternoView = () => {
     }
   }
 
-  // Exportar CSV específico para la sección RM: descarga todos los registros
-  // cuyo `entrega_responsable` coincida con el del elemento seleccionado.
-  const handleExportRM = async (mode = 'view') => {
-    const row = selectedItem || formData || {}
-    const responsable = (row.responsable || row.usu_asig || '').trim()
-    if (!responsable) {
-      toast.info('El registro no tiene Responsable asignado')
-      return
-    }
-
-    try {
-      setLoading(true)
-      const ures = getUresCodes()
-      const allRows = []
-      let currentPage = 1
-      let totalPages = 1
-
-      while (currentPage <= totalPages) {
-        const params = new URLSearchParams({ page: String(currentPage), limit: String(PAGE_SIZE) })
-        params.set('responsable', responsable)
-        if (ures) params.set('ures', ures)
-        const response = await fetch(`${API_BASE}/patrimonioci?${params.toString()}`, {
-          credentials: 'include'
-        })
-
-        if (!response.ok) throw new Error(`Error ${response.status}`)
-        const data = await response.json()
-        const payload = data?.data || {}
-        const normalized = (payload.items || []).map(normalizeInterno)
-        allRows.push(...normalized)
-        totalPages = payload.pages || 1
-        currentPage += 1
-      }
-
-      if (allRows.length === 0) {
-        toast.info('No se encontraron registros para ese Responsable')
-        return
-      }
-
-      const headers = [
-        'Descripción', 'Marca', 'Modelo', 'No. de Serie', 'No. de Patrimonio', 'No. de Resguardo Interno',
-        'Estado', 'UR', 'No. de Empleado', 'Responsable', 'Puesto del Usuario Resguardante'
-      ]
-
-      const lines = [
-        headers.join(','),
-        ...allRows.map((r) => ([
-          toCsvCell(r.descripcion || ''),
-          toCsvCell(r.marca || ''),
-          toCsvCell(r.modelo || ''),
-          toCsvCell(r.no_serie || ''),
-          toCsvCell(r.clave_patrimonial || ''),
-          toCsvCell(r.folio || ''),
-          toCsvCell(r.estado || r.estado_uso || ''),
-          toCsvCell(r.ures_gasto || r.ur || ''),
-          toCsvCell(r.numero_empleado_usuario || ''),
-          toCsvCell(r.responsable || r.usu_asig || ''),
-          toCsvCell('') // Puesto del Usuario Resguardante (no disponible)
-        ].join(',')))
-      ]
-
-      const blob = new Blob([`\ufeff${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      const safeName = String(responsable).replace(/[^a-z0-9_-]/gi, '_').slice(0, 80) || new Date().toISOString().slice(0, 10)
-      link.setAttribute('download', `inventario_interno_rm_${safeName}_${new Date().toISOString().slice(0, 10)}.csv`)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-      toast.success(`Exportado RM: ${allRows.length} registros`)
-    } catch (error) {
-      console.error('Error exportando RM:', error)
-      toast.error('Error exportando RM')
-    } finally {
-      setLoading(false)
-    }
-  }
-  
   // Guardar (crear o actualizar)
   const handleSave = async () => {
     try {
@@ -1254,16 +1238,61 @@ const InternoView = () => {
   
   return (
     <div className="interno-view">
+      <Joyride
+        key={tourKey}
+        steps={TOUR_STEPS}
+        run={runTour}
+        continuous
+        showProgress
+        showSkipButton
+        disableScrolling
+        callback={handleTourCallback}
+        locale={{ back: 'Anterior', close: 'Cerrar', last: 'Finalizar', next: 'Siguiente', skip: 'Saltar' }}
+        styles={{ options: { primaryColor: '#1664C0', zIndex: 10000 }, tooltipTitle: { fontSize: 15, fontWeight: 700 }, tooltipContent: { fontSize: 13 } }}
+      />
       {/* Header */}
       <div className="view-header">
         <div>
           <h1>Inventario</h1>
+        </div>
+        <div className="header-actions">
+          <button
+            id="inv-btn-refresh"
+            type="button"
+            className="inv-btn-header"
+            onClick={() => loadAllItems(filters, pagination.page)}
+            title="Actualizar inventario"
+            disabled={loading}
+          >
+            <FaSync className={loading ? 'spin' : ''} />
+          </button>
+          <button
+            type="button"
+            className="inv-btn-header"
+            onClick={startTour}
+            title="Ver guía interactiva"
+          >
+            <FaQuestion />
+          </button>
+          <button
+            type="button"
+            className={`btn-secondary${selectionMode ? ' btn-selection-active' : ''}`}
+            style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem' }}
+            onClick={() => {
+              if (selectionMode) exitSelectionMode()
+              else setSelectionMode(true)
+            }}
+            title={selectionMode ? 'Cancelar selección' : 'Seleccionar ítems para exportar'}
+          >
+            {selectionMode ? <><FaTimes /> Cancelar</> : <><FaDownload /> Exportar</>}
+          </button>
         </div>
       </div>
 
       <div className="search-bar">
         <div className="search-row search-row-main">
           <input
+            id="inv-search-input"
             className="search-input"
             type="text"
             name="q"
@@ -1272,7 +1301,7 @@ const InternoView = () => {
             placeholder="Búsqueda inteligente"
           />
         </div>
-        <div className="search-row search-row-filters">
+        <div id="inv-filters-row" className="search-row search-row-filters">
           <select className="search-input" name="resguardante" value={filters.resguardante} onChange={handleFilterChange}>
             <option value="">Resguardante (todos)</option>
             {filterOptions.resguardantes.map((resguardante) => (
@@ -1297,7 +1326,7 @@ const InternoView = () => {
               <option key={anio} value={anio}>{anio}</option>
             ))}
           </select>
-          <select className="search-input" name="estado" value={filters.estado} onChange={handleFilterChange}>
+          <select id="inv-estado-filter" className="search-input" name="estado" value={filters.estado} onChange={handleFilterChange}>
             <option value="">Estado (todos)</option>
             <option value="Sin asignar">Sin asignar</option>
             <option value="Localizado">Localizado</option>
@@ -1312,14 +1341,14 @@ const InternoView = () => {
           <button className="btn-secondary search-clear-btn" onClick={handleClearFilters} disabled={loading}>Limpiar</button>
         </div>
         <div className="search-row">
-          <div className="results-summary">
+          <div id="inv-results-summary" className="results-summary">
             Mostrando {resultsStart} - {resultsEnd} de {totalResults} resultados
           </div>
         </div>
       </div>
       
       {/* Tabla */}
-      <div className="table-container">
+      <div id="inv-table" className="table-container">
         {loading ? (
           <div className="table-scroll">
             <div className="table-inner">
@@ -1372,7 +1401,11 @@ const InternoView = () => {
 
             <div className="table-body">
               {items.map((item) => (
-                <div key={item.id} className="table-row">
+                <div
+                  key={item.id}
+                  className={`table-row${selectionMode ? ' row-selectable' : ''}${selectedItems.has(item.id) ? ' row-selected' : ''}`}
+                  onClick={selectionMode ? () => toggleItemSelection(item) : undefined}
+                >
                   <div className="td col-id" title={String(item.id)}>{item.id}</div>
                   <div className="td col-num" title={item.clave_patrimonial || ''}>{item.clave_patrimonial}</div>
                   <div className="td col-desc" title={item.descripcion || ''}>{item.descripcion}</div>
@@ -1400,7 +1433,6 @@ const InternoView = () => {
                   <div className="td col-acciones">
                     <div className="action-buttons">
                       <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleView(item) }} title="Ver detalle"><FaEye /></button>
-                      <button className="btn-icon btn-edit" onClick={(e) => { e.stopPropagation(); handleEdit(item) }} title="Editar"><FaEdit /></button>
                       <button className="btn-icon btn-print" onClick={(e) => { e.stopPropagation(); handlePrintFormat(item) }} title="Formato impresión"><FaPrint /></button>
                       <button className="btn-icon btn-xml" onClick={(e) => { e.stopPropagation(); handleOpenXml(item) }} title="Ver XML"><FaFileCode /></button>
                     </div>
@@ -1437,7 +1469,6 @@ const InternoView = () => {
                 <div className="card-actions">
                   <div className="action-buttons">
                     <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleView(item) }} title="Ver detalle"><FaEye /></button>
-                    <button className="btn-icon btn-edit" onClick={(e) => { e.stopPropagation(); handleEdit(item) }} title="Editar"><FaEdit /></button>
                     <button className="btn-icon btn-print" onClick={(e) => { e.stopPropagation(); handlePrintFormat(item) }} title="Formato impresión"><FaPrint /></button>
                     <button className="btn-icon btn-xml" onClick={(e) => { e.stopPropagation(); handleOpenXml(item) }} title="Ver XML"><FaFileCode /></button>
                   </div>
@@ -1450,7 +1481,7 @@ const InternoView = () => {
 
         {/* Paginación */}
         {!loading && pagination.pages > 1 && (
-          <div className="pagination-bar">
+          <div id="inv-pagination" className="pagination-bar">
             <button className="btn-secondary" onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page === 1}>
               Anterior
             </button>
@@ -1484,7 +1515,7 @@ const InternoView = () => {
             <div className="drawer-header">
               <div>
                 <h2>
-                  {drawerMode === 'view' && 'Detalle Patrimonio Interno'}
+                  {drawerMode === 'view' && 'Detalle Patrimonio'}
                   {drawerMode === 'create' && 'Crear Nuevo Patrimonio'}
                   {drawerMode === 'edit' && 'Editar Patrimonio'}
                 </h2>
@@ -1554,7 +1585,7 @@ const InternoView = () => {
                                 className="photo-preview"
                                 src={archiUrl}
                                 alt="Foto del bien"
-                                onError={(e) => { e.target.style.display = 'none' }}
+                                onError={() => setArchiUrl('')}
                               />
                               {magnifier.visible && (
                                 <div
@@ -1676,6 +1707,40 @@ const InternoView = () => {
           })}
         </div>
       )}
+
+      {/* Chip flotante de selección */}
+      {selectionMode && (
+        <div className="inv-selection-bar">
+          {selectedItems.size === 0
+            ? <span className="inv-sel-hint">Haz clic en filas para seleccionarlas</span>
+            : <span className="inv-sel-count">{selectedItems.size} seleccionado{selectedItems.size !== 1 ? 's' : ''}</span>
+          }
+          <button className="inv-sel-clear" onClick={() => setSelectedItems(new Map())} title="Limpiar selección">
+            <FaTimes />
+          </button>
+          <button
+            className="inv-sel-export"
+            disabled={selectedItems.size === 0}
+            onClick={() => setShowExportModal(true)}
+          >
+            <FaDownload /> Exportar selección
+          </button>
+        </div>
+      )}
+
+      {showExportModal && (
+        <SmartExportModal
+          onClose={() => { setShowExportModal(false); exitSelectionMode() }}
+          filters={filters}
+          filterOptions={filterOptions}
+          previewItems={Array.from(selectedItems.values()).slice(0, 4)}
+          getUresCodes={getUresCodes}
+          getEstadoLocalizacion={getEstadoLocalizacion}
+          allowManualSelection={false}
+          initialSelectedItems={selectedItems}
+        />
+      )}
+
     </div>
   )
 }

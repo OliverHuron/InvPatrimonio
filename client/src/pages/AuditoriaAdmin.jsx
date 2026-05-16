@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { FaPlus, FaTrash, FaCopy, FaListAlt, FaTimes, FaKey, FaSync, FaEye } from 'react-icons/fa'
 import { MdAssignmentTurnedIn } from 'react-icons/md'
 import { toast } from 'react-toastify'
+import { useAuth } from '../context/AuthContext'
 import './AuditoriaAdmin.css'
 
 const API_BASE = (process.env.REACT_APP_API_URL || '/api').replace(/\/$/, '')
@@ -34,6 +35,7 @@ function ProgressBar({ value }) {
 }
 
 export default function AuditoriaAdmin() {
+  const { user } = useAuth()
   const [sesiones, setSesiones] = useState([])
   const [totalItems, setTotalItems] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -62,7 +64,10 @@ export default function AuditoriaAdmin() {
     setLoading(true)
     try {
       const ures = getUresCodes()
-      const uresParam = ures.length ? `?ures=${encodeURIComponent(ures.join(','))}` : ''
+      const params = new URLSearchParams()
+      if (ures.length) params.set('ures', ures.join(','))
+      if (user?.username) params.set('admin_username', user.username)
+      const uresParam = params.toString() ? `?${params.toString()}` : ''
       const res = await fetch(`${API_BASE}/auditoria/sesiones${uresParam}`, { credentials: 'include' })
       const data = await res.json()
       if (data.success) {
@@ -90,7 +95,7 @@ export default function AuditoriaAdmin() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, ures_codes: getUresCodes() })
+        body: JSON.stringify({ ...form, ures_codes: getUresCodes(), admin_username: user?.username })
       })
       const data = await res.json()
       if (data.success) {
@@ -211,6 +216,7 @@ export default function AuditoriaAdmin() {
   }
 
   const resetCreate = () => {
+    setShowCreate(false)
     setNewCreds(null)
     setForm({ intern_name: '', expires_in_hours: 8 })
   }
@@ -240,9 +246,11 @@ export default function AuditoriaAdmin() {
     setRegenerated(null)
   }
 
-  const fmtDate = (iso) => iso
-    ? new Date(iso).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
-    : '—'
+  const fmtDate = (iso) => {
+    if (!iso) return '—'
+    const utc = iso.includes('Z') || iso.includes('+') ? iso : iso.replace(' ', 'T') + 'Z'
+    return new Date(utc).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
+  }
 
   return (
     <div className="aud-admin">

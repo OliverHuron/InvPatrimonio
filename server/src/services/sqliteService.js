@@ -12,7 +12,9 @@ let db = null;
 function getDb() {
   if (!db) {
     db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');  // escrituras concurrentes seguras
+    db.pragma('journal_mode = WAL');   // lectores no bloquean escritores
+    db.pragma('synchronous = NORMAL'); // seguro con WAL, mucho más rápido que FULL
+    db.pragma('busy_timeout = 5000');  // espera hasta 5s antes de fallar por lock
     db.pragma('foreign_keys = ON');
     initSchema(db);
     console.log(`[SQLite] Base de datos de auditoría abierta: ${DB_PATH}`);

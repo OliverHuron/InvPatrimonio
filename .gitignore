@@ -93,3 +93,9 @@ Thumbs.db
 # Temporary folders
 tmp/
 temp/
+
+# SQLite — schema lives in sqliteService.js, data is local only
+server/data/
+
+# Uploads
+server/uploads/

@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { Joyride, STATUS } from 'react-joyride'
+import SmartExportModal from '../components/SmartExportModal'
 import './Utilidades.css'
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api'
@@ -248,7 +249,6 @@ const Utilidades = () => {
           {/* ── FORMULARIO PRINCIPAL ── */}
           <div className="ut-card">
             <div className="ut-card-body">
-
               <div className="ut-field-header">
                 <h2 className="ut-card-title">
                  URES
@@ -363,9 +363,12 @@ const Utilidades = () => {
             </div>
           </div>
 
-          {/* ── GUÍAS INLINE ── */}
-          <div id="ut-guides-panel" className="ut-guides">
-            <p className="ut-guides-title">Guía rápida</p>
+        </div>{/* /ut-cols */}
+
+        {/* ── GUÍAS INLINE — horizontal ── */}
+        <div id="ut-guides-panel" className="ut-guides ut-guides--horizontal">
+          <p className="ut-guides-title">Guía rápida</p>
+          <div className="ut-guides-row">
 
             <div className="ut-guide-item">
               <div className="ut-guide-dot ut-guide-dot--blue" />
@@ -418,8 +421,36 @@ const Utilidades = () => {
                 <p>Puedes regresar a Utilidades desde el menú lateral para añadir o quitar URES.</p>
               </div>
             </div>
-          </div>
+          </div>{/* /ut-guides-row */}
+        </div>{/* /ut-guides--horizontal */}
 
+      </div>{/* /ut-body */}
+
+      {/* ── Exportación Inteligente ── */}
+      <div className="ut-body" style={{ paddingTop: 0 }}>
+        <div className="ut-card">
+          <div className="ut-card-body">
+            <div className="ut-field-header">
+              <h3 className="ut-card-title">EXPORTACIÓN</h3>
+              <p className="ut-card-subtitle">
+                Exporta el inventario a <strong>Excel (.xlsx)</strong> o <strong>PDF</strong> con columnas personalizables, ordenables y modos preconfigurados (RM-01 o todos los campos).
+              </p>
+            </div>
+            <SmartExportModal
+              inline
+              onClose={() => {}}
+              filters={null}
+              getUresCodes={() => {
+                try {
+                  const stored = localStorage.getItem(URES_STORAGE_KEY)
+                  return stored ? JSON.parse(stored).join(',') : ''
+                } catch { return '' }
+              }}
+              getEstadoLocalizacion={(item) => item?.estado || 'Sin asignar'}
+              selectedItems={new Map()}
+              allowManualSelection={true}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -441,4 +441,33 @@ router.get('/auth/profile', async (req, res) => {
   }
 });
 
+// =====================================================
+// DATOS DE EMPLEADO POR USERNAME
+// =====================================================
+router.get('/empleado/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    const jsession = req.cookies?.auth_token || req.cookies?.JSESSIONID || null;
+    const baseUrl = process.env.UMICH_API_BASE_URL || process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio';
+    const headers = jsession ? { Cookie: `JSESSIONID=${jsession}` } : {};
+
+    const response = await axios.get(`${baseUrl}/api/empleado/${username}`, {
+      headers,
+      timeout: 8000,
+      validateStatus: () => true
+    });
+
+    if (response.status !== 200) {
+      return res.status(response.status).json({ success: false, message: 'Empleado no encontrado' });
+    }
+
+    const data = response.data;
+    const emp = Array.isArray(data) ? data[0] : (data?.data || data);
+    return res.json({ success: true, data: emp });
+  } catch (error) {
+    console.error('[Empleado] Error:', error.message);
+    return res.status(500).json({ success: false, message: 'Error obteniendo datos del empleado' });
+  }
+});
+
 module.exports = router;

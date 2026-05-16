@@ -144,13 +144,40 @@
 /* ── DOS COLUMNAS ── */
 .ut-cols {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr;
   gap: 20px;
   align-items: start;
 }
 
-@media (max-width: 900px) {
-  .ut-cols { grid-template-columns: 1fr; }
+/* ── Guides horizontal ── */
+.ut-guides--horizontal {
+  padding-top: 4px;
+}
+
+.ut-guides--horizontal .ut-guides-title {
+  margin-bottom: 10px;
+}
+
+.ut-guides-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.ut-guides-row .ut-guide-item {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 18px;
+  border-left: 1px solid #e2e8f0;
+  border-top: none !important;
+}
+
+.ut-guides-row .ut-guide-item:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.ut-guides--horizontal .ut-guide-divider {
+  display: none;
 }
 
 /* ── CARD PRINCIPAL ── */
@@ -505,4 +532,12 @@
   .ut-step-connector { display: none; }
   .ut-footer { flex-direction: column; align-items: stretch; gap: 12px; }
   .ut-btn-save { justify-content: center; }
+}
+
+/* ── EXPORT SECTION ── */
+.ut-export-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
 }

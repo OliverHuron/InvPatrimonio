@@ -30,7 +30,7 @@ function requireAdmin(req, res, next) {
     }
   } else {
     // Modo API: solo verificar que la cookie existe (JSESSIONID = sesión activa)
-    req.user = { usuario: 'admin' };
+    req.user = {};
   }
 
   next();
