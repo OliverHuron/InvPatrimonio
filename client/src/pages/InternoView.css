@@ -1917,7 +1917,7 @@ body.interno-active {
     padding: 0.18rem 0.42rem !important;
     border-radius: 10px !important;
     line-height: 1 !important;
-    text-transform: none !important;
+    text-transform: uppercase !important;
     letter-spacing: 0.2px !important;
     max-width: 96px !important;
     overflow: hidden !important;
