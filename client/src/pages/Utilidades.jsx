@@ -382,7 +382,7 @@ const Utilidades = () => {
               <div className="ut-guide-dot ut-guide-dot--blue" />
               <div>
                 <strong>¿Dónde encuentro mi código?</strong>
-                <p>Son otorgados por las autoridades, es el el numero de URES asignado a tu dependencia.</p>
+                <p>Son otorgados por las autoridades, es el número de URES asignado a tu dependencia.</p>
               </div>
             </div>
 
