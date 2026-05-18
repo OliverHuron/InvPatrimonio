@@ -12,9 +12,25 @@ jobs:
       - name: Descargar código
         uses: actions/checkout@v4
 
+      - name: 🔒 Activar modo mantenimiento
+        run: |
+          sudo touch /var/www/html/en_mantenimiento.lock
+          echo "✅ Página de mantenimiento activada"
+
       - name: Asegurar permisos
         run: |
           sudo chown -R oliver:oliver /var/www/siaf-patrimonio || true
+
+      - name: Respaldar SQLite antes de desplegar
+        run: |
+          mkdir -p /var/www/backups/siaf-patrimonio
+          if [ -f /var/www/siaf-patrimonio/server/data/audit.db ]; then
+            ts=$(date +%Y%m%d_%H%M%S)
+            cp /var/www/siaf-patrimonio/server/data/audit.db "/var/www/backups/siaf-patrimonio/audit_${ts}.db"
+            echo "✅ Backup creado: /var/www/backups/siaf-patrimonio/audit_${ts}.db"
+          else
+            echo "⚠️ No existe audit.db para respaldar"
+          fi
 
       - name: Desplegar archivos con rsync
         run: |
@@ -23,9 +39,38 @@ jobs:
             --exclude='.env' \
             --exclude='node_modules' \
             --exclude='client/node_modules' \
+            --exclude='server/data/' \
             --exclude='server/uploads/' \
             --exclude='server/logs/' \
             . /var/www/siaf-patrimonio/
+
+      - name: Validar integridad de SQLite persistente
+        run: |
+          DB="/var/www/siaf-patrimonio/server/data/audit.db"
+
+          if [ ! -f "$DB" ]; then
+            echo "❌ No existe $DB"
+            exit 1
+          fi
+
+          size=$(stat -c%s "$DB")
+          if [ "$size" -le 0 ]; then
+            echo "❌ $DB está vacío (${size} bytes)"
+            exit 1
+          fi
+
+          if ! command -v sqlite3 >/dev/null 2>&1; then
+            echo "⚠️ sqlite3 no está disponible para validar tablas; continúa solo con validación de tamaño"
+            exit 0
+          fi
+
+          has_table=$(sqlite3 "$DB" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='item_estados';")
+          if [ "$has_table" != "1" ]; then
+            echo "❌ Falta tabla crítica item_estados en $DB"
+            exit 1
+          fi
+
+          echo "✅ SQLite OK: $DB (${size} bytes), tabla item_estados presente"
 
       - name: Instalar dependencias del servidor
         run: |
@@ -74,3 +119,9 @@ jobs:
           pm2 restart siaf-patrimonio --update-env || pm2 start src/index.js --name "siaf-patrimonio"
           pm2 save
           echo "🚀 Despliegue finalizado con éxito"
+
+      - name: 🟢 Desactivar modo mantenimiento
+        if: always()
+        run: |
+          sudo rm -f /var/www/html/en_mantenimiento.lock
+          echo "✅ Sistema online"
