@@ -4,8 +4,9 @@
 // =====================================================
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { FaPlus, FaTrash, FaCopy, FaListAlt, FaTimes, FaKey, FaSync, FaEye } from 'react-icons/fa'
+import { FaPlus, FaTrash, FaCopy, FaListAlt, FaTimes, FaSync, FaEye, FaExternalLinkAlt, FaWhatsapp, FaEnvelope } from 'react-icons/fa'
 import { MdAssignmentTurnedIn } from 'react-icons/md'
+import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../context/AuthContext'
 import './AuditoriaAdmin.css'
@@ -34,6 +35,47 @@ function ProgressBar({ value }) {
   )
 }
 
+function fmtExpiry(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso.includes('Z') || iso.includes('+') ? iso : iso.replace(' ', 'T') + 'Z')
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+function SharePanel({ link, internName, expiresAt, expiresInHours, onDone }) {
+  const waText = encodeURIComponent(`Enlace de acceso para auditoría de bienes patrimoniales:\n${link}`)
+  const mailSub = encodeURIComponent('Acceso — Auditoría Patrimonial')
+  const mailBody = encodeURIComponent(`Aquí tienes tu enlace de acceso para la auditoría:\n\n${link}\n\nVigencia: ${expiresInHours} hora(s).`)
+  const copyLink = () => navigator.clipboard.writeText(link).then(() => toast.success('Enlace copiado'))
+  return (
+    <div className="aud-share-panel">
+      <p className="aud-share-name">Acceso para <strong>{internName}</strong></p>
+      <div className="aud-share-qr">
+        <QRCodeSVG value={link} size={200} level="M" includeMargin />
+      </div>
+      <p className="aud-share-expiry">Expira: {fmtExpiry(expiresAt)}</p>
+      <div className="aud-share-btns">
+        <button className="aud-share-btn" onClick={() => window.open(link, '_blank', 'noopener')} title="Abrir enlace">
+          <FaExternalLinkAlt size={16} />
+        </button>
+        <button className="aud-share-btn" onClick={copyLink} title="Copiar enlace">
+          <FaCopy size={16} />
+        </button>
+        <a className="aud-share-btn aud-share-btn--wa" href={`https://wa.me/?text=${waText}`} target="_blank" rel="noopener noreferrer" title="Enviar por WhatsApp">
+          <FaWhatsapp size={16} />
+        </a>
+        <a className="aud-share-btn aud-share-btn--mail" href={`mailto:?subject=${mailSub}&body=${mailBody}`} title="Enviar por correo">
+          <FaEnvelope size={16} />
+        </a>
+      </div>
+      {onDone && (
+        <div className="aud-share-done">
+          <button className="aud-btn-primary" onClick={onDone}>Listo</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AuditoriaAdmin() {
   const { user } = useAuth()
   const [sesiones, setSesiones] = useState([])
@@ -44,7 +86,7 @@ export default function AuditoriaAdmin() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ intern_name: '', expires_in_hours: 8 })
   const [creating, setCreating] = useState(false)
-  const [newCreds, setNewCreds] = useState(null) // { link, username, password, expires_in_hours }
+  const [newCreds, setNewCreds] = useState(null) // { link, expires_at, expires_in_hours }
 
   // Modal eventos
   const [showEvents, setShowEvents] = useState(false)
@@ -54,9 +96,9 @@ export default function AuditoriaAdmin() {
 
   // Modal "Ver acceso"
   const [showAccess, setShowAccess] = useState(false)
-  const [accessData, setAccessData] = useState(null) // { intern_name, username, expires_at, ... }
+  const [accessData, setAccessData] = useState(null) // { intern_name, link, expires_at, ... }
   const [accessSesion, setAccessSesion] = useState(null)
-  const [regenerated, setRegenerated] = useState(null) // { link, username, password }
+  const [regenerated, setRegenerated] = useState(null) // { link, expires_at, expires_in_hours }
   const [regenerating, setRegenerating] = useState(false)
   const [refreshingJsession, setRefreshingJsession] = useState(false)
 
@@ -101,9 +143,9 @@ export default function AuditoriaAdmin() {
       if (data.success) {
         setNewCreds({
           link: data.link,
-          username: data.username,
-          password: data.password,
+          expires_at: data.expires_at,
           expires_in_hours: data.expires_in_hours,
+          intern_name: String(form.intern_name).trim(),
         })
         fetchSesiones()
       } else {
@@ -158,15 +200,6 @@ export default function AuditoriaAdmin() {
       .catch(() => toast.error('No se pudo copiar'))
   }
 
-  const copyAll = (creds) => {
-    const text =
-      `Auditoría de Campo — Acceso\n` +
-      `Enlace: ${creds.link}\n` +
-      `Usuario: ${creds.username}\n` +
-      `Contraseña: ${creds.password}\n`
-    copyText(text, 'Acceso completo copiado')
-  }
-
   const handleShowAccess = async (sesion) => {
     setAccessSesion(sesion)
     setShowAccess(true)
@@ -199,11 +232,10 @@ export default function AuditoriaAdmin() {
       if (data.success) {
         setRegenerated({
           link: data.link,
-          username: data.username,
-          password: data.password,
+          expires_at: data.expires_at,
           expires_in_hours: data.expires_in_hours,
         })
-        toast.success('Credenciales regeneradas')
+        toast.success('Enlace regenerado')
         fetchSesiones()
       } else {
         toast.error(data.message || 'Error regenerando')
@@ -244,12 +276,6 @@ export default function AuditoriaAdmin() {
     setAccessSesion(null)
     setAccessData(null)
     setRegenerated(null)
-  }
-
-  const fmtDate = (iso) => {
-    if (!iso) return '—'
-    const utc = iso.includes('Z') || iso.includes('+') ? iso : iso.replace(' ', 'T') + 'Z'
-    return new Date(utc).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
   }
 
   return (
@@ -298,8 +324,8 @@ export default function AuditoriaAdmin() {
                     <td className="aud-intern-name">{s.intern_name}</td>
                     <td><ProgressBar value={s.porcentaje} /></td>
                     <td className="aud-count">{s.items_revisados} / {totalItems}</td>
-                    <td className="aud-date">{fmtDate(s.last_seen_at)}</td>
-                    <td className="aud-date">{fmtDate(s.expires_at)}</td>
+                    <td className="aud-date">{fmtExpiry(s.last_seen_at)}</td>
+                    <td className="aud-date">{fmtExpiry(s.expires_at)}</td>
                     <td>
                       <span className={`aud-estado-badge aud-estado-${estado.toLowerCase()}`}>
                         {estado}
@@ -382,52 +408,13 @@ export default function AuditoriaAdmin() {
                 </div>
               </form>
             ) : (
-              <div className="aud-link-result">
-                <p className="aud-result-intro">Acceso generado para <strong>{form.intern_name}</strong>.</p>
-
-                <div className="aud-cred-row">
-                  <label>Enlace</label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text">{newCreds.link}</span>
-                    <button onClick={() => copyText(newCreds.link, 'Enlace copiado')} title="Copiar enlace">
-                      <FaCopy size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="aud-cred-row">
-                  <label>Usuario</label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text aud-mono">{newCreds.username}</span>
-                    <button onClick={() => copyText(newCreds.username, 'Usuario copiado')} title="Copiar usuario">
-                      <FaCopy size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="aud-cred-row">
-                  <label>Contraseña <span className="aud-cred-warn">(no se mostrará de nuevo)</span></label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text aud-mono">{newCreds.password}</span>
-                    <button onClick={() => copyText(newCreds.password, 'Contraseña copiada')} title="Copiar contraseña">
-                      <FaCopy size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                <p className="aud-link-note">
-                  Vigencia: {newCreds.expires_in_hours} h. Envíe el usuario y la contraseña al practicante por un canal seguro.
-                </p>
-
-                <div className="aud-modal-footer">
-                  <button className="aud-btn-secondary" onClick={() => copyAll(newCreds)}>
-                    <FaCopy size={12} /> Copiar todo
-                  </button>
-                  <button className="aud-btn-primary" onClick={resetCreate}>
-                    Listo
-                  </button>
-                </div>
-              </div>
+              <SharePanel
+                link={newCreds.link}
+                internName={newCreds.intern_name}
+                expiresAt={newCreds.expires_at}
+                expiresInHours={newCreds.expires_in_hours}
+                onDone={resetCreate}
+              />
             )}
           </div>
         </div>
@@ -438,77 +425,42 @@ export default function AuditoriaAdmin() {
         <div className="aud-modal-backdrop" onClick={closeAccess}>
           <div className="aud-modal" onClick={e => e.stopPropagation()}>
             <div className="aud-modal-header">
-              <h3><FaKey style={{ marginRight: 6 }} /> Acceso de {accessSesion.intern_name}</h3>
+              <h3>Acceso — {accessSesion.intern_name}</h3>
               <button className="aud-modal-close" onClick={closeAccess}><FaTimes /></button>
             </div>
 
             {!accessData ? (
               <div className="aud-loading">Cargando…</div>
             ) : regenerated ? (
-              <div className="aud-link-result">
-                <p className="aud-result-intro"><strong>Credenciales nuevas.</strong> Comparta el usuario y la contraseña con el practicante.</p>
-
-                <div className="aud-cred-row">
-                  <label>Enlace</label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text">{regenerated.link}</span>
-                    <button onClick={() => copyText(regenerated.link, 'Enlace copiado')}><FaCopy size={14} /></button>
-                  </div>
-                </div>
-                <div className="aud-cred-row">
-                  <label>Usuario</label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text aud-mono">{regenerated.username}</span>
-                    <button onClick={() => copyText(regenerated.username, 'Usuario copiado')}><FaCopy size={14} /></button>
-                  </div>
-                </div>
-                <div className="aud-cred-row">
-                  <label>Contraseña <span className="aud-cred-warn">(no se mostrará de nuevo)</span></label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text aud-mono">{regenerated.password}</span>
-                    <button onClick={() => copyText(regenerated.password, 'Contraseña copiada')}><FaCopy size={14} /></button>
-                  </div>
-                </div>
-
-                <div className="aud-modal-footer">
-                  <button className="aud-btn-secondary" onClick={() => copyAll(regenerated)}>
-                    <FaCopy size={12} /> Copiar todo
-                  </button>
-                  <button className="aud-btn-primary" onClick={closeAccess}>Listo</button>
-                </div>
-              </div>
+              <SharePanel
+                link={regenerated.link}
+                internName={accessSesion.intern_name}
+                expiresAt={regenerated.expires_at}
+                expiresInHours={regenerated.expires_in_hours}
+                onDone={closeAccess}
+              />
             ) : (
-              <div className="aud-link-result">
-                <p className="aud-result-intro">
-                  Por seguridad, el enlace y la contraseña no se muestran nuevamente. Si el practicante perdió el acceso, regenere las credenciales.
-                </p>
-
-                <div className="aud-cred-row">
-                  <label>Usuario</label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text aud-mono">{accessData.username || 'Sesión sin login'}</span>
-                    {accessData.username && (
-                      <button onClick={() => copyText(accessData.username, 'Usuario copiado')}><FaCopy size={14} /></button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="aud-cred-row">
-                  <label>Vigencia</label>
-                  <div className="aud-link-box">
-                    <span className="aud-link-text">
-                      {accessData.expires_in_hours} h · Expira {fmtDate(accessData.expires_at)}
-                    </span>
-                  </div>
-                </div>
-
+              <>
+                {accessData.link && !accessData.revoked_at ? (
+                  <SharePanel
+                    link={accessData.link}
+                    internName={accessSesion.intern_name}
+                    expiresAt={accessData.expires_at}
+                    expiresInHours={accessData.expires_in_hours}
+                  />                ) : (
+                  <p className="aud-result-intro" style={{ padding: '1rem' }}>
+                    {accessData.revoked_at
+                      ? 'Esta sesión está revocada. Crea una nueva.'
+                      : 'No hay enlace disponible. Regenera el acceso.'}
+                  </p>
+                )}
                 <div className="aud-modal-footer">
                   <button className="aud-btn-secondary" onClick={closeAccess}>Cerrar</button>
                   <button
                     className="aud-btn-secondary"
                     onClick={handleRefreshJsession}
                     disabled={refreshingJsession || !!accessData.revoked_at}
-                    title="Actualiza la sesión UMICH almacenada con tu sesión activa (sin cambiar el enlace)"
+                    title="Actualiza la sesión UMICH con tu sesión activa"
                   >
                     <FaSync size={12} /> {refreshingJsession ? 'Actualizando…' : 'Actualizar UMICH'}
                   </button>
@@ -516,12 +468,12 @@ export default function AuditoriaAdmin() {
                     className="aud-btn-primary"
                     onClick={handleRegenerate}
                     disabled={regenerating || !!accessData.revoked_at}
-                    title={accessData.revoked_at ? 'La sesión está revocada. Crea una nueva' : 'Generar nuevo enlace y contraseña'}
+                    title={accessData.revoked_at ? 'Sesión revocada' : 'Generar nuevo enlace'}
                   >
-                    <FaSync size={12} /> {regenerating ? 'Regenerando…' : 'Regenerar credenciales'}
+                    <FaSync size={12} /> {regenerating ? 'Regenerando…' : 'Regenerar enlace'}
                   </button>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -574,7 +526,7 @@ export default function AuditoriaAdmin() {
                           </span>
                         </td>
                         <td>{ev.observaciones || '—'}</td>
-                        <td className="aud-date">{fmtDate(ev.ts)}</td>
+                        <td className="aud-date">{fmtExpiry(ev.ts)}</td>
                       </tr>
                     ))}
                   </tbody>

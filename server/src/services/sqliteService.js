@@ -27,6 +27,7 @@ function initSchema(db) {
     CREATE TABLE IF NOT EXISTS audit_sessions (
       id               INTEGER PRIMARY KEY AUTOINCREMENT,
       token_hash       TEXT    NOT NULL UNIQUE,
+      token_plain      TEXT,
       intern_name      TEXT    NOT NULL,
       created_by       TEXT,
       created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
@@ -70,6 +71,48 @@ function initSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_audit_events_inventario
       ON audit_events(inventario_id);
   `);
+
+  // Migración: agregar token_plain si no existe (bases de datos existentes)
+  const cols = db.pragma('table_info(audit_sessions)').map(c => c.name);
+  if (!cols.includes('token_plain')) {
+    db.exec(`ALTER TABLE audit_sessions ADD COLUMN token_plain TEXT`);
+    console.log('[SQLite] Migración: columna token_plain agregada');
+  }
+
+  // Migración: eliminar columnas username y password_hash (ya no se usan)
+  if (cols.includes('username') || cols.includes('password_hash')) {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE IF NOT EXISTS audit_sessions_new (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        token_hash       TEXT    NOT NULL UNIQUE,
+        token_plain      TEXT,
+        intern_name      TEXT    NOT NULL,
+        created_by       TEXT,
+        created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+        expires_at       TEXT    NOT NULL,
+        expires_in_hours INTEGER NOT NULL DEFAULT 8,
+        revoked_at       TEXT,
+        last_seen_at     TEXT,
+        last_activity_at TEXT,
+        ures_codes       TEXT,
+        umich_jsession   TEXT
+      );
+      INSERT INTO audit_sessions_new
+        (id, token_hash, token_plain, intern_name, created_by, created_at,
+         expires_at, expires_in_hours, revoked_at, last_seen_at, last_activity_at,
+         ures_codes, umich_jsession)
+      SELECT
+        id, token_hash, token_plain, intern_name, created_by, created_at,
+        expires_at, expires_in_hours, revoked_at, last_seen_at, last_activity_at,
+        ures_codes, umich_jsession
+      FROM audit_sessions;
+      DROP TABLE audit_sessions;
+      ALTER TABLE audit_sessions_new RENAME TO audit_sessions;
+      COMMIT;
+    `);
+    console.log('[SQLite] Migración: columnas username y password_hash eliminadas');
+  }
 }
 
 module.exports = { getDb };

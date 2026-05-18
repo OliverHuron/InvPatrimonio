@@ -14,6 +14,15 @@ const inventarioService = require('../services/inventarioService');
 // ── Configuración ────────────────────────────────────────────
 const ESTADOS_VALIDOS = ['Sin asignar', 'Localizado', 'Baja', 'No Localizado'];
 
+function resolveArchiUrl(archi) {
+  if (!archi) return null;
+  const url = String(archi).trim();
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  const apiBase = (process.env.EXTERNAL_API_BASE_URL || 'http://api-patrimonio.umich.mx/api-patrimonio').replace(/\/$/, '');
+  return url.startsWith('/') ? `${apiBase.split('/').slice(0, 3).join('/')}${url}` : `${apiBase}/${url}`;
+}
+
 const AUDIT_ACCESS_SECRET =
   process.env.AUDIT_ACCESS_SECRET ||
   process.env.JWT_SECRET ||
@@ -173,19 +182,8 @@ async function requireAuditToken(req, res, next) {
     if (!session) {
       return res.status(401).json({ success: false, message: 'Enlace inválido, expirado o revocado' });
     }
-
-    const requiresLogin = !!session.password_hash;
-    if (requiresLogin) {
-      const cookieSessionId = verifyAccessCookie(req.cookies?.audit_access);
-      if (cookieSessionId !== session.id) {
-        return res.status(401).json({ success: false, message: 'Acceso requerido', requires_login: true });
-      }
-      setAccessCookie(res, session.id);
-    }
-
     req.auditSession = session;
 
-    // Actualizar last_seen sin bloquear la respuesta
     try {
       getDb().prepare(
         `UPDATE audit_sessions SET last_seen_at = datetime('now'), last_activity_at = datetime('now') WHERE id = ?`
@@ -203,29 +201,6 @@ async function requireAuditToken(req, res, next) {
 
 async function loginPublic(req, res) {
   const session = req.auditSession;
-  const { username, password } = req.body || {};
-
-  if (!session.password_hash || !session.username) {
-    setAccessCookie(res, session.id);
-    return res.json({
-      success: true,
-      session: { intern_name: session.intern_name, expires_at: session.expires_at },
-    });
-  }
-
-  if (!username || !password) {
-    return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
-  }
-
-  if (String(username).toLowerCase() !== String(session.username).toLowerCase()) {
-    return res.status(401).json({ success: false, message: 'Credenciales incorrectas' });
-  }
-
-  const ok = await bcrypt.compare(String(password), session.password_hash);
-  if (!ok) {
-    return res.status(401).json({ success: false, message: 'Credenciales incorrectas' });
-  }
-
   setAccessCookie(res, session.id);
   return res.json({
     success: true,
@@ -331,6 +306,7 @@ async function getItems(req, res) {
         tipo_bien:               item.tipo_bien,
         ures_asignacion:         String(item.ubicacion_id || ''),
         estado:                  estadoMap[item.id] || 'Sin asignar',
+        archi:                   resolveArchiUrl(item.archi || item._raw?.archi),
       }));
 
       if (id !== undefined && id !== '') {
@@ -539,21 +515,18 @@ async function createSesion(req, res) {
   const plain = crypto.randomUUID();
   const hash  = hashToken(plain);
   const created_by = req.user?.usuario || req.user?.username || req.body?.admin_username || 'admin';
-  const username = generateUniqueUsername();
-  const password = generatePassword();
-  const password_hash = await bcrypt.hash(password, 10);
 
   try {
     const db = getDb();
     const stmt = db.prepare(
       `INSERT INTO audit_sessions
-         (token_hash, intern_name, created_by, expires_at,
-          username, password_hash, expires_in_hours, ures_codes, umich_jsession)
-       VALUES (?, ?, ?, datetime('now', (? || ' hours')), ?, ?, ?, ?, ?)`
+         (token_hash, token_plain, intern_name, created_by, expires_at,
+          expires_in_hours, ures_codes, umich_jsession)
+       VALUES (?, ?, ?, ?, datetime('now', (? || ' hours')), ?, ?, ?)`
     );
     const result = stmt.run(
-      hash, String(intern_name).trim(), created_by,
-      String(hours), username, password_hash, hours, uresCodesJson, umichJsession
+      hash, plain, String(intern_name).trim(), created_by,
+      String(hours), hours, uresCodesJson, umichJsession
     );
     const inserted = db.prepare('SELECT id, expires_at FROM audit_sessions WHERE id = ?')
       .get(result.lastInsertRowid);
@@ -566,8 +539,6 @@ async function createSesion(req, res) {
       id: inserted.id,
       link,
       intern_name: String(intern_name).trim(),
-      username,
-      password,
       expires_in_hours: hours,
       expires_at: inserted.expires_at,
     });
@@ -592,9 +563,7 @@ async function getSesiones(req, res) {
         s.revoked_at,
         s.last_seen_at,
         s.last_activity_at,
-        s.username,
         s.ures_codes,
-        (s.password_hash IS NOT NULL)                         AS has_credentials,
         (s.revoked_at IS NOT NULL)                            AS revocada,
         (s.expires_at <= datetime('now') AND s.revoked_at IS NULL) AS expirada,
         COUNT(DISTINCT ae.inventario_id)                      AS items_revisados
@@ -649,15 +618,15 @@ async function getSesionAccess(req, res) {
   const { id } = req.params;
   const db = getDb();
   const row = db.prepare(
-    `SELECT id, intern_name, username, expires_at, expires_in_hours,
-            (password_hash IS NOT NULL) AS has_password,
-            revoked_at, created_at
+    `SELECT id, intern_name, expires_at, expires_in_hours, revoked_at, created_at, token_plain
      FROM audit_sessions WHERE id = ?`
   ).get(id);
   if (!row) {
     return res.status(404).json({ success: false, message: 'Sesión no encontrada' });
   }
-  return res.json({ success: true, data: { ...row, has_password: !!row.has_password } });
+  const baseUrl = resolveBaseUrl(req);
+  const link = row.token_plain ? `${baseUrl}/auditoria/${row.token_plain}` : null;
+  return res.json({ success: true, data: { ...row, link } });
 }
 
 async function regenerateCredentials(req, res) {
@@ -665,7 +634,7 @@ async function regenerateCredentials(req, res) {
   const db = getDb();
 
   const baseRow = db.prepare(
-    'SELECT id, username, expires_in_hours, revoked_at FROM audit_sessions WHERE id = ?'
+    'SELECT id, expires_in_hours, revoked_at FROM audit_sessions WHERE id = ?'
   ).get(id);
   if (!baseRow) {
     return res.status(404).json({ success: false, message: 'Sesión no encontrada' });
@@ -677,29 +646,27 @@ async function regenerateCredentials(req, res) {
   const hours = Math.min(24, Math.max(1, baseRow.expires_in_hours || 8));
   const plain = crypto.randomUUID();
   const hash  = hashToken(plain);
-  const password = generatePassword();
-  const password_hash = await bcrypt.hash(password, 10);
-
-  let username = baseRow.username;
-  if (!username) username = generateUniqueUsername();
 
   // Capturar el JSESSIONID actual del admin al regenerar
   const umichJsession = req.cookies?.JSESSIONID || req.cookies?.auth_token || null;
 
   db.prepare(
     `UPDATE audit_sessions
-     SET token_hash = ?, password_hash = ?, username = ?,
+     SET token_hash = ?, token_plain = ?,
          expires_at = datetime('now', (? || ' hours')),
          expires_in_hours = ?,
          last_activity_at = NULL, last_seen_at = NULL,
          umich_jsession = ?
      WHERE id = ?`
-  ).run(hash, password_hash, username, String(hours), hours, umichJsession, id);
+  ).run(hash, plain, String(hours), hours, umichJsession, id);
 
   const baseUrl = resolveBaseUrl(req);
   const link = `${baseUrl}/auditoria/${plain}`;
 
-  return res.json({ success: true, link, username, password, expires_in_hours: hours });
+  // Fetch updated expires_at
+  const updated = db.prepare('SELECT expires_at FROM audit_sessions WHERE id = ?').get(id);
+
+  return res.json({ success: true, link, expires_in_hours: hours, expires_at: updated?.expires_at });
 }
 
 async function refreshJsession(req, res) {

@@ -305,6 +305,65 @@
   padding-top: 4px;
 }
 
+/* Share panel (QR + botones) */
+.aud-share-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.75rem 1.25rem 0.5rem;
+}
+.aud-share-name {
+  font-size: 0.9rem;
+  color: #475569;
+  margin: 0;
+  text-align: center;
+}
+.aud-share-qr {
+  background: #fff;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+}
+.aud-share-expiry {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0;
+}
+.aud-share-btns {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+.aud-share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.aud-share-btn:hover { background: #e2e8f0; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,0.1); }
+.aud-share-btn:active { transform: translateY(0); }
+.aud-share-btn--wa  { color: #16a34a; border-color: #bbf7d0; background: #f0fdf4; }
+.aud-share-btn--wa:hover { background: #dcfce7; }
+.aud-share-btn--mail { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
+.aud-share-done {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0 1.25rem;
+}
+.aud-share-btn--mail:hover { background: #dbeafe; }
+
 /* Link result */
 .aud-link-result {
   padding: 28px 20px;
