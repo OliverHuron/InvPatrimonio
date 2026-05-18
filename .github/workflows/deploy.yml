@@ -23,10 +23,10 @@ jobs:
 
       - name: Respaldar SQLite antes de desplegar
         run: |
-          mkdir -p /var/www/backups/siaf-patrimonio
+          sudo mkdir -p /var/www/backups/siaf-patrimonio
           if [ -f /var/www/siaf-patrimonio/server/data/audit.db ]; then
             ts=$(date +%Y%m%d_%H%M%S)
-            cp /var/www/siaf-patrimonio/server/data/audit.db "/var/www/backups/siaf-patrimonio/audit_${ts}.db"
+            sudo cp /var/www/siaf-patrimonio/server/data/audit.db "/var/www/backups/siaf-patrimonio/audit_${ts}.db"
             echo "✅ Backup creado: /var/www/backups/siaf-patrimonio/audit_${ts}.db"
           else
             echo "⚠️ No existe audit.db para respaldar"
